@@ -4,12 +4,17 @@ const express = require("express");
 const { Pool } = require("pg");
 
 const PORT = Number(process.env.PORT || 3000);
+const USE_SSL =
+  process.env.PGSSLMODE === "require" ||
+  process.env.PGSSL === "true" ||
+  process.env.NODE_ENV === "production";
 const DB_CONFIG = {
   host: process.env.PGHOST || "localhost",
   port: Number(process.env.PGPORT || 5432),
   user: process.env.PGUSER || "postgres",
   password: process.env.PGPASSWORD || "1234",
   database: process.env.PGDATABASE || "nonogram_prod",
+  ssl: USE_SSL ? { rejectUnauthorized: false } : false,
 };
 
 const app = express();
