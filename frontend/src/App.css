@@ -67,12 +67,14 @@
 
 .panelGame .topBar {
   grid-column: 1 / -1;
+  order: 0;
 }
 
 .panelGame .controls,
 .panelGame .racePanel,
 .panelGame .raceStateBox {
   grid-column: 2;
+  order: 2;
 }
 
 .panelGame .timerBar,
@@ -80,6 +82,7 @@
 .panelGame .status,
 .panelGame .boardWrap {
   grid-column: 1;
+  order: 1;
 }
 
 .title {
