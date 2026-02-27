@@ -929,6 +929,7 @@ function App() {
       if (!res.ok || !data.ok) throw new Error(data.error || "채팅 전송 실패");
       applyRaceRoomState(data.room);
       setChatInput("");
+      setShowEmojiPicker(false);
     } catch (err) {
       setStatus(err.message);
     } finally {
@@ -1734,6 +1735,7 @@ function App() {
                       <EmojiPicker
                         onEmojiClick={(emojiData) => {
                           setChatInput((prev) => `${prev}${emojiData.emoji}`);
+                          setShowEmojiPicker(false);
                         }}
                         skinTonesDisabled
                         width={300}
@@ -1772,7 +1774,7 @@ function App() {
               aria-label="Undo"
               title="Undo"
             >
-              ?
+              {"\u21B6"}
             </button>
             <button
               className="iconBtn"
@@ -1781,7 +1783,7 @@ function App() {
               aria-label="Redo"
               title="Redo"
             >
-              ?
+              {"\u21B7"}
             </button>
             <button
               className="iconBtn danger"
@@ -1790,7 +1792,7 @@ function App() {
               aria-label="Clear board"
               title="Clear"
             >
-              ?
+              {"\u2715"}
             </button>
           </div>
         )}
