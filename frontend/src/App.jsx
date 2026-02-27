@@ -184,12 +184,13 @@ function App() {
   const isRaceCountdown = isInRaceRoom && racePhase === "countdown";
   const isRacePlaying = isInRaceRoom && racePhase === "playing";
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
-  const canInteractBoard = !isInRaceRoom || isRacePlaying;
 
   const myRacePlayer = useMemo(() => {
     if (!raceState || !racePlayerId) return null;
     return raceState.players?.find((p) => p.playerId === racePlayerId) || null;
   }, [raceState, racePlayerId]);
+  const isMyRaceFinished = isInRaceRoom && Number.isInteger(myRacePlayer?.elapsedSec);
+  const canInteractBoard = !isInRaceRoom || (isRacePlaying && !isMyRaceFinished);
 
   const raceResultText = useMemo(() => {
     if (!raceState?.winner) return "";
@@ -959,13 +960,17 @@ function App() {
     if (isBoardCompleteByHints && !autoSolvedShownRef.current) {
       autoSolvedShownRef.current = true;
       setTimerRunning(false);
-      setStatus("Success! Puzzle solved.");
+      if (isInRaceRoom && isRacePlaying) {
+        setStatus("완주! 다른 플레이어 결과 대기중...");
+      } else {
+        setStatus("Success! Puzzle solved.");
+      }
       submitRaceFinish();
     }
     if (!isBoardCompleteByHints) {
       autoSolvedShownRef.current = false;
     }
-  }, [isBoardCompleteByHints, puzzle]);
+  }, [isBoardCompleteByHints, puzzle, isInRaceRoom, isRacePlaying]);
 
   useEffect(() => {
     if (!isInRaceRoom || racePhase !== "finished" || !raceState?.winnerPlayerId || raceResultShownRef.current) return;
@@ -1108,7 +1113,7 @@ function App() {
                 </button>
               </div>
             )}
-            {raceResultText && <div className="raceResult">{raceResultText}</div>}
+            {isRaceFinished && raceResultText && <div className="raceResult">{raceResultText}</div>}
             {isRaceFinished && (
               <div className="raceActions">
                 <button onClick={requestRematch} disabled={isRematchLoading}>
@@ -1139,7 +1144,7 @@ function App() {
                   {p.isReady ? " [ready]" : " [not ready]"}:
                   {p.playerId === racePlayerId
                     ? Number.isInteger(p.elapsedSec)
-                      ? " 완료"
+                      ? " 완료 (대기중)"
                       : " 플레이 중"
                     : Number.isInteger(p.elapsedSec)
                       ? ` ${p.elapsedSec}s`
