@@ -1,15 +1,19 @@
 ﻿:root {
-  --ink: #0f1a2a;
-  --muted: #4e5f78;
-  --line: #8ea3bf;
-  --line-strong: #556f92;
-  --panel: #f3f8ff;
-  --panel-soft: #e8f0fb;
-  --accent: #0b7f89;
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #f3f5f9;
+  --ink: #101828;
+  --muted: #475467;
+  --border: rgba(16, 24, 40, 0.12);
+  --border-strong: rgba(16, 24, 40, 0.18);
+  --shadow: 0 10px 30px rgba(16, 24, 40, 0.10);
+  --shadow-soft: 0 6px 18px rgba(16, 24, 40, 0.08);
+  --accent: #2563eb;
   --accent-ink: #ffffff;
-  --danger: #9a2036;
-  --success: #0c6f52;
+  --danger: #b42318;
+  --success: #067647;
 }
+
 
 * {
   box-sizing: border-box;
@@ -17,42 +21,34 @@
 
 .page {
   min-height: 100vh;
-  padding: 1rem;
+  padding: clamp(14px, 2vw, 22px);
   display: grid;
-  place-items: center;
+  place-items: start center;
   background:
-    linear-gradient(120deg, rgba(62, 131, 212, 0.12) 0%, rgba(62, 131, 212, 0) 42%),
-    linear-gradient(300deg, rgba(255, 142, 47, 0.1) 0%, rgba(255, 142, 47, 0) 40%),
-    repeating-linear-gradient(
-      90deg,
-      rgba(102, 131, 169, 0.07) 0,
-      rgba(102, 131, 169, 0.07) 1px,
-      transparent 1px,
-      transparent 28px
-    ),
-    #dce7f3;
+    radial-gradient(1200px 600px at 15% 10%, rgba(37, 99, 235, 0.12), transparent 60%),
+    radial-gradient(1000px 520px at 90% 0%, rgba(16, 185, 129, 0.10), transparent 55%),
+    var(--bg);
   color: var(--ink);
-  font-family: "Rajdhani", "Pretendard", "Noto Sans KR", sans-serif;
+  font-family: "SUIT Variable", "Pretendard Variable", "Pretendard", "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
+
 
 .panel {
   width: min(1220px, 100%);
-  border: 2px solid var(--line-strong);
-  border-radius: 8px;
-  background: linear-gradient(180deg, #f9fcff 0%, var(--panel) 100%);
-  padding: 0.9rem;
-  box-shadow: 0 8px 0 rgba(43, 70, 103, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: clamp(14px, 1.2vw, 18px);
+  box-shadow: var(--shadow);
   position: relative;
   overflow: hidden;
 }
 
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
-  background: linear-gradient(90deg, #1bc3c9 0%, #4f95e9 52%, #ff9d43 100%);
-}
+
+.panel::before { content: none; }
+
 
 .panelMenu {
   max-width: 980px;
@@ -60,25 +56,29 @@
 
 .title {
   margin: 0;
-  font-size: clamp(1.5rem, 2.2vw, 2.15rem);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: clamp(1.35rem, 2vw, 1.9rem);
+  letter-spacing: -0.02em;
+  font-weight: 800;
 }
 
+
 .lead {
-  margin: 0.12rem 0 0.65rem;
+  margin: 0.2rem 0 0.6rem;
   color: var(--muted);
-  font-size: 0.96rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
+
 
 .topBar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.8rem;
-  border-bottom: 1px solid #b9cbe0;
-  padding-bottom: 0.5rem;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
 }
+
 
 .topAuth {
   display: flex;
@@ -113,59 +113,58 @@
 .modeChooser {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 0.65rem;
-  margin-top: 0.65rem;
+  gap: 12px;
+  margin-top: 14px;
 }
 
+
 .modeBtn {
-  min-height: 110px;
-  font-size: 1rem;
-  font-weight: 900;
+  min-height: 120px;
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: 0.16rem;
-  border-radius: 6px;
-  padding: 0.8rem;
-  border-width: 2px;
+  gap: 6px;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
+.modeBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 36px rgba(16, 24, 40, 0.12);
+  border-color: var(--border-strong);
+}
+
 
 .modeSingle {
   background:
-    linear-gradient(180deg, #f7fcff 0%, #e9f4ff 100%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(100, 150, 210, 0.09) 0,
-      rgba(100, 150, 210, 0.09) 1px,
-      transparent 1px,
-      transparent 6px
-    );
-  border-color: #7ca6d6;
+    radial-gradient(900px 240px at 15% 20%, rgba(37, 99, 235, 0.12), transparent 60%),
+    var(--surface);
 }
+
 
 .modeMulti {
   background:
-    linear-gradient(180deg, #fffaf0 0%, #ffeecf 100%),
-    repeating-linear-gradient(
-      0deg,
-      rgba(212, 145, 75, 0.1) 0,
-      rgba(212, 145, 75, 0.1) 1px,
-      transparent 1px,
-      transparent 6px
-    );
-  border-color: #d6a05b;
+    radial-gradient(900px 240px at 15% 20%, rgba(245, 158, 11, 0.14), transparent 60%),
+    var(--surface);
 }
+
 
 .modeName {
-  font-size: 1.06rem;
-  font-weight: 900;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
+
 .modeDesc {
-  font-size: 0.82rem;
-  color: #364f6d;
-  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-weight: 600;
 }
+
 
 .authBar {
   margin-top: 0.6rem;
@@ -176,12 +175,13 @@
 }
 
 .authScreen {
-  margin-top: 0.6rem;
-  border: 1px solid #c0d1e4;
-  background: var(--panel-soft);
-  border-radius: 6px;
-  padding: 0.65rem;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 14px;
+  padding: 14px;
 }
+
 
 .authTabs {
   display: flex;
@@ -611,25 +611,12 @@ button:disabled {
 }
 
 .boardWrap {
-  --board-cursor: crosshair;
-  margin-top: 0.72rem;
-  overflow: auto;
-  border: 1px solid #b6c8dd;
-  border-radius: 6px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(220, 232, 244, 0.62)),
-    repeating-linear-gradient(
-      -45deg,
-      rgba(129, 156, 185, 0.08) 0,
-      rgba(129, 156, 185, 0.08) 8px,
-      rgba(255, 255, 255, 0) 8px,
-      rgba(255, 255, 255, 0) 16px
-    );
-  padding: 0.66rem;
-  user-select: none;
-  display: flex;
-  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
 }
+
 
 .nonogram {
   --cell-size: 24px;
@@ -813,9 +800,8 @@ button:disabled {
   overflow: hidden;
 }
 
-.panel::before {
-  display: none;
-}
+.panel::before { content: none; }
+
 
 .topBar {
   border-bottom: 1px solid var(--line);

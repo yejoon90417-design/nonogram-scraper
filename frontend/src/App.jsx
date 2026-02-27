@@ -148,10 +148,10 @@ function App() {
   const raceProgressBusyRef = useRef(false);
   const audioCtxRef = useRef(null);
   const masterGainRef = useRef(null);
+  const pootAudioRef = useRef(null);
   const countdownCueRef = useRef(-1);
   const prevRacePhaseRef = useRef("idle");
   const lastPaintSfxAtRef = useRef(0);
-  // (Previously used for novelty SFX. Intentionally removed.)
   const deferredCells = useDeferredValue(cells);
 
   useEffect(() => {
@@ -307,6 +307,17 @@ function App() {
     return ctx;
   };
 
+  useEffect(() => {
+    // Poop SFX (required): lightweight audio element backed by /public/sounds/poot.mp3
+    const audio = new Audio("/sounds/poot.mp3");
+    audio.preload = "auto";
+    audio.volume = 0.7;
+    pootAudioRef.current = audio;
+    return () => {
+      pootAudioRef.current = null;
+    };
+  }, []);
+
   const authHeaders = useMemo(() => {
     if (!authToken) return {};
     return { Authorization: `Bearer ${authToken}` };
@@ -382,8 +393,18 @@ function App() {
     tone(500, 60, { type: "triangle", gain: 0.05 });
   };
 
-  const playReactionSfx = () => {
-    // Subtle UI feedback only.
+  const playReactionSfx = (emoji) => {
+    if (!soundOn) return;
+    if (emoji === "💩") {
+      const audio = pootAudioRef.current;
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+        } catch (_) {}
+        audio.play().catch(() => {});
+        return;
+      }
+    }
     playSfx("ui");
   };
 
@@ -1394,7 +1415,7 @@ function App() {
         dx: to.left + to.width / 2 - (from.left + from.width / 2),
         dy: to.top + to.height / 2 - (from.top + from.height / 2),
       });
-      if (event.emoji) playReactionSfx();
+      if (event.emoji) playReactionSfx(event.emoji);
     }
     if (!nextFlights.length) return;
     setReactionFlights((prev) => [
