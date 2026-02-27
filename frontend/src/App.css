@@ -108,6 +108,29 @@ p {
   color: #114170;
 }
 
+.gameTools {
+  margin-top: 0.55rem;
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.iconBtn {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  font-weight: 900;
+}
+
+.iconBtn.danger {
+  color: #8a1625;
+  border-color: #d1aab1;
+  background: linear-gradient(180deg, #fff7f8 0%, #ffe9ec 100%);
+}
+
 .raceActions {
   display: flex;
   gap: 0.45rem;

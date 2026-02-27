@@ -299,12 +299,6 @@ function App() {
     });
   };
 
-  const handleTestSfx = () => {
-    const ctx = ensureAudio();
-    if (ctx && ctx.state === "suspended") ctx.resume().catch(() => {});
-    playSfx("go");
-  };
-
   const resetHistory = () => {
     undoStackRef.current = [];
     redoStackRef.current = [];
@@ -1035,23 +1029,9 @@ function App() {
               </button>
             </>
           )}
-          {puzzle && (
-            <>
-              <button onClick={undo} disabled={!canUndo || !canInteractBoard}>
-                Undo
-              </button>
-              <button onClick={redo} disabled={!canRedo || !canInteractBoard}>
-                Redo
-              </button>
-              <button onClick={resetGrid} disabled={!canInteractBoard}>
-                Clear
-              </button>
-            </>
-          )}
           <button onClick={handleToggleSfx}>
             {soundOn ? "SFX ON" : "SFX OFF"}
           </button>
-          <button onClick={handleTestSfx}>TEST SFX</button>
         </div>
 
         <div className="racePanel">
@@ -1147,6 +1127,37 @@ function App() {
         )}
 
         {puzzle && <div className="timerBar">TIME {formattedTime}</div>}
+        {puzzle && (
+          <div className="gameTools" role="toolbar" aria-label="Board tools">
+            <button
+              className="iconBtn"
+              onClick={undo}
+              disabled={!canUndo || !canInteractBoard}
+              aria-label="Undo"
+              title="Undo"
+            >
+              ↶
+            </button>
+            <button
+              className="iconBtn"
+              onClick={redo}
+              disabled={!canRedo || !canInteractBoard}
+              aria-label="Redo"
+              title="Redo"
+            >
+              ↷
+            </button>
+            <button
+              className="iconBtn danger"
+              onClick={resetGrid}
+              disabled={!canInteractBoard}
+              aria-label="Clear board"
+              title="Clear"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {status && <div className="status">{status}</div>}
 
