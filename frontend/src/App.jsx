@@ -492,6 +492,7 @@ function App() {
     setSignupError("");
     setLoginFieldErrors({ username: "", password: "" });
     setSignupFieldErrors({ username: "", nickname: "", password: "" });
+    setStatus("");
     setPlayMode("auth");
   };
 
@@ -541,7 +542,6 @@ function App() {
       return;
     }
     if (!/[A-Za-z]/.test(password) || !/\d/.test(password) || password.length < 8) {
-      setSignupError("비밀번호는 영문+숫자 포함 8자 이상이어야 해.");
       fieldErrors.password = "영문+숫자 포함 8자 이상";
       setSignupFieldErrors(fieldErrors);
       return;
@@ -564,7 +564,14 @@ function App() {
       setStatus(`환영합니다, ${data.user.nickname}!`);
       setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
     } catch (err) {
-      setSignupError(err.message);
+      const msg = String(err.message || "");
+      if (msg.includes("password must be 8+ chars")) {
+        setSignupFieldErrors((prev) => ({ ...prev, password: "영문+숫자 포함 8자 이상" }));
+      } else if (msg.includes("username must be 3-24 chars")) {
+        setSignupFieldErrors((prev) => ({ ...prev, username: "아이디는 3~24자" }));
+      } else {
+        setSignupError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -598,7 +605,12 @@ function App() {
       setStatus(`로그인 완료: ${data.user.nickname}`);
       setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
     } catch (err) {
-      setLoginError(err.message);
+      const msg = String(err.message || "");
+      if (msg.includes("Invalid credentials")) {
+        setLoginError("아이디 또는 비밀번호가 올바르지 않습니다.");
+      } else {
+        setLoginError(msg);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -1291,21 +1303,23 @@ function App() {
             <h1 className="title">Nonogram Arena</h1>
             <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
           </div>
-          <div className="topAuth">
-            {isLoggedIn ? (
-              <>
-                <span className="userChip">
-                  {authUser.nickname} ({authUser.username})
-                </span>
-                <button onClick={logout}>로그아웃</button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => openAuthScreen("login", "menu")}>로그인</button>
-                <button onClick={() => openAuthScreen("signup", "menu")}>회원가입</button>
-              </>
-            )}
-          </div>
+          {!isModeAuth && (
+            <div className="topAuth">
+              {isLoggedIn ? (
+                <>
+                  <span className="userChip">
+                    {authUser.nickname} ({authUser.username})
+                  </span>
+                  <button onClick={logout}>로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => openAuthScreen("login", "menu")}>로그인</button>
+                  <button onClick={() => openAuthScreen("signup", "menu")}>회원가입</button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {isModeMenu && (
@@ -1326,13 +1340,21 @@ function App() {
             <div className="authTabs">
               <button
                 className={authTab === "login" ? "active" : ""}
-                onClick={() => setAuthTab("login")}
+                onClick={() => {
+                  setAuthTab("login");
+                  setLoginError("");
+                  setLoginFieldErrors({ username: "", password: "" });
+                }}
               >
                 로그인
               </button>
               <button
                 className={authTab === "signup" ? "active" : ""}
-                onClick={() => setAuthTab("signup")}
+                onClick={() => {
+                  setAuthTab("signup");
+                  setSignupError("");
+                  setSignupFieldErrors({ username: "", nickname: "", password: "" });
+                }}
               >
                 회원가입
               </button>
@@ -1672,7 +1694,7 @@ function App() {
           </div>
         )}
 
-        {status && <div className="status">{status}</div>}
+        {status && !isModeAuth && <div className="status">{status}</div>}
 
         {showCreateModal && (
           <div className="modalBackdrop" onClick={() => setShowCreateModal(false)}>
