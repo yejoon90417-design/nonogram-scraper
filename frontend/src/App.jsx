@@ -6,7 +6,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const MAX_HISTORY = 200;
 const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
-const POOP_SFX_URL = "/sounds/poot.mp3";
+const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
 
 function toBase64Bits(cells, width, height) {
   const byteLength = Math.ceil((width * height) / 8);
@@ -151,6 +151,7 @@ function App() {
   const lastPaintSfxAtRef = useRef(0);
   const poopBufferRef = useRef(null);
   const poopLoadingRef = useRef(false);
+  const poopAudioFallbackRef = useRef(null);
   const deferredCells = useDeferredValue(cells);
 
   useEffect(() => {
@@ -212,6 +213,14 @@ function App() {
       .finally(() => {
         poopLoadingRef.current = false;
       });
+  }, []);
+
+  useEffect(() => {
+    if (poopAudioFallbackRef.current) return;
+    const audio = new Audio(POOP_SFX_URL);
+    audio.preload = "auto";
+    audio.volume = 1;
+    poopAudioFallbackRef.current = audio;
   }, []);
 
   const rowHints = useMemo(() => {
@@ -401,7 +410,18 @@ function App() {
     if (!soundOn) return;
     const ctx = ensureAudio();
     const master = masterGainRef.current;
-    if (!ctx || !master || !poopBufferRef.current) return;
+    if (!ctx || !master || !poopBufferRef.current) {
+      const fallback = poopAudioFallbackRef.current;
+      if (!fallback) return;
+      try {
+        fallback.currentTime = 0;
+        fallback.volume = 1;
+        fallback.play().catch(() => {});
+      } catch {
+        // ignore fallback playback errors
+      }
+      return;
+    }
     try {
       if (ctx.state === "suspended") ctx.resume().catch(() => {});
       const src = ctx.createBufferSource();
