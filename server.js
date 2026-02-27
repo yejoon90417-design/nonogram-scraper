@@ -94,6 +94,17 @@ function countCorrectAnswerCells(solutionBits, userBits) {
   return total;
 }
 
+async function loadSolutionBitsHexById(puzzleId) {
+  const { rows } = await pool.query(
+    `SELECT encode(solution_bits, 'hex') AS solution_hex
+     FROM puzzles
+     WHERE id = $1`,
+    [puzzleId]
+  );
+  if (!rows.length || !rows[0].solution_hex) return null;
+  return Buffer.from(rows[0].solution_hex, "hex");
+}
+
 function toSolutionBits(raw) {
   if (Buffer.isBuffer(raw)) return raw;
   if (raw instanceof Uint8Array) return Buffer.from(raw);
@@ -297,7 +308,10 @@ app.post("/race/create", async (req, res) => {
     const roomCode = makeRoomCode();
     const playerId = randomPlayerId();
     const nowIso = new Date().toISOString();
-    const solutionBits = toSolutionBits(puzzle.solution_bits);
+    let solutionBits = toSolutionBits(puzzle.solution_bits);
+    if (!solutionBits) {
+      solutionBits = await loadSolutionBitsHexById(puzzle.id);
+    }
     if (!solutionBits) {
       return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
     }
@@ -450,7 +464,7 @@ app.post("/race/start", (req, res) => {
   return res.json({ ok: true, room: roomPublicState(room) });
 });
 
-app.post("/race/progress", (req, res) => {
+app.post("/race/progress", async (req, res) => {
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
   const playerId = String(req.body?.playerId || "").trim();
   if (!roomCode || !playerId) {
@@ -470,6 +484,13 @@ app.post("/race/progress", (req, res) => {
     return res.status(400).json({ ok: false, error: "Race has not started yet" });
   }
   try {
+    if (!room.solutionBits) {
+      room.solutionBits = await loadSolutionBitsHexById(room.puzzleId);
+      room.totalAnswerCells = room.solutionBits ? popcountBuffer(room.solutionBits) : 0;
+    }
+    if (!room.solutionBits) {
+      return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
+    }
     const userBits = parseUserBits(req.body, room.width, room.height);
     const expectedLen = expectedByteLength(room.width, room.height);
     if (userBits.length !== expectedLen) {
@@ -523,7 +544,10 @@ app.post("/race/rematch", async (req, res) => {
       col_hints: puzzle.col_hints,
       is_unique: puzzle.is_unique,
     };
-    const solutionBits = toSolutionBits(puzzle.solution_bits);
+    let solutionBits = toSolutionBits(puzzle.solution_bits);
+    if (!solutionBits) {
+      solutionBits = await loadSolutionBitsHexById(puzzle.id);
+    }
     if (!solutionBits) {
       return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
     }
@@ -555,7 +579,7 @@ app.get("/race/:roomCode", (req, res) => {
   return res.json({ ok: true, room: roomPublicState(room) });
 });
 
-app.post("/race/finish", (req, res) => {
+app.post("/race/finish", async (req, res) => {
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
   const playerId = String(req.body?.playerId || "").trim();
   const elapsedSec = Number(req.body?.elapsedSec);
@@ -577,6 +601,10 @@ app.post("/race/finish", (req, res) => {
   }
 
   if (!Number.isInteger(player.elapsedSec)) {
+    if (!room.totalAnswerCells || !room.solutionBits) {
+      room.solutionBits = room.solutionBits || (await loadSolutionBitsHexById(room.puzzleId));
+      room.totalAnswerCells = room.solutionBits ? popcountBuffer(room.solutionBits) : 0;
+    }
     player.elapsedSec = Math.max(0, Math.floor(elapsedSec));
     player.finishedAt = new Date().toISOString();
     player.correctAnswerCells = room.totalAnswerCells || player.correctAnswerCells || 0;
