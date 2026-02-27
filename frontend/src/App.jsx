@@ -128,6 +128,7 @@ function App() {
   const emojiWrapRef = useRef(null);
   const playerBadgeRefs = useRef(new Map());
   const seenReactionIdsRef = useRef(new Set());
+  const reactionFlightsRef = useRef([]);
   const dragRef = useRef(null); // { button: 'left'|'right', paintValue }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
@@ -1403,6 +1404,10 @@ function App() {
   }, [chatMessages.length, isInRaceRoom]);
 
   useEffect(() => {
+    reactionFlightsRef.current = reactionFlights;
+  }, [reactionFlights]);
+
+  useEffect(() => {
     if (!isInRaceRoom || reactionEvents.length === 0) return;
     const nextFlights = [];
     for (const event of reactionEvents) {
@@ -1427,8 +1432,51 @@ function App() {
       }
     }
     if (!nextFlights.length) return;
-    setReactionFlights((prev) => [...prev, ...nextFlights]);
+    setReactionFlights((prev) => [
+      ...prev,
+      ...nextFlights.map((f) => ({
+        ...f,
+        x0: f.x,
+        y0: f.y,
+        x: f.x,
+        y: f.y,
+        opacity: 0.72,
+        scale: 0.98,
+        startTs: performance.now(),
+        durationMs: 840,
+      })),
+    ]);
   }, [reactionEvents, isInRaceRoom]);
+
+  useEffect(() => {
+    if (reactionFlights.length === 0) return;
+    let rafId = 0;
+
+    const tick = (now) => {
+      const current = reactionFlightsRef.current;
+      if (!current.length) return;
+      const next = [];
+      for (const f of current) {
+        const t = Math.max(0, Math.min(1, (now - f.startTs) / f.durationMs));
+        if (t >= 1) continue;
+        const ease = 1 - (1 - t) * (1 - t) * (1 - t);
+        const arc = Math.min(120, Math.max(42, Math.hypot(f.dx, f.dy) * 0.18));
+        const x = f.x0 + f.dx * ease;
+        const y = f.y0 + f.dy * ease - arc * (4 * t * (1 - t));
+        const opacity = 0.74 * (1 - t);
+        const scale = 0.94 + 0.16 * (1 - t);
+        next.push({ ...f, x, y, opacity, scale });
+      }
+      reactionFlightsRef.current = next;
+      setReactionFlights(next);
+      if (next.length) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [reactionFlights.length]);
 
   useEffect(() => {
     if (!showEmojiPicker) return;
@@ -1833,11 +1881,8 @@ function App() {
                   style={{
                     left: `${f.x}px`,
                     top: `${f.y}px`,
-                    "--dx": `${f.dx}px`,
-                    "--dy": `${f.dy}px`,
-                  }}
-                  onAnimationEnd={() => {
-                    setReactionFlights((prev) => prev.filter((x) => x.id !== f.id));
+                    opacity: f.opacity,
+                    "--flight-scale": f.scale,
                   }}
                 >
                   {f.emoji}
