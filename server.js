@@ -150,6 +150,21 @@ function normalizeRoomTitle(raw) {
   return s.slice(0, 40);
 }
 
+function normalizeVisibility(raw) {
+  const v = String(raw || "").trim().toLowerCase();
+  return v === "private" ? "private" : "public";
+}
+
+function normalizePassword(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  return s.slice(0, 64);
+}
+
+function hashPassword(password) {
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
 function normalizeMaxPlayers(raw) {
   const n = Number(raw);
   if (!Number.isInteger(n)) return 2;
@@ -232,6 +247,8 @@ function roomPublicState(room) {
   return {
     roomCode: room.roomCode,
     roomTitle: room.roomTitle,
+    visibility: room.visibility,
+    isPrivate: room.visibility === "private",
     puzzleId: room.puzzleId,
     totalAnswerCells: room.totalAnswerCells || 0,
     maxPlayers: room.maxPlayers,
@@ -251,6 +268,22 @@ function roomPublicState(room) {
     winner,
     isFinished: room.state === "finished",
     serverNow: Date.now(),
+  };
+}
+
+function roomListItem(room) {
+  syncRoomState(room);
+  return {
+    roomCode: room.roomCode,
+    roomTitle: room.roomTitle,
+    visibility: room.visibility,
+    isPrivate: room.visibility === "private",
+    width: room.width,
+    height: room.height,
+    maxPlayers: room.maxPlayers,
+    currentPlayers: room.players.size,
+    state: room.state,
+    createdAt: room.createdAt,
   };
 }
 
@@ -324,11 +357,20 @@ const getRandomPuzzleBySize = async (req, res) => {
 
 app.get("/puzzles-random", getRandomPuzzleBySize);
 app.get("/puzzles/random", getRandomPuzzleBySize);
+app.get("/race-rooms", (_req, res) => {
+  const rooms = Array.from(raceRooms.values())
+    .map(roomListItem)
+    .filter((room) => room.visibility === "public" && room.state === "lobby" && room.currentPlayers < room.maxPlayers)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  return res.json({ ok: true, rooms });
+});
 
 app.post("/race/create", async (req, res) => {
   const nickname = normalizeNickname(req.body?.nickname);
   const roomTitle = normalizeRoomTitle(req.body?.roomTitle);
   const maxPlayers = normalizeMaxPlayers(req.body?.maxPlayers);
+  const visibility = normalizeVisibility(req.body?.visibility);
+  const roomPassword = normalizePassword(req.body?.password);
   const width = Number(req.body?.width);
   const height = Number(req.body?.height);
 
@@ -337,6 +379,9 @@ app.post("/race/create", async (req, res) => {
   }
   if (!Number.isInteger(width) || !Number.isInteger(height)) {
     return res.status(400).json({ ok: false, error: "width/height are required" });
+  }
+  if (visibility === "private" && !roomPassword) {
+    return res.status(400).json({ ok: false, error: "password is required for private room" });
   }
 
   try {
@@ -374,6 +419,8 @@ app.post("/race/create", async (req, res) => {
     const room = {
       roomCode,
       roomTitle,
+      visibility,
+      passwordHash: visibility === "private" ? hashPassword(roomPassword) : null,
       puzzleId: puzzle.id,
       solutionBits,
       totalAnswerCells: popcountBuffer(solutionBits),
@@ -416,6 +463,7 @@ app.post("/race/create", async (req, res) => {
 app.post("/race/join", async (req, res) => {
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
   const nickname = normalizeNickname(req.body?.nickname);
+  const password = normalizePassword(req.body?.password);
   if (!roomCode) {
     return res.status(400).json({ ok: false, error: "roomCode is required" });
   }
@@ -425,6 +473,11 @@ app.post("/race/join", async (req, res) => {
   const room = raceRooms.get(roomCode);
   if (!room) {
     return res.status(404).json({ ok: false, error: "Room not found" });
+  }
+  if (room.visibility === "private") {
+    if (!password || hashPassword(password) !== room.passwordHash) {
+      return res.status(403).json({ ok: false, error: "Invalid room password" });
+    }
   }
   if (room.players.size >= room.maxPlayers) {
     return res.status(400).json({ ok: false, error: "Room is full" });

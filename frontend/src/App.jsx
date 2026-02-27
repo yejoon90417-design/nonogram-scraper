@@ -72,8 +72,13 @@ function App() {
   const [createRoomTitle, setCreateRoomTitle] = useState("");
   const [createSize, setCreateSize] = useState("10x10");
   const [createMaxPlayers, setCreateMaxPlayers] = useState("2");
+  const [createVisibility, setCreateVisibility] = useState("public");
+  const [createPassword, setCreatePassword] = useState("");
   const [joinNickname, setJoinNickname] = useState("");
   const [joinRoomCode, setJoinRoomCode] = useState("");
+  const [joinPassword, setJoinPassword] = useState("");
+  const [publicRooms, setPublicRooms] = useState([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
   const [isRematchLoading, setIsRematchLoading] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
@@ -407,6 +412,21 @@ function App() {
     }
   };
 
+  const fetchPublicRooms = async () => {
+    if (isInRaceRoom) return;
+    setRoomsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/race-rooms`);
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to load room list.");
+      setPublicRooms(Array.isArray(data.rooms) ? data.rooms : []);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setRoomsLoading(false);
+    }
+  };
+
   const leaveRace = async () => {
     if (raceRoomCode && racePlayerId) {
       try {
@@ -427,6 +447,7 @@ function App() {
     setRacePlayerId("");
     setRaceState(null);
     setRaceSubmitting(false);
+    setPublicRooms([]);
     raceFinishedSentRef.current = false;
     raceResultShownRef.current = false;
     raceProgressLastSentRef.current = 0;
@@ -466,6 +487,8 @@ function App() {
     const name = createNickname.trim();
     const roomTitle = createRoomTitle.trim();
     const maxPlayers = Number(createMaxPlayers);
+    const visibility = createVisibility === "private" ? "private" : "public";
+    const password = createPassword.trim();
     if (!name) {
       setStatus("닉네임을 입력해줘.");
       return;
@@ -477,12 +500,24 @@ function App() {
       setStatus("Invalid size selection.");
       return;
     }
+    if (visibility === "private" && !password) {
+      setStatus("비밀방 비밀번호를 입력해줘.");
+      return;
+    }
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/race/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name, roomTitle, width, height, maxPlayers }),
+        body: JSON.stringify({
+          nickname: name,
+          roomTitle,
+          width,
+          height,
+          maxPlayers,
+          visibility,
+          password: visibility === "private" ? password : "",
+        }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create room.");
@@ -490,6 +525,7 @@ function App() {
       setRacePlayerId(data.playerId);
       applyRaceRoomState(data.room, data.playerId);
       setSelectedSize(createSize);
+      setCreatePassword("");
       setShowCreateModal(false);
       initializePuzzle(data.puzzle, {
         resume: false,
@@ -508,6 +544,7 @@ function App() {
   const joinRaceRoom = async () => {
     const name = joinNickname.trim();
     const code = joinRoomCode.trim().toUpperCase();
+    const password = joinPassword.trim();
     if (!name) {
       setStatus("닉네임을 입력해줘.");
       return;
@@ -521,7 +558,7 @@ function App() {
       const res = await fetch(`${API_BASE}/race/join`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name, roomCode: code }),
+        body: JSON.stringify({ nickname: name, roomCode: code, password }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to join room.");
@@ -534,6 +571,7 @@ function App() {
         message: `Joined room ${data.roomCode}. Press ready.`,
       });
       startRacePolling(data.roomCode);
+      setJoinPassword("");
       setShowJoinModal(false);
       playSfx("ui");
     } catch (err) {
@@ -1027,6 +1065,11 @@ function App() {
     };
   }, [isInRaceRoom, raceState?.puzzleId, puzzle?.id]);
 
+  useEffect(() => {
+    if (isInRaceRoom) return;
+    fetchPublicRooms();
+  }, [isInRaceRoom]);
+
   return (
     <main className="page">
       <section className="panel">
@@ -1060,6 +1103,8 @@ function App() {
                   setCreateRoomTitle("");
                   setCreateSize(selectedSize);
                   setCreateMaxPlayers("2");
+                  setCreateVisibility("public");
+                  setCreatePassword("");
                   setShowCreateModal(true);
                 }}
                 disabled={isLoading}
@@ -1068,11 +1113,15 @@ function App() {
               </button>
               <button
                 onClick={() => {
+                  setJoinPassword("");
                   setShowJoinModal(true);
                 }}
                 disabled={isLoading}
               >
                 Join Room
+              </button>
+              <button onClick={fetchPublicRooms} disabled={roomsLoading}>
+                {roomsLoading ? "목록 불러오는 중..." : "오픈방 새로고침"}
               </button>
             </>
           )}
@@ -1080,6 +1129,37 @@ function App() {
             Leave Room
           </button>
         </div>
+
+        {!isInRaceRoom && (
+          <div className="raceStateBox">
+            <div>
+              <b>오픈방 리스트</b>
+            </div>
+            {publicRooms.length === 0 ? (
+              <div>입장 가능한 오픈방이 없습니다.</div>
+            ) : (
+              <div className="roomList">
+                {publicRooms.map((room) => (
+                  <div className="roomRow" key={room.roomCode}>
+                    <span>
+                      [{room.roomCode}] {room.roomTitle} ({room.width}x{room.height}) {room.currentPlayers}/
+                      {room.maxPlayers}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setJoinRoomCode(room.roomCode);
+                        setJoinPassword("");
+                        setShowJoinModal(true);
+                      }}
+                    >
+                      참가
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {raceRoomCode && (
           <div className="raceStateBox">
@@ -1212,6 +1292,24 @@ function App() {
                 </select>
               </label>
               <label>
+                방 공개 설정
+                <select value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value)}>
+                  <option value="public">오픈방</option>
+                  <option value="private">비밀방</option>
+                </select>
+              </label>
+              {createVisibility === "private" && (
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    value={createPassword}
+                    onChange={(e) => setCreatePassword(e.target.value)}
+                    placeholder="비밀번호"
+                  />
+                </label>
+              )}
+              <label>
                 방 제목
                 <input
                   type="text"
@@ -1259,6 +1357,15 @@ function App() {
                   value={joinRoomCode}
                   onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())}
                   placeholder="예: AB12CD"
+                />
+              </label>
+              <label>
+                비밀번호(비밀방만)
+                <input
+                  type="password"
+                  value={joinPassword}
+                  onChange={(e) => setJoinPassword(e.target.value)}
+                  placeholder="비밀방 비밀번호"
                 />
               </label>
               <div className="modalActions">
