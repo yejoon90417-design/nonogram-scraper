@@ -97,6 +97,13 @@ function countCorrectAnswerCells(solutionBits, userBits) {
 function toSolutionBits(raw) {
   if (Buffer.isBuffer(raw)) return raw;
   if (raw instanceof Uint8Array) return Buffer.from(raw);
+  if (Array.isArray(raw)) return Buffer.from(raw);
+  if (raw && typeof raw === "object" && Array.isArray(raw.data)) {
+    return Buffer.from(raw.data);
+  }
+  if (raw && typeof raw === "object" && raw.type === "Buffer" && Array.isArray(raw.data)) {
+    return Buffer.from(raw.data);
+  }
   if (typeof raw === "string") {
     if (raw.startsWith("\\x")) return Buffer.from(raw.slice(2), "hex");
     return Buffer.from(raw, "base64");
