@@ -148,7 +148,8 @@ function App() {
   const countdownCueRef = useRef(-1);
   const prevRacePhaseRef = useRef("idle");
   const lastPaintSfxAtRef = useRef(0);
-  const poopAudioRef = useRef(null);
+  const poopBufferRef = useRef(null);
+  const poopLoadingRef = useRef(false);
   const deferredCells = useDeferredValue(cells);
 
   useEffect(() => {
@@ -192,6 +193,24 @@ function App() {
     };
     window.addEventListener("pointerdown", unlock, { passive: true });
     return () => window.removeEventListener("pointerdown", unlock);
+  }, []);
+
+  useEffect(() => {
+    const ctx = ensureAudio();
+    if (!ctx || poopBufferRef.current || poopLoadingRef.current) return;
+    poopLoadingRef.current = true;
+    fetch(POOP_SFX_URL)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => {
+        poopBufferRef.current = decoded;
+      })
+      .catch(() => {
+        // keep fallback tone
+      })
+      .finally(() => {
+        poopLoadingRef.current = false;
+      });
   }, []);
 
   const rowHints = useMemo(() => {
@@ -379,14 +398,21 @@ function App() {
 
   const playPoopSfx = () => {
     if (!soundOn) return;
-    if (!poopAudioRef.current) {
-      poopAudioRef.current = new Audio(POOP_SFX_URL);
-      poopAudioRef.current.volume = 0.52;
-      poopAudioRef.current.preload = "auto";
+    const ctx = ensureAudio();
+    const master = masterGainRef.current;
+    if (!ctx || !master || !poopBufferRef.current) {
+      tone(170, 140, { type: "sawtooth", gain: 0.085, slideTo: 110 });
+      return;
     }
     try {
-      poopAudioRef.current.currentTime = 0;
-      poopAudioRef.current.play().catch(() => {});
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const src = ctx.createBufferSource();
+      src.buffer = poopBufferRef.current;
+      const gain = ctx.createGain();
+      gain.gain.value = 2.1;
+      src.connect(gain);
+      gain.connect(master);
+      src.start();
     } catch {
       // ignore playback errors
     }
