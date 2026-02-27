@@ -968,7 +968,7 @@ function App() {
   }, [isBoardCompleteByHints, puzzle]);
 
   useEffect(() => {
-    if (!isInRaceRoom || !raceState?.winnerPlayerId || raceResultShownRef.current) return;
+    if (!isInRaceRoom || racePhase !== "finished" || !raceState?.winnerPlayerId || raceResultShownRef.current) return;
     raceResultShownRef.current = true;
     if (raceState.winnerPlayerId === racePlayerId) {
       setStatus("승리하였습니다.");
@@ -978,7 +978,7 @@ function App() {
       setTimerRunning(false);
       playSfx("lose");
     }
-  }, [isInRaceRoom, raceState, racePlayerId]);
+  }, [isInRaceRoom, racePhase, raceState, racePlayerId]);
 
   useEffect(() => {
     if (!isRaceCountdown || countdownLeft == null) {
