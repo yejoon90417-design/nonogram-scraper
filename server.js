@@ -150,6 +150,12 @@ function normalizeRoomTitle(raw) {
   return s.slice(0, 40);
 }
 
+function normalizeMaxPlayers(raw) {
+  const n = Number(raw);
+  if (!Number.isInteger(n)) return 2;
+  return Math.max(2, Math.min(4, n));
+}
+
 function syncRoomState(room) {
   if (room.state === "countdown" && room.gameStartAt && Date.now() >= room.gameStartAt) {
     room.state = "playing";
@@ -161,8 +167,53 @@ function canStartRoom(room) {
   return Array.from(room.players.values()).every((p) => p.isReady === true);
 }
 
+function getFinishedPlayers(room) {
+  return Array.from(room.players.values())
+    .filter((p) => Number.isInteger(p.elapsedSec))
+    .sort((a, b) => {
+      if (a.elapsedSec !== b.elapsedSec) return a.elapsedSec - b.elapsedSec;
+      if (a.finishedAt && b.finishedAt) return a.finishedAt > b.finishedAt ? 1 : -1;
+      return 0;
+    });
+}
+
+function buildRankings(room) {
+  const finished = getFinishedPlayers(room).map((p, idx) => ({
+    rank: idx + 1,
+    playerId: p.playerId,
+    nickname: p.nickname,
+    elapsedSec: p.elapsedSec,
+    status: "finished",
+  }));
+
+  const unfinished = Array.from(room.players.values())
+    .filter((p) => !Number.isInteger(p.elapsedSec))
+    .map((p) => ({
+      rank: null,
+      playerId: p.playerId,
+      nickname: p.nickname,
+      elapsedSec: null,
+      status: p.disconnectedAt ? "left" : "dnf",
+    }))
+    .sort((a, b) => (a.nickname > b.nickname ? 1 : -1));
+
+  return [...finished, ...unfinished];
+}
+
+function shouldFinishRace(room) {
+  const finishedCount = getFinishedPlayers(room).length;
+  const target = room.finishTarget || 1;
+  if (finishedCount >= target) return true;
+
+  const activeCount = Array.from(room.players.values()).filter(
+    (p) => !Number.isInteger(p.elapsedSec) && !p.disconnectedAt
+  ).length;
+  return finishedCount + activeCount < target;
+}
+
 function roomPublicState(room) {
   syncRoomState(room);
+  const rankings = buildRankings(room);
   const players = Array.from(room.players.values())
     .map((p) => ({
       playerId: p.playerId,
@@ -171,18 +222,20 @@ function roomPublicState(room) {
       finishedAt: p.finishedAt,
       elapsedSec: p.elapsedSec,
       isReady: p.isReady,
+      disconnectedAt: p.disconnectedAt || null,
       correctAnswerCells: p.correctAnswerCells ?? 0,
       remainingAnswerCells: Math.max(0, (room.totalAnswerCells || 0) - (p.correctAnswerCells || 0)),
     }))
     .sort((a, b) => (a.joinedAt > b.joinedAt ? 1 : -1));
-  const winner = room.winnerPlayerId
-    ? players.find((p) => p.playerId === room.winnerPlayerId) || null
-    : null;
+  const winner = rankings.find((r) => r.rank === 1) || null;
+  const finishedCount = rankings.filter((r) => r.status === "finished").length;
   return {
     roomCode: room.roomCode,
     roomTitle: room.roomTitle,
     puzzleId: room.puzzleId,
     totalAnswerCells: room.totalAnswerCells || 0,
+    maxPlayers: room.maxPlayers,
+    finishTarget: room.finishTarget || 1,
     width: room.width,
     height: room.height,
     createdAt: room.createdAt,
@@ -192,6 +245,8 @@ function roomPublicState(room) {
     gameStartAt: room.gameStartAt,
     canStart: canStartRoom(room),
     winnerPlayerId: room.winnerPlayerId,
+    finishedCount,
+    rankings,
     players,
     winner,
     isFinished: room.state === "finished",
@@ -273,6 +328,7 @@ app.get("/puzzles/random", getRandomPuzzleBySize);
 app.post("/race/create", async (req, res) => {
   const nickname = normalizeNickname(req.body?.nickname);
   const roomTitle = normalizeRoomTitle(req.body?.roomTitle);
+  const maxPlayers = normalizeMaxPlayers(req.body?.maxPlayers);
   const width = Number(req.body?.width);
   const height = Number(req.body?.height);
 
@@ -285,9 +341,9 @@ app.post("/race/create", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `SELECT id, width, height, row_hints, col_hints, is_unique
+      `SELECT id, width, height, row_hints, col_hints, is_unique, solution_bits
        FROM puzzles
-       WHERE width = $1 AND height = $2
+       WHERE width = $1 AND height = $2 AND solution_bits IS NOT NULL
        ORDER BY random()
        LIMIT 1`,
       [width, height]
@@ -321,6 +377,8 @@ app.post("/race/create", async (req, res) => {
       puzzleId: puzzle.id,
       solutionBits,
       totalAnswerCells: popcountBuffer(solutionBits),
+      maxPlayers,
+      finishTarget: 1,
       width: puzzle.width,
       height: puzzle.height,
       createdAt: Date.now(),
@@ -338,6 +396,7 @@ app.post("/race/create", async (req, res) => {
       finishedAt: null,
       elapsedSec: null,
       isReady: false,
+      disconnectedAt: null,
       correctAnswerCells: 0,
     });
     raceRooms.set(roomCode, room);
@@ -367,6 +426,9 @@ app.post("/race/join", async (req, res) => {
   if (!room) {
     return res.status(404).json({ ok: false, error: "Room not found" });
   }
+  if (room.players.size >= room.maxPlayers) {
+    return res.status(400).json({ ok: false, error: "Room is full" });
+  }
   syncRoomState(room);
   if (room.state !== "lobby") {
     return res.status(400).json({ ok: false, error: "Room already started" });
@@ -391,6 +453,7 @@ app.post("/race/join", async (req, res) => {
       finishedAt: null,
       elapsedSec: null,
       isReady: false,
+      disconnectedAt: null,
       correctAnswerCells: 0,
     });
 
@@ -455,9 +518,11 @@ app.post("/race/start", (req, res) => {
   room.countdownStartAt = now;
   room.gameStartAt = now + COUNTDOWN_MS;
   room.winnerPlayerId = null;
+  room.finishTarget = Math.max(1, room.players.size - 1);
   for (const p of room.players.values()) {
     p.finishedAt = null;
     p.elapsedSec = null;
+    p.disconnectedAt = null;
     p.correctAnswerCells = 0;
   }
 
@@ -558,10 +623,12 @@ app.post("/race/rematch", async (req, res) => {
     room.countdownStartAt = null;
     room.gameStartAt = null;
     room.winnerPlayerId = null;
+    room.finishTarget = Math.max(1, room.players.size - 1);
     for (const p of room.players.values()) {
       p.isReady = false;
       p.finishedAt = null;
       p.elapsedSec = null;
+      p.disconnectedAt = null;
       p.correctAnswerCells = 0;
     }
     return res.json({ ok: true, puzzle: puzzleForClient, room: roomPublicState(room) });
@@ -609,8 +676,40 @@ app.post("/race/finish", async (req, res) => {
     player.finishedAt = new Date().toISOString();
     player.correctAnswerCells = room.totalAnswerCells || player.correctAnswerCells || 0;
   }
-  if (!room.winnerPlayerId) {
-    room.winnerPlayerId = playerId;
+  const finished = getFinishedPlayers(room);
+  if (!room.winnerPlayerId && finished.length > 0) {
+    room.winnerPlayerId = finished[0].playerId;
+  }
+  if (shouldFinishRace(room)) {
+    room.state = "finished";
+  }
+
+  return res.json({ ok: true, room: roomPublicState(room) });
+});
+
+app.post("/race/leave", (req, res) => {
+  const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
+  const playerId = String(req.body?.playerId || "").trim();
+  if (!roomCode || !playerId) {
+    return res.status(400).json({ ok: false, error: "roomCode/playerId are required" });
+  }
+  const room = raceRooms.get(roomCode);
+  if (!room) {
+    return res.status(404).json({ ok: false, error: "Room not found" });
+  }
+  const player = room.players.get(playerId);
+  if (!player) {
+    return res.status(404).json({ ok: false, error: "Player not found in room" });
+  }
+  if (!player.disconnectedAt) {
+    player.disconnectedAt = new Date().toISOString();
+  }
+
+  const finished = getFinishedPlayers(room);
+  if (!room.winnerPlayerId && finished.length > 0) {
+    room.winnerPlayerId = finished[0].playerId;
+  }
+  if (room.state === "playing" && shouldFinishRace(room)) {
     room.state = "finished";
   }
 

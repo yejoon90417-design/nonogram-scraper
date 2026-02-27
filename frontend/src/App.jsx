@@ -71,6 +71,7 @@ function App() {
   const [createNickname, setCreateNickname] = useState("");
   const [createRoomTitle, setCreateRoomTitle] = useState("");
   const [createSize, setCreateSize] = useState("10x10");
+  const [createMaxPlayers, setCreateMaxPlayers] = useState("2");
   const [joinNickname, setJoinNickname] = useState("");
   const [joinRoomCode, setJoinRoomCode] = useState("");
   const [isRematchLoading, setIsRematchLoading] = useState(false);
@@ -405,7 +406,18 @@ function App() {
     }
   };
 
-  const leaveRace = () => {
+  const leaveRace = async () => {
+    if (raceRoomCode && racePlayerId) {
+      try {
+        await fetch(`${API_BASE}/race/leave`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomCode: raceRoomCode, playerId: racePlayerId }),
+        });
+      } catch {
+        // ignore leave API errors
+      }
+    }
     if (racePollRef.current) {
       clearInterval(racePollRef.current);
       racePollRef.current = 0;
@@ -452,6 +464,7 @@ function App() {
   const createRaceRoom = async () => {
     const name = createNickname.trim();
     const roomTitle = createRoomTitle.trim();
+    const maxPlayers = Number(createMaxPlayers);
     if (!name) {
       setStatus("닉네임을 입력해줘.");
       return;
@@ -468,7 +481,7 @@ function App() {
       const res = await fetch(`${API_BASE}/race/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name, roomTitle, width, height }),
+        body: JSON.stringify({ nickname: name, roomTitle, width, height, maxPlayers }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create room.");
@@ -1041,6 +1054,7 @@ function App() {
                 onClick={() => {
                   setCreateRoomTitle("");
                   setCreateSize(selectedSize);
+                  setCreateMaxPlayers("2");
                   setShowCreateModal(true);
                 }}
                 disabled={isLoading}
@@ -1072,6 +1086,9 @@ function App() {
                 Title: <b>{roomTitleText}</b>
               </div>
             )}
+            <div>
+              Players: {(raceState?.players || []).length}/{raceState?.maxPlayers || 2}
+            </div>
             <div>State: {racePhase}</div>
             <div>Submit: {raceSubmitting ? "Sending..." : "Idle"}</div>
             {myRacePlayer && <div>Me: {myRacePlayer.nickname}</div>}
@@ -1097,6 +1114,21 @@ function App() {
                 <button onClick={requestRematch} disabled={isRematchLoading}>
                   {isRematchLoading ? "준비중..." : "한판 더?"}
                 </button>
+              </div>
+            )}
+            {isRaceFinished && Array.isArray(raceState?.rankings) && raceState.rankings.length > 0 && (
+              <div className="rankings">
+                <b>최종 순위</b>
+                {raceState.rankings.map((r) => (
+                  <div key={r.playerId}>
+                    {r.rank ? `${r.rank}등` : "-"} {r.nickname}
+                    {Number.isInteger(r.elapsedSec)
+                      ? ` (${r.elapsedSec}s)`
+                      : r.status === "left"
+                        ? " (중도 이탈)"
+                        : " (미완주)"}
+                  </div>
+                ))}
               </div>
             )}
             <div className="racePlayers">
@@ -1164,6 +1196,14 @@ function App() {
                   <option value="10x10">10x10</option>
                   <option value="15x15">15x15</option>
                   <option value="25x25">25x25</option>
+                </select>
+              </label>
+              <label>
+                최대 인원
+                <select value={createMaxPlayers} onChange={(e) => setCreateMaxPlayers(e.target.value)}>
+                  <option value="2">2명</option>
+                  <option value="3">3명</option>
+                  <option value="4">4명</option>
                 </select>
               </label>
               <label>

@@ -142,6 +142,15 @@ p {
   color: #0a5f46;
 }
 
+.rankings {
+  display: grid;
+  gap: 0.16rem;
+  border: 1px dashed #9fb7d1;
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+  background: #f8fbff;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;
