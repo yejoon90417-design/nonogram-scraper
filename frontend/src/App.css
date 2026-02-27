@@ -66,6 +66,31 @@
   font-size: 0.98rem;
 }
 
+.topBar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.topAuth {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.userChip {
+  border: 1px solid #c3d4e6;
+  background: #f1f7ff;
+  border-radius: 999px;
+  padding: 0.2rem 0.58rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #1e3550;
+}
+
 .controls,
 .racePanel {
   display: flex;
@@ -122,11 +147,45 @@
   flex-wrap: wrap;
 }
 
-.authPanel {
-  border: 1px solid #c7d7ea;
-  background: var(--panel-soft);
+.authScreen {
+  margin-top: 0.6rem;
+  border: 1px solid #c8d8e9;
+  background: #f3f8ff;
+  border-radius: 14px;
+  padding: 0.7rem;
+}
+
+.authTabs {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.55rem;
+}
+
+.authTabs .active {
+  background: linear-gradient(180deg, #11a5af 0%, var(--accent) 100%);
+  color: #fff;
+  border-color: #0b6168;
+}
+
+.authCard {
+  border: 1px solid #c9d8e8;
+  background: #ffffff;
   border-radius: 12px;
-  padding: 0.55rem 0.7rem;
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.52rem;
+}
+
+.fieldError {
+  border-color: #d67a8a !important;
+  box-shadow: 0 0 0 3px rgba(215, 96, 122, 0.18) !important;
+}
+
+.fieldErrorText {
+  color: #8f1e34;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .racePanel {

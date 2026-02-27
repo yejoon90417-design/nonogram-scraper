@@ -148,13 +148,14 @@ function normalizeNickname(raw) {
 function normalizeUsername(raw) {
   const s = String(raw || "").trim().toLowerCase();
   if (!s) return null;
-  if (!/^[a-z0-9_]{3,24}$/.test(s)) return null;
-  return s;
+  if (s.length < 3 || s.length > 24) return null;
+  return s.slice(0, 24);
 }
 
 function normalizeUserPassword(raw) {
   const s = String(raw || "");
-  if (s.length < 4 || s.length > 72) return null;
+  if (s.length < 8 || s.length > 72) return null;
+  if (!/[A-Za-z]/.test(s) || !/\d/.test(s)) return null;
   return s;
 }
 
@@ -424,13 +425,15 @@ app.post("/auth/signup", async (req, res) => {
   const nickname = normalizeNickname(req.body?.nickname);
   const password = normalizeUserPassword(req.body?.password);
   if (!username) {
-    return res.status(400).json({ ok: false, error: "username must be 3-24 chars: a-z, 0-9, _" });
+    return res.status(400).json({ ok: false, error: "username must be 3-24 chars" });
   }
   if (!nickname) {
     return res.status(400).json({ ok: false, error: "nickname is required" });
   }
   if (!password) {
-    return res.status(400).json({ ok: false, error: "password must be 4-72 chars" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "password must be 8+ chars and include letters and numbers" });
   }
   try {
     const passwordHash = hashUserPassword(password);
@@ -456,7 +459,7 @@ app.post("/auth/signup", async (req, res) => {
 
 app.post("/auth/login", async (req, res) => {
   const username = normalizeUsername(req.body?.username);
-  const password = normalizeUserPassword(req.body?.password);
+  const password = String(req.body?.password || "");
   if (!username || !password) {
     return res.status(400).json({ ok: false, error: "username/password are required" });
   }

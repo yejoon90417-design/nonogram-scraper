@@ -64,7 +64,7 @@ function isRaceOnlyStatusMessage(message) {
 }
 
 function App() {
-  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi
+  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi | auth
   const [selectedSize, setSelectedSize] = useState("25x25");
   const [puzzle, setPuzzle] = useState(null);
   const [cells, setCells] = useState([]); // 0 empty, 1 filled, 2 marked(X)
@@ -101,15 +101,18 @@ function App() {
       return null;
     }
   });
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [authTab, setAuthTab] = useState("login"); // login | signup
+  const [authReturnMode, setAuthReturnMode] = useState("menu");
+  const [showNeedLoginPopup, setShowNeedLoginPopup] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [loginFieldErrors, setLoginFieldErrors] = useState({ username: "", password: "" });
   const [signupUsername, setSignupUsername] = useState("");
   const [signupNickname, setSignupNickname] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupError, setSignupError] = useState("");
+  const [signupFieldErrors, setSignupFieldErrors] = useState({ username: "", nickname: "", password: "" });
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
   const boardRef = useRef(null);
@@ -238,6 +241,7 @@ function App() {
   const isModeMenu = playMode === "menu";
   const isModeSingle = playMode === "single";
   const isModeMulti = playMode === "multi";
+  const isModeAuth = playMode === "auth";
   const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
   const shouldShowPuzzleBoard = Boolean(
@@ -481,7 +485,21 @@ function App() {
     setStatus("");
   };
 
+  const openAuthScreen = (tab = "login", returnMode = "menu") => {
+    setAuthTab(tab);
+    setAuthReturnMode(returnMode);
+    setLoginError("");
+    setSignupError("");
+    setLoginFieldErrors({ username: "", password: "" });
+    setSignupFieldErrors({ username: "", nickname: "", password: "" });
+    setPlayMode("auth");
+  };
+
   const goMultiMode = () => {
+    if (!isLoggedIn) {
+      setShowNeedLoginPopup(true);
+      return;
+    }
     setPlayMode("multi");
     setStatus("");
   };
@@ -513,11 +531,23 @@ function App() {
     const username = signupUsername.trim().toLowerCase();
     const nickname = signupNickname.trim();
     const password = signupPassword;
+    const fieldErrors = { username: "", nickname: "", password: "" };
     if (!username || !nickname || !password) {
       setSignupError("아이디, 닉네임, 비밀번호를 모두 입력해줘.");
+      if (!username) fieldErrors.username = "아이디를 입력해줘.";
+      if (!nickname) fieldErrors.nickname = "닉네임을 입력해줘.";
+      if (!password) fieldErrors.password = "비밀번호를 입력해줘.";
+      setSignupFieldErrors(fieldErrors);
+      return;
+    }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password) || password.length < 8) {
+      setSignupError("비밀번호는 영문+숫자 포함 8자 이상이어야 해.");
+      fieldErrors.password = "영문+숫자 포함 8자 이상";
+      setSignupFieldErrors(fieldErrors);
       return;
     }
     setSignupError("");
+    setSignupFieldErrors({ username: "", nickname: "", password: "" });
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/signup`, {
@@ -528,11 +558,11 @@ function App() {
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "회원가입 실패");
       storeAuth(data.token, data.user);
-      setShowSignupModal(false);
       setSignupUsername("");
       setSignupNickname("");
       setSignupPassword("");
       setStatus(`환영합니다, ${data.user.nickname}!`);
+      setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
     } catch (err) {
       setSignupError(err.message);
     } finally {
@@ -543,10 +573,15 @@ function App() {
   const login = async () => {
     const username = loginUsername.trim().toLowerCase();
     const password = loginPassword;
+    const fieldErrors = { username: "", password: "" };
     if (!username || !password) {
       setLoginError("아이디와 비밀번호를 입력해줘.");
+      if (!username) fieldErrors.username = "아이디를 입력해줘.";
+      if (!password) fieldErrors.password = "비밀번호를 입력해줘.";
+      setLoginFieldErrors(fieldErrors);
       return;
     }
+    setLoginFieldErrors({ username: "", password: "" });
     setLoginError("");
     setIsLoading(true);
     try {
@@ -558,10 +593,10 @@ function App() {
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "로그인 실패");
       storeAuth(data.token, data.user);
-      setShowLoginModal(false);
       setLoginUsername("");
       setLoginPassword("");
       setStatus(`로그인 완료: ${data.user.nickname}`);
+      setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
     } catch (err) {
       setLoginError(err.message);
     } finally {
@@ -1250,53 +1285,168 @@ function App() {
 
   return (
     <main className="page">
-      <section className={`panel ${isModeMenu ? "panelMenu" : ""}`}>
-        <h1 className="title">Nonogram Arena</h1>
-        <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
+      <section className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""}`}>
+        <div className="topBar">
+          <div>
+            <h1 className="title">Nonogram Arena</h1>
+            <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
+          </div>
+          <div className="topAuth">
+            {isLoggedIn ? (
+              <>
+                <span className="userChip">
+                  {authUser.nickname} ({authUser.username})
+                </span>
+                <button onClick={logout}>로그아웃</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => openAuthScreen("login", "menu")}>로그인</button>
+                <button onClick={() => openAuthScreen("signup", "menu")}>회원가입</button>
+              </>
+            )}
+          </div>
+        </div>
 
         {isModeMenu && (
-          <>
-            <div className="modeChooser">
-              <button className="modeBtn modeSingle" onClick={goSingleMode}>
-                <span className="modeName">싱글플레이</span>
-                <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
+          <div className="modeChooser">
+            <button className="modeBtn modeSingle" onClick={goSingleMode}>
+              <span className="modeName">싱글플레이</span>
+              <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
+            </button>
+            <button className="modeBtn modeMulti" onClick={goMultiMode}>
+              <span className="modeName">멀티플레이</span>
+              <span className="modeDesc">방 생성/참가 실시간 대결</span>
+            </button>
+          </div>
+        )}
+
+        {isModeAuth && (
+          <div className="authScreen">
+            <div className="authTabs">
+              <button
+                className={authTab === "login" ? "active" : ""}
+                onClick={() => setAuthTab("login")}
+              >
+                로그인
               </button>
-              <button className="modeBtn modeMulti" onClick={goMultiMode}>
-                <span className="modeName">멀티플레이</span>
-                <span className="modeDesc">방 생성/참가 실시간 대결</span>
+              <button
+                className={authTab === "signup" ? "active" : ""}
+                onClick={() => setAuthTab("signup")}
+              >
+                회원가입
               </button>
+              <button onClick={backToMenu}>메인으로</button>
             </div>
-            <div className="authBar authPanel">
-              {isLoggedIn ? (
-                <>
-                  <span>
-                    로그인됨: <b>{authUser.nickname}</b> ({authUser.username})
-                  </span>
-                  <button onClick={logout}>로그아웃</button>
-                </>
-              ) : (
-                <>
-                  <span>멀티플레이는 로그인 필요</span>
-                  <button
-                    onClick={() => {
-                      setLoginError("");
-                      setShowLoginModal(true);
+
+            {authTab === "login" && (
+              <div className="authCard">
+                <label>
+                  아이디
+                  <input
+                    type="text"
+                    className={loginFieldErrors.username ? "fieldError" : ""}
+                    value={loginUsername}
+                    onChange={(e) => {
+                      setLoginUsername(e.target.value);
+                      setLoginFieldErrors((prev) => ({ ...prev, username: "" }));
+                      if (loginError) setLoginError("");
                     }}
-                  >
-                    로그인
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSignupError("");
-                      setShowSignupModal(true);
+                    placeholder="아이디"
+                  />
+                  {loginFieldErrors.username && <span className="fieldErrorText">{loginFieldErrors.username}</span>}
+                </label>
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    className={loginFieldErrors.password ? "fieldError" : ""}
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      setLoginFieldErrors((prev) => ({ ...prev, password: "" }));
+                      if (loginError) setLoginError("");
                     }}
-                  >
-                    회원가입
+                    placeholder="비밀번호"
+                  />
+                  {loginFieldErrors.password && <span className="fieldErrorText">{loginFieldErrors.password}</span>}
+                </label>
+                {loginError && <div className="modalError">{loginError}</div>}
+                <div className="modalActions">
+                  <button onClick={backToMenu}>취소</button>
+                  <button onClick={login} disabled={isLoading || !loginUsername.trim() || !loginPassword}>
+                    {isLoading ? "로그인 중..." : "로그인"}
                   </button>
-                </>
-              )}
-            </div>
-          </>
+                </div>
+              </div>
+            )}
+
+            {authTab === "signup" && (
+              <div className="authCard">
+                <label>
+                  아이디
+                  <input
+                    type="text"
+                    className={signupFieldErrors.username ? "fieldError" : ""}
+                    value={signupUsername}
+                    onChange={(e) => {
+                      setSignupUsername(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, username: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="아이디(3~24자)"
+                  />
+                  {signupFieldErrors.username && (
+                    <span className="fieldErrorText">{signupFieldErrors.username}</span>
+                  )}
+                </label>
+                <label>
+                  닉네임
+                  <input
+                    type="text"
+                    className={signupFieldErrors.nickname ? "fieldError" : ""}
+                    value={signupNickname}
+                    onChange={(e) => {
+                      setSignupNickname(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, nickname: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="닉네임"
+                  />
+                  {signupFieldErrors.nickname && (
+                    <span className="fieldErrorText">{signupFieldErrors.nickname}</span>
+                  )}
+                </label>
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    className={signupFieldErrors.password ? "fieldError" : ""}
+                    value={signupPassword}
+                    onChange={(e) => {
+                      setSignupPassword(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, password: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="영문+숫자 포함 8자 이상"
+                  />
+                  {signupFieldErrors.password && (
+                    <span className="fieldErrorText">{signupFieldErrors.password}</span>
+                  )}
+                </label>
+                {signupError && <div className="modalError">{signupError}</div>}
+                <div className="modalActions">
+                  <button onClick={backToMenu}>취소</button>
+                  <button
+                    onClick={signup}
+                    disabled={isLoading || !signupUsername.trim() || !signupNickname.trim() || !signupPassword}
+                  >
+                    {isLoading ? "가입 중..." : "회원가입"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {isModeSingle && (
@@ -1332,33 +1482,11 @@ function App() {
               <button onClick={backToMenu} disabled={isInRaceRoom}>
                 메인으로
               </button>
-              {isLoggedIn ? (
-                <button onClick={logout}>로그아웃</button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => {
-                      setLoginError("");
-                      setShowLoginModal(true);
-                    }}
-                  >
-                    로그인
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSignupError("");
-                      setShowSignupModal(true);
-                    }}
-                  >
-                    회원가입
-                  </button>
-                </>
-              )}
             </div>
 
             {!isLoggedIn && (
               <div className="raceStateBox">
-                <div>멀티플레이는 로그인 후 이용 가능합니다.</div>
+                <div>오른쪽 상단에서 로그인 후 멀티플레이를 이용하세요.</div>
               </div>
             )}
 
@@ -1643,119 +1771,20 @@ function App() {
           </div>
         )}
 
-        {showLoginModal && (
-          <div
-            className="modalBackdrop"
-            onClick={() => {
-              setShowLoginModal(false);
-              setLoginError("");
-            }}
-          >
+        {showNeedLoginPopup && (
+          <div className="modalBackdrop" onClick={() => setShowNeedLoginPopup(false)}>
             <div className="modalCard" onClick={(e) => e.stopPropagation()}>
-              <h2>로그인</h2>
-              <label>
-                아이디
-                <input
-                  type="text"
-                  value={loginUsername}
-                  onChange={(e) => {
-                    setLoginUsername(e.target.value);
-                    if (loginError) setLoginError("");
-                  }}
-                  placeholder="아이디"
-                />
-              </label>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={loginPassword}
-                  onChange={(e) => {
-                    setLoginPassword(e.target.value);
-                    if (loginError) setLoginError("");
-                  }}
-                  placeholder="비밀번호"
-                />
-              </label>
-              {loginError && <div className="modalError">{loginError}</div>}
+              <h2>로그인 필요</h2>
+              <p>멀티플레이는 로그인 후 이용 가능합니다.</p>
               <div className="modalActions">
+                <button onClick={() => setShowNeedLoginPopup(false)}>취소</button>
                 <button
                   onClick={() => {
-                    setShowLoginModal(false);
-                    setLoginError("");
+                    setShowNeedLoginPopup(false);
+                    openAuthScreen("login", "multi");
                   }}
                 >
-                  취소
-                </button>
-                <button onClick={login} disabled={isLoading || !loginUsername.trim() || !loginPassword}>
-                  {isLoading ? "로그인 중..." : "로그인"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showSignupModal && (
-          <div
-            className="modalBackdrop"
-            onClick={() => {
-              setShowSignupModal(false);
-              setSignupError("");
-            }}
-          >
-            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
-              <h2>회원가입</h2>
-              <label>
-                아이디
-                <input
-                  type="text"
-                  value={signupUsername}
-                  onChange={(e) => {
-                    setSignupUsername(e.target.value);
-                    if (signupError) setSignupError("");
-                  }}
-                  placeholder="영문/숫자/_ 3~24자"
-                />
-              </label>
-              <label>
-                닉네임
-                <input
-                  type="text"
-                  value={signupNickname}
-                  onChange={(e) => {
-                    setSignupNickname(e.target.value);
-                    if (signupError) setSignupError("");
-                  }}
-                  placeholder="닉네임"
-                />
-              </label>
-              <label>
-                비밀번호
-                <input
-                  type="password"
-                  value={signupPassword}
-                  onChange={(e) => {
-                    setSignupPassword(e.target.value);
-                    if (signupError) setSignupError("");
-                  }}
-                  placeholder="4자 이상"
-                />
-              </label>
-              {signupError && <div className="modalError">{signupError}</div>}
-              <div className="modalActions">
-                <button
-                  onClick={() => {
-                    setShowSignupModal(false);
-                    setSignupError("");
-                  }}
-                >
-                  취소
-                </button>
-                <button
-                  onClick={signup}
-                  disabled={isLoading || !signupUsername.trim() || !signupNickname.trim() || !signupPassword}
-                >
-                  {isLoading ? "가입 중..." : "회원가입"}
+                  로그인하러 가기
                 </button>
               </div>
             </div>
