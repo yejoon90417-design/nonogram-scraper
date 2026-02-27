@@ -223,6 +223,20 @@
   gap: 0.1rem;
 }
 
+.playerBadge {
+  gap: 0.18rem;
+}
+
+.nameWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.playerStateText {
+  display: inline-block;
+}
+
 .nickBtn {
   border: none;
   background: transparent;
@@ -248,7 +262,8 @@
 
 .reactionMenu {
   position: absolute;
-  left: 0;
+  left: 50%;
+  transform: translateX(-50%);
   bottom: calc(100% + 6px);
   display: flex;
   gap: 0.24rem;

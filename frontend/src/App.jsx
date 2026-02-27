@@ -1867,39 +1867,44 @@ function App() {
               {(raceState?.players || []).map((p) => (
                 <span
                   key={p.playerId}
+                  className="playerBadge"
                   ref={(el) => {
                     if (el) playerBadgeRefs.current.set(p.playerId, el);
                     else playerBadgeRefs.current.delete(p.playerId);
                   }}
                 >
-                  <button
-                    className="nickBtn"
-                    onClick={() => {
-                      if (p.playerId === racePlayerId) return;
-                      setReactionMenuForPlayerId((prev) => (prev === p.playerId ? "" : p.playerId));
-                    }}
-                    disabled={p.playerId === racePlayerId}
-                  >
-                    {p.nickname}
-                  </button>
-                  {reactionMenuForPlayerId === p.playerId && (
-                    <span className="reactionMenu">
-                      <button onClick={() => sendReaction(p.playerId, "💩")}>💩</button>
-                      <button onClick={() => sendReaction(p.playerId, "👍")}>👍</button>
-                      <button onClick={() => sendReaction(p.playerId, "❤️")}>❤️</button>
-                    </span>
-                  )}
-                  {raceState?.hostPlayerId === p.playerId ? " [host]" : ""}
-                  {p.disconnectedAt ? " [left]" : p.isReady ? " [ready]" : " [not ready]"}:
-                  {p.playerId === racePlayerId
-                    ? Number.isInteger(p.elapsedSec)
-                      ? " 완료 (대기중)"
-                      : " 플레이 중"
-                    : p.disconnectedAt
-                      ? " 중도 이탈"
-                    : Number.isInteger(p.elapsedSec)
-                      ? ` ${p.elapsedSec}s`
-                      : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
+                  <span className="nameWrap">
+                    <button
+                      className="nickBtn"
+                      onClick={() => {
+                        if (p.playerId === racePlayerId) return;
+                        setReactionMenuForPlayerId((prev) => (prev === p.playerId ? "" : p.playerId));
+                      }}
+                      disabled={p.playerId === racePlayerId}
+                    >
+                      {p.nickname}
+                    </button>
+                    {reactionMenuForPlayerId === p.playerId && (
+                      <span className="reactionMenu">
+                        <button onClick={() => sendReaction(p.playerId, "💩")}>💩</button>
+                        <button onClick={() => sendReaction(p.playerId, "👍")}>👍</button>
+                        <button onClick={() => sendReaction(p.playerId, "❤️")}>❤️</button>
+                      </span>
+                    )}
+                  </span>
+                  <span className="playerStateText">
+                    {raceState?.hostPlayerId === p.playerId ? " [host]" : ""}
+                    {p.disconnectedAt ? " [left]" : p.isReady ? " [ready]" : " [not ready]"}:
+                    {p.playerId === racePlayerId
+                      ? Number.isInteger(p.elapsedSec)
+                        ? " 완료 (대기중)"
+                        : " 플레이 중"
+                      : p.disconnectedAt
+                        ? " 중도 이탈"
+                      : Number.isInteger(p.elapsedSec)
+                        ? ` ${p.elapsedSec}s`
+                        : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
+                  </span>
                 </span>
               ))}
             </div>
