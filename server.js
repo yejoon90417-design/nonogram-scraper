@@ -22,6 +22,7 @@ const pool = new Pool(DB_CONFIG);
 const raceRooms = new Map();
 const ROOM_TTL_MS = 1000 * 60 * 60 * 12;
 const COUNTDOWN_MS = 5000;
+const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const POPCOUNT = new Uint8Array(256);
 for (let i = 0; i < 256; i += 1) {
   let n = i;
@@ -144,6 +145,19 @@ function normalizeNickname(raw) {
   return s.slice(0, 24);
 }
 
+function normalizeUsername(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return null;
+  if (!/^[a-z0-9_]{3,24}$/.test(s)) return null;
+  return s;
+}
+
+function normalizeUserPassword(raw) {
+  const s = String(raw || "");
+  if (s.length < 4 || s.length > 72) return null;
+  return s;
+}
+
 function normalizeRoomTitle(raw) {
   const s = String(raw || "").trim();
   if (!s) return "Race Room";
@@ -163,6 +177,97 @@ function normalizePassword(raw) {
 
 function hashPassword(password) {
   return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function hashUserPassword(password) {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
+}
+
+function verifyUserPassword(password, stored) {
+  if (typeof stored !== "string") return false;
+  const parts = stored.split("$");
+  if (parts.length !== 3 || parts[0] !== "scrypt") return false;
+  const salt = Buffer.from(parts[1], "hex");
+  const expected = Buffer.from(parts[2], "hex");
+  const actual = crypto.scryptSync(password, salt, expected.length);
+  if (actual.length !== expected.length) return false;
+  return crypto.timingSafeEqual(actual, expected);
+}
+
+async function createSessionForUser(userId) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  await pool.query(
+    `INSERT INTO user_sessions (token_hash, user_id, expires_at)
+     VALUES ($1, $2, $3)`,
+    [tokenHash, userId, expiresAt.toISOString()]
+  );
+  return token;
+}
+
+async function getAuthUserFromReq(req) {
+  const auth = String(req.headers.authorization || "");
+  if (!auth.startsWith("Bearer ")) return null;
+  const token = auth.slice(7).trim();
+  if (!token) return null;
+  const tokenHash = hashToken(token);
+  const { rows } = await pool.query(
+    `SELECT u.id, u.username, u.nickname
+     FROM user_sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token_hash = $1
+       AND s.expires_at > now()
+     LIMIT 1`,
+    [tokenHash]
+  );
+  if (!rows.length) return null;
+  return { ...rows[0], token, tokenHash };
+}
+
+async function requireAuth(req, res, next) {
+  try {
+    const user = await getAuthUserFromReq(req);
+    if (!user) {
+      return res.status(401).json({ ok: false, error: "Login required" });
+    }
+    req.authUser = user;
+    return next();
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
+async function ensureAuthTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id BIGSERIAL PRIMARY KEY,
+      username VARCHAR(24) UNIQUE NOT NULL,
+      nickname VARCHAR(24) UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      token_hash CHAR(64) PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);`
+  );
 }
 
 function normalizeMaxPlayers(raw) {
@@ -297,12 +402,107 @@ setInterval(() => {
   }
 }, 1000 * 60 * 15);
 
+setInterval(async () => {
+  try {
+    await pool.query(`DELETE FROM user_sessions WHERE expires_at <= now()`);
+  } catch {
+    // ignore cleanup failures
+  }
+}, 1000 * 60 * 30);
+
 app.get("/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/auth/signup", async (req, res) => {
+  const username = normalizeUsername(req.body?.username);
+  const nickname = normalizeNickname(req.body?.nickname);
+  const password = normalizeUserPassword(req.body?.password);
+  if (!username) {
+    return res.status(400).json({ ok: false, error: "username must be 3-24 chars: a-z, 0-9, _" });
+  }
+  if (!nickname) {
+    return res.status(400).json({ ok: false, error: "nickname is required" });
+  }
+  if (!password) {
+    return res.status(400).json({ ok: false, error: "password must be 4-72 chars" });
+  }
+  try {
+    const passwordHash = hashUserPassword(password);
+    const { rows } = await pool.query(
+      `INSERT INTO users (username, nickname, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, username, nickname`,
+      [username, nickname, passwordHash]
+    );
+    const user = rows[0];
+    const token = await createSessionForUser(user.id);
+    return res.json({ ok: true, token, user });
+  } catch (err) {
+    if (String(err.message || "").includes("users_username_key")) {
+      return res.status(409).json({ ok: false, error: "username already exists" });
+    }
+    if (String(err.message || "").includes("users_nickname_key")) {
+      return res.status(409).json({ ok: false, error: "nickname already exists" });
+    }
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/auth/login", async (req, res) => {
+  const username = normalizeUsername(req.body?.username);
+  const password = normalizeUserPassword(req.body?.password);
+  if (!username || !password) {
+    return res.status(400).json({ ok: false, error: "username/password are required" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, username, nickname, password_hash
+       FROM users
+       WHERE username = $1
+       LIMIT 1`,
+      [username]
+    );
+    if (!rows.length) {
+      return res.status(401).json({ ok: false, error: "Invalid credentials" });
+    }
+    const user = rows[0];
+    if (!verifyUserPassword(password, user.password_hash)) {
+      return res.status(401).json({ ok: false, error: "Invalid credentials" });
+    }
+    const token = await createSessionForUser(user.id);
+    return res.json({
+      ok: true,
+      token,
+      user: { id: user.id, username: user.username, nickname: user.nickname },
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/auth/me", requireAuth, async (req, res) => {
+  return res.json({
+    ok: true,
+    user: {
+      id: req.authUser.id,
+      username: req.authUser.username,
+      nickname: req.authUser.nickname,
+    },
+  });
+});
+
+app.post("/auth/logout", requireAuth, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM user_sessions WHERE token_hash = $1`, [req.authUser.tokenHash]);
+    return res.json({ ok: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
@@ -366,18 +566,14 @@ app.get("/race-rooms", (_req, res) => {
   return res.json({ ok: true, rooms });
 });
 
-app.post("/race/create", async (req, res) => {
-  const nickname = normalizeNickname(req.body?.nickname);
+app.post("/race/create", requireAuth, async (req, res) => {
+  const nickname = req.authUser.nickname;
   const roomTitle = normalizeRoomTitle(req.body?.roomTitle);
   const maxPlayers = normalizeMaxPlayers(req.body?.maxPlayers);
   const visibility = normalizeVisibility(req.body?.visibility);
   const roomPassword = normalizePassword(req.body?.password);
   const width = Number(req.body?.width);
   const height = Number(req.body?.height);
-
-  if (!nickname) {
-    return res.status(400).json({ ok: false, error: "nickname is required" });
-  }
   if (!Number.isInteger(width) || !Number.isInteger(height)) {
     return res.status(400).json({ ok: false, error: "width/height are required" });
   }
@@ -439,6 +635,7 @@ app.post("/race/create", async (req, res) => {
     };
     room.players.set(playerId, {
       playerId,
+      userId: req.authUser.id,
       nickname,
       joinedAt: nowIso,
       finishedAt: null,
@@ -461,15 +658,12 @@ app.post("/race/create", async (req, res) => {
   }
 });
 
-app.post("/race/join", async (req, res) => {
+app.post("/race/join", requireAuth, async (req, res) => {
   const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
-  const nickname = normalizeNickname(req.body?.nickname);
+  const nickname = req.authUser.nickname;
   const password = normalizePassword(req.body?.password);
   if (!roomCode) {
     return res.status(400).json({ ok: false, error: "roomCode is required" });
-  }
-  if (!nickname) {
-    return res.status(400).json({ ok: false, error: "nickname is required" });
   }
   const room = raceRooms.get(roomCode);
   if (!room) {
@@ -482,6 +676,10 @@ app.post("/race/join", async (req, res) => {
   }
   if (room.players.size >= room.maxPlayers) {
     return res.status(400).json({ ok: false, error: "Room is full" });
+  }
+  const alreadyInRoom = Array.from(room.players.values()).some((p) => p.userId === req.authUser.id);
+  if (alreadyInRoom) {
+    return res.status(400).json({ ok: false, error: "You are already in this room" });
   }
   syncRoomState(room);
   if (room.state !== "lobby") {
@@ -502,6 +700,7 @@ app.post("/race/join", async (req, res) => {
     const playerId = randomPlayerId();
     room.players.set(playerId, {
       playerId,
+      userId: req.authUser.id,
       nickname,
       joinedAt: new Date().toISOString(),
       finishedAt: null,
@@ -834,6 +1033,14 @@ app.post("/verify", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`server listening on http://localhost:${PORT}`);
+async function startServer() {
+  await ensureAuthTables();
+  app.listen(PORT, () => {
+    console.log(`server listening on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("failed to start server:", err);
+  process.exit(1);
 });

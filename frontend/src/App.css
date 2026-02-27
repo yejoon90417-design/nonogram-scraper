@@ -78,6 +78,14 @@ p {
   font-weight: 900;
 }
 
+.authBar {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
 .racePanel {
   margin-top: 0.6rem;
 }

@@ -3,6 +3,8 @@ import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const MAX_HISTORY = 200;
+const AUTH_TOKEN_KEY = "nonogram-auth-token";
+const AUTH_USER_KEY = "nonogram-auth-user";
 
 function toBase64Bits(cells, width, height) {
   const byteLength = Math.ceil((width * height) / 8);
@@ -79,19 +81,33 @@ function App() {
   const [raceSubmitting, setRaceSubmitting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [createNickname, setCreateNickname] = useState("");
   const [createRoomTitle, setCreateRoomTitle] = useState("");
   const [createSize, setCreateSize] = useState("10x10");
   const [createMaxPlayers, setCreateMaxPlayers] = useState("2");
   const [createVisibility, setCreateVisibility] = useState("public");
   const [createPassword, setCreatePassword] = useState("");
-  const [joinNickname, setJoinNickname] = useState("");
   const [joinRoomCode, setJoinRoomCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joinRoomType, setJoinRoomType] = useState("unknown"); // unknown | public | private
   const [publicRooms, setPublicRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [isRematchLoading, setIsRematchLoading] = useState(false);
+  const [authToken, setAuthToken] = useState(localStorage.getItem(AUTH_TOKEN_KEY) || "");
+  const [authUser, setAuthUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem(AUTH_USER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showSignupModal, setShowSignupModal] = useState(false);
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [signupUsername, setSignupUsername] = useState("");
+  const [signupNickname, setSignupNickname] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
   const boardRef = useRef(null);
@@ -129,6 +145,28 @@ function App() {
       if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authToken) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/auth/me`, { headers: { ...authHeaders } });
+        const data = await parseJsonSafe(res);
+        if (!res.ok || !data.ok || cancelled) {
+          clearAuth();
+          return;
+        }
+        setAuthUser(data.user);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+      } catch {
+        if (!cancelled) clearAuth();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken]);
 
   useEffect(() => {
     const unlock = () => {
@@ -198,6 +236,7 @@ function App() {
   const isModeMenu = playMode === "menu";
   const isModeSingle = playMode === "single";
   const isModeMulti = playMode === "multi";
+  const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
   const shouldShowPuzzleBoard = Boolean(
     puzzle && ((isModeSingle && !isInRaceRoom) || (isModeMulti && isInRaceRoom))
@@ -242,6 +281,11 @@ function App() {
     masterGainRef.current = master;
     return ctx;
   };
+
+  const authHeaders = useMemo(() => {
+    if (!authToken) return {};
+    return { Authorization: `Bearer ${authToken}` };
+  }, [authToken]);
 
   const tone = (freq, durMs, { type = "square", gain = 0.1, slideTo = null } = {}) => {
     if (!soundOn) return;
@@ -449,6 +493,94 @@ function App() {
     setStatus("");
   };
 
+  const storeAuth = (token, user) => {
+    setAuthToken(token);
+    setAuthUser(user);
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  };
+
+  const clearAuth = () => {
+    setAuthToken("");
+    setAuthUser(null);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+  };
+
+  const signup = async () => {
+    const username = signupUsername.trim().toLowerCase();
+    const nickname = signupNickname.trim();
+    const password = signupPassword;
+    if (!username || !nickname || !password) {
+      setStatus("아이디, 닉네임, 비밀번호를 모두 입력해줘.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, nickname, password }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "회원가입 실패");
+      storeAuth(data.token, data.user);
+      setShowSignupModal(false);
+      setSignupUsername("");
+      setSignupNickname("");
+      setSignupPassword("");
+      setStatus(`환영합니다, ${data.user.nickname}!`);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = async () => {
+    const username = loginUsername.trim().toLowerCase();
+    const password = loginPassword;
+    if (!username || !password) {
+      setStatus("아이디와 비밀번호를 입력해줘.");
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "로그인 실패");
+      storeAuth(data.token, data.user);
+      setShowLoginModal(false);
+      setLoginUsername("");
+      setLoginPassword("");
+      setStatus(`로그인 완료: ${data.user.nickname}`);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      if (authToken) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: "POST",
+          headers: { ...authHeaders },
+        });
+      }
+    } catch {
+      // ignore logout api errors
+    }
+    await leaveRace();
+    clearAuth();
+    setStatus("로그아웃 되었습니다.");
+  };
+
   const fetchPublicRooms = async () => {
     if (isInRaceRoom) return;
     setRoomsLoading(true);
@@ -522,13 +654,12 @@ function App() {
   };
 
   const createRaceRoom = async () => {
-    const name = createNickname.trim();
     const roomTitle = createRoomTitle.trim();
     const maxPlayers = Number(createMaxPlayers);
     const visibility = createVisibility === "private" ? "private" : "public";
     const password = createPassword.trim();
-    if (!name) {
-      setStatus("닉네임을 입력해줘.");
+    if (!isLoggedIn) {
+      setStatus("멀티플레이는 로그인 후 이용 가능해.");
       return;
     }
     const [wStr, hStr] = createSize.split("x");
@@ -546,9 +677,8 @@ function App() {
     try {
       const res = await fetch(`${API_BASE}/race/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders },
         body: JSON.stringify({
-          nickname: name,
           roomTitle,
           width,
           height,
@@ -580,11 +710,10 @@ function App() {
   };
 
   const joinRaceRoom = async () => {
-    const name = joinNickname.trim();
     const code = joinRoomCode.trim().toUpperCase();
     const password = joinPassword.trim();
-    if (!name) {
-      setStatus("닉네임을 입력해줘.");
+    if (!isLoggedIn) {
+      setStatus("멀티플레이는 로그인 후 이용 가능해.");
       return;
     }
     if (!code) {
@@ -595,8 +724,8 @@ function App() {
     try {
       const res = await fetch(`${API_BASE}/race/join`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name, roomCode: code, password }),
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ roomCode: code, password }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to join room.");
@@ -1122,14 +1251,32 @@ function App() {
         <p>Left drag fill, right drag X mark. Beat your opponent in time attack.</p>
 
         {isModeMenu && (
-          <div className="modeChooser">
-            <button className="modeBtn" onClick={goSingleMode}>
-              싱글플레이
-            </button>
-            <button className="modeBtn" onClick={goMultiMode}>
-              멀티플레이
-            </button>
-          </div>
+          <>
+            <div className="modeChooser">
+              <button className="modeBtn" onClick={goSingleMode}>
+                싱글플레이
+              </button>
+              <button className="modeBtn" onClick={goMultiMode}>
+                멀티플레이
+              </button>
+            </div>
+            <div className="authBar">
+              {isLoggedIn ? (
+                <>
+                  <span>
+                    로그인됨: <b>{authUser.nickname}</b> ({authUser.username})
+                  </span>
+                  <button onClick={logout}>로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <span>멀티플레이는 로그인 필요</span>
+                  <button onClick={() => setShowLoginModal(true)}>로그인</button>
+                  <button onClick={() => setShowSignupModal(true)}>회원가입</button>
+                </>
+              )}
+            </div>
+          </>
         )}
 
         {isModeSingle && (
@@ -1165,47 +1312,63 @@ function App() {
               <button onClick={backToMenu} disabled={isInRaceRoom}>
                 메인으로
               </button>
-            </div>
-
-            <div className="racePanel">
-              {!isInRaceRoom && (
+              {isLoggedIn ? (
+                <button onClick={logout}>로그아웃</button>
+              ) : (
                 <>
-                  <button
-                    onClick={() => {
-                      setCreateRoomTitle("");
-                      setCreateSize(selectedSize);
-                      setCreateMaxPlayers("2");
-                      setCreateVisibility("public");
-                      setCreatePassword("");
-                      setShowCreateModal(true);
-                    }}
-                    disabled={isLoading}
-                  >
-                    방 만들기
-                  </button>
-                  <button
-                    onClick={() => {
-                      setJoinRoomType("unknown");
-                      setJoinPassword("");
-                      setShowJoinModal(true);
-                    }}
-                    disabled={isLoading}
-                  >
-                    Join Room
-                  </button>
-                  <button onClick={fetchPublicRooms} disabled={roomsLoading}>
-                    {roomsLoading ? "목록 불러오는 중..." : "오픈방 새로고침"}
-                  </button>
+                  <button onClick={() => setShowLoginModal(true)}>로그인</button>
+                  <button onClick={() => setShowSignupModal(true)}>회원가입</button>
                 </>
               )}
-              <button onClick={leaveRace} disabled={!raceRoomCode}>
-                Leave Room
-              </button>
             </div>
+
+            {!isLoggedIn && (
+              <div className="raceStateBox">
+                <div>멀티플레이는 로그인 후 이용 가능합니다.</div>
+              </div>
+            )}
+
+            {isLoggedIn && (
+              <div className="racePanel">
+                {!isInRaceRoom && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setCreateRoomTitle("");
+                        setCreateSize(selectedSize);
+                        setCreateMaxPlayers("2");
+                        setCreateVisibility("public");
+                        setCreatePassword("");
+                        setShowCreateModal(true);
+                      }}
+                      disabled={isLoading}
+                    >
+                      방 만들기
+                    </button>
+                    <button
+                      onClick={() => {
+                        setJoinRoomType("unknown");
+                        setJoinPassword("");
+                        setShowJoinModal(true);
+                      }}
+                      disabled={isLoading}
+                    >
+                      Join Room
+                    </button>
+                    <button onClick={fetchPublicRooms} disabled={roomsLoading}>
+                      {roomsLoading ? "목록 불러오는 중..." : "오픈방 새로고침"}
+                    </button>
+                  </>
+                )}
+                <button onClick={leaveRace} disabled={!raceRoomCode}>
+                  Leave Room
+                </button>
+              </div>
+            )}
           </>
         )}
 
-        {isModeMulti && !isInRaceRoom && (
+        {isModeMulti && isLoggedIn && !isInRaceRoom && (
           <div className="raceStateBox">
             <div><b>방 리스트</b></div>
             {publicRooms.length === 0 ? (
@@ -1238,7 +1401,7 @@ function App() {
           </div>
         )}
 
-        {isModeMulti && raceRoomCode && (
+        {isModeMulti && isLoggedIn && raceRoomCode && (
           <div className="raceStateBox">
             <div>
               Room: <b>{raceRoomCode}</b>
@@ -1397,18 +1560,9 @@ function App() {
                   placeholder="예: 10x10 스피드전"
                 />
               </label>
-              <label>
-                닉네임
-                <input
-                  type="text"
-                  value={createNickname}
-                  onChange={(e) => setCreateNickname(e.target.value)}
-                  placeholder="닉네임"
-                />
-              </label>
               <div className="modalActions">
                 <button onClick={() => setShowCreateModal(false)}>취소</button>
-                <button onClick={createRaceRoom} disabled={isLoading || !createNickname.trim()}>
+                <button onClick={createRaceRoom} disabled={isLoading}>
                   {isLoading ? "생성중..." : "생성"}
                 </button>
               </div>
@@ -1420,15 +1574,6 @@ function App() {
           <div className="modalBackdrop" onClick={() => setShowJoinModal(false)}>
             <div className="modalCard" onClick={(e) => e.stopPropagation()}>
               <h2>방 참가</h2>
-              <label>
-                닉네임
-                <input
-                  type="text"
-                  value={joinNickname}
-                  onChange={(e) => setJoinNickname(e.target.value)}
-                  placeholder="닉네임"
-                />
-              </label>
               <label>
                 방 코드
                 <input
@@ -1456,8 +1601,84 @@ function App() {
               )}
               <div className="modalActions">
                 <button onClick={() => setShowJoinModal(false)}>취소</button>
-                <button onClick={joinRaceRoom} disabled={isLoading || !joinNickname.trim() || !joinRoomCode.trim()}>
+                <button onClick={joinRaceRoom} disabled={isLoading || !joinRoomCode.trim()}>
                   {isLoading ? "참가중..." : "참가"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showLoginModal && (
+          <div className="modalBackdrop" onClick={() => setShowLoginModal(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>로그인</h2>
+              <label>
+                아이디
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder="아이디"
+                />
+              </label>
+              <label>
+                비밀번호
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="비밀번호"
+                />
+              </label>
+              <div className="modalActions">
+                <button onClick={() => setShowLoginModal(false)}>취소</button>
+                <button onClick={login} disabled={isLoading || !loginUsername.trim() || !loginPassword}>
+                  {isLoading ? "로그인 중..." : "로그인"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showSignupModal && (
+          <div className="modalBackdrop" onClick={() => setShowSignupModal(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>회원가입</h2>
+              <label>
+                아이디
+                <input
+                  type="text"
+                  value={signupUsername}
+                  onChange={(e) => setSignupUsername(e.target.value)}
+                  placeholder="영문/숫자/_ 3~24자"
+                />
+              </label>
+              <label>
+                닉네임
+                <input
+                  type="text"
+                  value={signupNickname}
+                  onChange={(e) => setSignupNickname(e.target.value)}
+                  placeholder="닉네임"
+                />
+              </label>
+              <label>
+                비밀번호
+                <input
+                  type="password"
+                  value={signupPassword}
+                  onChange={(e) => setSignupPassword(e.target.value)}
+                  placeholder="4자 이상"
+                />
+              </label>
+              <div className="modalActions">
+                <button onClick={() => setShowSignupModal(false)}>취소</button>
+                <button
+                  onClick={signup}
+                  disabled={isLoading || !signupUsername.trim() || !signupNickname.trim() || !signupPassword}
+                >
+                  {isLoading ? "가입 중..." : "회원가입"}
                 </button>
               </div>
             </div>
