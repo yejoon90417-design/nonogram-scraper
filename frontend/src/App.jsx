@@ -1520,7 +1520,15 @@ function App() {
 
   return (
     <main className="page">
-      <section className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : "panelGame"}`}>
+      <section
+        className={`panel ${
+          isModeMenu || isModeAuth
+            ? "panelMenu"
+            : isModeMulti
+              ? "panelGame panelGameMulti"
+              : "panelGame panelGameSingle"
+        }`}
+      >
         <div className="topBar">
           <div>
             <h1 className="title">Nonogram Arena</h1>

@@ -85,6 +85,19 @@
   order: 2;
 }
 
+.panelGameMulti .controls,
+.panelGameMulti .racePanel,
+.panelGameMulti .raceStateBox {
+  order: 2;
+}
+
+.panelGameMulti .timerBar,
+.panelGameMulti .gameTools,
+.panelGameMulti .status,
+.panelGameMulti .boardWrap {
+  order: 1;
+}
+
 .title {
   margin: 0;
   font-size: clamp(1.5rem, 2.2vw, 2.15rem);
