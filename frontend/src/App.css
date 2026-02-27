@@ -58,46 +58,6 @@
   max-width: 980px;
 }
 
-.panelGame {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 0.62rem 0.78rem;
-  align-items: start;
-}
-
-.panelGame .topBar {
-  grid-column: 1 / -1;
-  order: 0;
-}
-
-.panelGame .controls,
-.panelGame .racePanel,
-.panelGame .raceStateBox {
-  grid-column: 2;
-  order: 1;
-}
-
-.panelGame .timerBar,
-.panelGame .gameTools,
-.panelGame .status,
-.panelGame .boardWrap {
-  grid-column: 1;
-  order: 2;
-}
-
-.panelGameMulti .controls,
-.panelGameMulti .racePanel,
-.panelGameMulti .raceStateBox {
-  order: 2;
-}
-
-.panelGameMulti .timerBar,
-.panelGameMulti .gameTools,
-.panelGameMulti .status,
-.panelGameMulti .boardWrap {
-  order: 1;
-}
-
 .title {
   margin: 0;
   font-size: clamp(1.5rem, 2.2vw, 2.15rem);
@@ -795,20 +755,6 @@ button:disabled {
 @media (max-width: 760px) {
   .panel {
     padding: 0.66rem;
-  }
-
-  .panelGame {
-    grid-template-columns: 1fr;
-  }
-
-  .panelGame .controls,
-  .panelGame .racePanel,
-  .panelGame .raceStateBox,
-  .panelGame .timerBar,
-  .panelGame .gameTools,
-  .panelGame .status,
-  .panelGame .boardWrap {
-    grid-column: 1;
   }
 
   .modeChooser {
