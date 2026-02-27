@@ -70,6 +70,11 @@ function App() {
   const [racePlayerId, setRacePlayerId] = useState("");
   const [raceState, setRaceState] = useState(null);
   const [raceSubmitting, setRaceSubmitting] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createNickname, setCreateNickname] = useState("");
+  const [createRoomTitle, setCreateRoomTitle] = useState("");
+  const [createSize, setCreateSize] = useState("10x10");
+  const [isRematchLoading, setIsRematchLoading] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
@@ -182,6 +187,7 @@ function App() {
     }
     return `패배하였습니다 (승자: ${raceState.winner.nickname}, ${raceState.winner.elapsedSec}s)`;
   }, [raceState, racePlayerId]);
+  const roomTitleText = raceState?.roomTitle || "";
 
   const countdownLeft = useMemo(() => {
     if (!isRaceCountdown || !raceState?.gameStartAt) return null;
@@ -364,12 +370,13 @@ function App() {
   };
 
   const createRaceRoom = async () => {
-    const name = nickname.trim();
+    const name = createNickname.trim();
+    const roomTitle = createRoomTitle.trim();
     if (!name) {
-      setStatus("Enter nickname first.");
+      setStatus("닉네임을 입력해줘.");
       return;
     }
-    const [wStr, hStr] = selectedSize.split("x");
+    const [wStr, hStr] = createSize.split("x");
     const width = Number(wStr);
     const height = Number(hStr);
     if (!Number.isInteger(width) || !Number.isInteger(height)) {
@@ -381,14 +388,17 @@ function App() {
       const res = await fetch(`${API_BASE}/race/create`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: name, width, height }),
+        body: JSON.stringify({ nickname: name, roomTitle, width, height }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to create room.");
+      setNickname(name);
       setRaceRoomCode(data.roomCode);
       setRacePlayerId(data.playerId);
       applyRaceRoomState(data.room, data.playerId);
       setRoomCodeInput(data.roomCode);
+      setSelectedSize(createSize);
+      setShowCreateModal(false);
       initializePuzzle(data.puzzle, {
         resume: false,
         startTimer: false,
@@ -468,6 +478,32 @@ function App() {
       setStatus("5초 후 시작합니다.");
     } catch (err) {
       setStatus(err.message);
+    }
+  };
+
+  const requestRematch = async () => {
+    if (!raceRoomCode || !racePlayerId) return;
+    setIsRematchLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/race/rematch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomCode: raceRoomCode, playerId: racePlayerId }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to rematch.");
+      applyRaceRoomState(data.room);
+      if (data.puzzle) {
+        initializePuzzle(data.puzzle, {
+          resume: false,
+          startTimer: false,
+          message: "새 게임 준비 완료. 다시 Ready를 눌러 시작해.",
+        });
+      }
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setIsRematchLoading(false);
     }
   };
 
@@ -840,6 +876,29 @@ function App() {
     }
   }, [isInRaceRoom, raceState, racePlayerId]);
 
+  useEffect(() => {
+    if (!isInRaceRoom || !raceState?.puzzleId) return;
+    if (puzzle?.id === raceState.puzzleId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/puzzles/${raceState.puzzleId}`);
+        const data = await parseJsonSafe(res);
+        if (!res.ok || !data.ok || cancelled) return;
+        initializePuzzle(data.puzzle, {
+          resume: false,
+          startTimer: false,
+          message: `방 퍼즐이 변경됨: ${data.puzzle.id}`,
+        });
+      } catch {
+        // ignore transient sync errors
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isInRaceRoom, raceState?.puzzleId, puzzle?.id]);
+
   return (
     <main className="page">
       <section className="panel">
@@ -847,29 +906,28 @@ function App() {
         <p>Left drag: fill, Right drag: mark X, click hints to toggle highlight.</p>
 
         <div className="controls">
-          <select
-            value={selectedSize}
-            onChange={(e) => setSelectedSize(e.target.value)}
-            disabled={isInRaceRoom}
-          >
-            <option value="5x5">5x5</option>
-            <option value="10x10">10x10</option>
-            <option value="15x15">15x15</option>
-            <option value="25x25">25x25</option>
-          </select>
-          <button onClick={loadRandomBySize} disabled={isLoading || isInRaceRoom}>
-            {isLoading ? "Loading..." : "Load Random Size"}
-          </button>
-          <input
-            type="number"
-            value={puzzleId}
-            onChange={(e) => setPuzzleId(e.target.value)}
-            placeholder="Puzzle ID"
-            disabled={isInRaceRoom}
-          />
-          <button onClick={loadPuzzle} disabled={isLoading || isInRaceRoom}>
-            {isLoading ? "Loading..." : "Load Puzzle"}
-          </button>
+          {!isInRaceRoom && (
+            <>
+              <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
+                <option value="5x5">5x5</option>
+                <option value="10x10">10x10</option>
+                <option value="15x15">15x15</option>
+                <option value="25x25">25x25</option>
+              </select>
+              <button onClick={loadRandomBySize} disabled={isLoading}>
+                {isLoading ? "Loading..." : "Load Random Size"}
+              </button>
+              <input
+                type="number"
+                value={puzzleId}
+                onChange={(e) => setPuzzleId(e.target.value)}
+                placeholder="Puzzle ID"
+              />
+              <button onClick={loadPuzzle} disabled={isLoading}>
+                {isLoading ? "Loading..." : "Load Puzzle"}
+              </button>
+            </>
+          )}
           <button onClick={checkAnswer} disabled={!puzzle || isChecking || !canInteractBoard}>
             {isChecking ? "Checking..." : "Check Answer"}
           </button>
@@ -885,27 +943,36 @@ function App() {
         </div>
 
         <div className="racePanel">
-          <input
-            type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="Nickname"
-          />
-          <input
-            type="text"
-            value={roomCodeInput}
-            onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-            placeholder="Room Code"
-          />
-          <button onClick={createRaceRoom} disabled={isLoading || !nickname.trim() || isInRaceRoom}>
-            Create Room
-          </button>
-          <button
-            onClick={joinRaceRoom}
-            disabled={isLoading || !nickname.trim() || !roomCodeInput.trim() || isInRaceRoom}
-          >
-            Join Room
-          </button>
+          {!isInRaceRoom && (
+            <>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Nickname"
+              />
+              <input
+                type="text"
+                value={roomCodeInput}
+                onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                placeholder="Room Code"
+              />
+              <button
+                onClick={() => {
+                  setCreateNickname(nickname);
+                  setCreateRoomTitle("");
+                  setCreateSize(selectedSize);
+                  setShowCreateModal(true);
+                }}
+                disabled={isLoading}
+              >
+                방 만들기
+              </button>
+              <button onClick={joinRaceRoom} disabled={isLoading || !nickname.trim() || !roomCodeInput.trim()}>
+                Join Room
+              </button>
+            </>
+          )}
           <button onClick={leaveRace} disabled={!raceRoomCode}>
             Leave Room
           </button>
@@ -916,6 +983,11 @@ function App() {
             <div>
               Room: <b>{raceRoomCode}</b>
             </div>
+            {roomTitleText && (
+              <div>
+                Title: <b>{roomTitleText}</b>
+              </div>
+            )}
             <div>State: {racePhase}</div>
             <div>Submit: {raceSubmitting ? "Sending..." : "Idle"}</div>
             {myRacePlayer && <div>Me: {myRacePlayer.nickname}</div>}
@@ -936,6 +1008,13 @@ function App() {
               </div>
             )}
             {raceResultText && <div className="raceResult">{raceResultText}</div>}
+            {isRaceFinished && (
+              <div className="raceActions">
+                <button onClick={requestRematch} disabled={isRematchLoading}>
+                  {isRematchLoading ? "준비중..." : "한판 더?"}
+                </button>
+              </div>
+            )}
             <div className="racePlayers">
               {(raceState?.players || []).map((p) => (
                 <span key={p.playerId}>
@@ -962,6 +1041,47 @@ function App() {
         )}
 
         {status && <div className="status">{status}</div>}
+
+        {showCreateModal && (
+          <div className="modalBackdrop" onClick={() => setShowCreateModal(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>방 만들기</h2>
+              <label>
+                퍼즐 유형
+                <select value={createSize} onChange={(e) => setCreateSize(e.target.value)}>
+                  <option value="5x5">5x5</option>
+                  <option value="10x10">10x10</option>
+                  <option value="15x15">15x15</option>
+                  <option value="25x25">25x25</option>
+                </select>
+              </label>
+              <label>
+                방 제목
+                <input
+                  type="text"
+                  value={createRoomTitle}
+                  onChange={(e) => setCreateRoomTitle(e.target.value)}
+                  placeholder="예: 10x10 스피드전"
+                />
+              </label>
+              <label>
+                닉네임
+                <input
+                  type="text"
+                  value={createNickname}
+                  onChange={(e) => setCreateNickname(e.target.value)}
+                  placeholder="닉네임"
+                />
+              </label>
+              <div className="modalActions">
+                <button onClick={() => setShowCreateModal(false)}>취소</button>
+                <button onClick={createRaceRoom} disabled={isLoading || !createNickname.trim()}>
+                  {isLoading ? "생성중..." : "생성"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {puzzle && (
           <div className="boardWrap" onContextMenu={(e) => e.preventDefault()}>

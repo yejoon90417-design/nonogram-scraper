@@ -93,6 +93,12 @@ function normalizeNickname(raw) {
   return s.slice(0, 24);
 }
 
+function normalizeRoomTitle(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "Race Room";
+  return s.slice(0, 40);
+}
+
 function syncRoomState(room) {
   if (room.state === "countdown" && room.gameStartAt && Date.now() >= room.gameStartAt) {
     room.state = "playing";
@@ -121,6 +127,7 @@ function roomPublicState(room) {
     : null;
   return {
     roomCode: room.roomCode,
+    roomTitle: room.roomTitle,
     puzzleId: room.puzzleId,
     width: room.width,
     height: room.height,
@@ -211,6 +218,7 @@ app.get("/puzzles/random", getRandomPuzzleBySize);
 
 app.post("/race/create", async (req, res) => {
   const nickname = normalizeNickname(req.body?.nickname);
+  const roomTitle = normalizeRoomTitle(req.body?.roomTitle);
   const width = Number(req.body?.width);
   const height = Number(req.body?.height);
 
@@ -240,6 +248,7 @@ app.post("/race/create", async (req, res) => {
     const nowIso = new Date().toISOString();
     const room = {
       roomCode,
+      roomTitle,
       puzzleId: puzzle.id,
       width: puzzle.width,
       height: puzzle.height,
@@ -379,6 +388,52 @@ app.post("/race/start", (req, res) => {
   }
 
   return res.json({ ok: true, room: roomPublicState(room) });
+});
+
+app.post("/race/rematch", async (req, res) => {
+  const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
+  const playerId = String(req.body?.playerId || "").trim();
+  if (!roomCode || !playerId) {
+    return res.status(400).json({ ok: false, error: "roomCode/playerId are required" });
+  }
+  const room = raceRooms.get(roomCode);
+  if (!room) {
+    return res.status(404).json({ ok: false, error: "Room not found" });
+  }
+  if (!room.players.has(playerId)) {
+    return res.status(403).json({ ok: false, error: "Only room members can request rematch" });
+  }
+  if (room.state !== "finished") {
+    return res.status(400).json({ ok: false, error: "Rematch is available only after finish" });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, width, height, row_hints, col_hints, is_unique
+       FROM puzzles
+       WHERE width = $1 AND height = $2
+       ORDER BY random()
+       LIMIT 1`,
+      [room.width, room.height]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "No puzzle found for size" });
+    }
+    const puzzle = rows[0];
+    room.puzzleId = puzzle.id;
+    room.state = "lobby";
+    room.countdownStartAt = null;
+    room.gameStartAt = null;
+    room.winnerPlayerId = null;
+    for (const p of room.players.values()) {
+      p.isReady = false;
+      p.finishedAt = null;
+      p.elapsedSec = null;
+    }
+    return res.json({ ok: true, puzzle, room: roomPublicState(room) });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 app.get("/race/:roomCode", (req, res) => {

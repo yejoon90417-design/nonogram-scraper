@@ -66,6 +66,41 @@ p {
   font-weight: 800;
 }
 
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 20;
+}
+
+.modalCard {
+  width: min(420px, calc(100vw - 24px));
+  background: #efefef;
+  border: 1px solid #444;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.modalCard h2 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+
+.modalCard label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
 input,
 select,
 button {
