@@ -117,12 +117,16 @@ function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [reactionMenuForPlayerId, setReactionMenuForPlayerId] = useState("");
+  const [reactionFlights, setReactionFlights] = useState([]);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
   const emojiWrapRef = useRef(null);
+  const playerBadgeRefs = useRef(new Map());
+  const seenReactionIdsRef = useRef(new Set());
   const dragRef = useRef(null); // { button: 'left'|'right', paintValue }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
@@ -275,6 +279,7 @@ function App() {
   }, [raceState, racePlayerId]);
   const roomTitleText = raceState?.roomTitle || "";
   const chatMessages = Array.isArray(raceState?.chatMessages) ? raceState.chatMessages : [];
+  const reactionEvents = Array.isArray(raceState?.reactionEvents) ? raceState.reactionEvents : [];
 
   const countdownLeft = useMemo(() => {
     if (!isRaceCountdown || !raceState?.gameStartAt) return null;
@@ -676,8 +681,11 @@ function App() {
     setRaceSubmitting(false);
     setChatInput("");
     setShowEmojiPicker(false);
+    setReactionMenuForPlayerId("");
+    setReactionFlights([]);
     setPublicRooms([]);
     setStatus("");
+    seenReactionIdsRef.current = new Set();
     raceFinishedSentRef.current = false;
     raceResultShownRef.current = false;
     raceProgressLastSentRef.current = 0;
@@ -934,6 +942,24 @@ function App() {
       setStatus(err.message);
     } finally {
       setChatSending(false);
+    }
+  };
+
+  const sendReaction = async (targetPlayerId, emoji) => {
+    if (!raceRoomCode || !racePlayerId || !targetPlayerId) return;
+    try {
+      const res = await fetch(`${API_BASE}/race/reaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ roomCode: raceRoomCode, playerId: racePlayerId, targetPlayerId, emoji }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "리액션 전송 실패");
+      applyRaceRoomState(data.room);
+      setReactionMenuForPlayerId("");
+      playSfx("ui");
+    } catch (err) {
+      setStatus(err.message);
     }
   };
 
@@ -1334,6 +1360,41 @@ function App() {
   }, [chatMessages.length, isInRaceRoom]);
 
   useEffect(() => {
+    if (!isInRaceRoom || reactionEvents.length === 0) return;
+    const nextFlights = [];
+    for (const event of reactionEvents) {
+      if (!event?.id || seenReactionIdsRef.current.has(event.id)) continue;
+      seenReactionIdsRef.current.add(event.id);
+      const fromEl = playerBadgeRefs.current.get(event.fromPlayerId);
+      const toEl = playerBadgeRefs.current.get(event.toPlayerId);
+      if (!fromEl || !toEl) continue;
+      const from = fromEl.getBoundingClientRect();
+      const to = toEl.getBoundingClientRect();
+      const id = `${event.id}-${Date.now()}`;
+      nextFlights.push({
+        id,
+        emoji: event.emoji,
+        x: from.left + from.width / 2,
+        y: from.top + from.height / 2,
+        dx: to.left + to.width / 2 - (from.left + from.width / 2),
+        dy: to.top + to.height / 2 - (from.top + from.height / 2),
+        go: false,
+      });
+    }
+    if (!nextFlights.length) return;
+    setReactionFlights((prev) => [...prev, ...nextFlights]);
+    requestAnimationFrame(() => {
+      setReactionFlights((prev) =>
+        prev.map((f) => (nextFlights.some((nf) => nf.id === f.id) ? { ...f, go: true } : f))
+      );
+    });
+    const timer = setTimeout(() => {
+      setReactionFlights((prev) => prev.filter((f) => !nextFlights.some((nf) => nf.id === f.id)));
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [reactionEvents, isInRaceRoom]);
+
+  useEffect(() => {
     if (!showEmojiPicker) return;
     const onDocPointerDown = (event) => {
       if (!emojiWrapRef.current) return;
@@ -1692,8 +1753,28 @@ function App() {
             )}
             <div className="racePlayers">
               {(raceState?.players || []).map((p) => (
-                <span key={p.playerId}>
-                  {p.nickname}
+                <span
+                  key={p.playerId}
+                  ref={(el) => {
+                    if (el) playerBadgeRefs.current.set(p.playerId, el);
+                    else playerBadgeRefs.current.delete(p.playerId);
+                  }}
+                >
+                  <button
+                    className="nickBtn"
+                    onClick={() =>
+                      setReactionMenuForPlayerId((prev) => (prev === p.playerId ? "" : p.playerId))
+                    }
+                  >
+                    {p.nickname}
+                  </button>
+                  {reactionMenuForPlayerId === p.playerId && (
+                    <span className="reactionMenu">
+                      <button onClick={() => sendReaction(p.playerId, "💩")}>💩</button>
+                      <button onClick={() => sendReaction(p.playerId, "👍")}>👍</button>
+                      <button onClick={() => sendReaction(p.playerId, "❤️")}>❤️</button>
+                    </span>
+                  )}
                   {raceState?.hostPlayerId === p.playerId ? " [host]" : ""}
                   {p.disconnectedAt ? " [left]" : p.isReady ? " [ready]" : " [not ready]"}:
                   {p.playerId === racePlayerId
@@ -1705,6 +1786,22 @@ function App() {
                     : Number.isInteger(p.elapsedSec)
                       ? ` ${p.elapsedSec}s`
                       : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
+                </span>
+              ))}
+            </div>
+            <div className="reactionLayer">
+              {reactionFlights.map((f) => (
+                <span
+                  key={f.id}
+                  className={`reactionFlight ${f.go ? "go" : ""}`}
+                  style={{
+                    left: `${f.x}px`,
+                    top: `${f.y}px`,
+                    "--dx": `${f.dx}px`,
+                    "--dy": `${f.dy}px`,
+                  }}
+                >
+                  {f.emoji}
                 </span>
               ))}
             </div>

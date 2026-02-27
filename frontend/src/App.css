@@ -216,6 +216,64 @@
   background: #ffffff;
   border-radius: 999px;
   padding: 0.2rem 0.55rem;
+  position: relative;
+}
+
+.nickBtn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-right: 0.1rem;
+  font-weight: 800;
+  color: #173659;
+  cursor: pointer;
+}
+
+.nickBtn:hover {
+  text-decoration: underline;
+}
+
+.reactionMenu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  display: flex;
+  gap: 0.24rem;
+  padding: 0.18rem;
+  border: 1px solid #c2d4e8;
+  background: #fff;
+  border-radius: 999px;
+  z-index: 18;
+  box-shadow: 0 8px 20px rgba(13, 29, 50, 0.18);
+}
+
+.reactionMenu button {
+  min-width: 30px;
+  padding: 0.1rem 0.2rem;
+  border-radius: 999px;
+}
+
+.reactionLayer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.reactionFlight {
+  position: fixed;
+  left: 0;
+  top: 0;
+  font-size: 1.45rem;
+  transform: translate(-50%, -50%);
+  transition: transform 760ms cubic-bezier(0.2, 0.85, 0.25, 1), opacity 760ms ease;
+  opacity: 0.95;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
+}
+
+.reactionFlight.go {
+  transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)));
+  opacity: 0.3;
 }
 
 .chatBox {

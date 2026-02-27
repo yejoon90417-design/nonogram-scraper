@@ -171,6 +171,12 @@ function normalizeChatText(raw) {
   return s.slice(0, 200);
 }
 
+function normalizeReactionEmoji(raw) {
+  const s = String(raw || "").trim();
+  if (s === "💩" || s === "👍" || s === "❤️") return s;
+  return null;
+}
+
 function normalizeVisibility(raw) {
   const v = String(raw || "").trim().toLowerCase();
   return v === "private" ? "private" : "public";
@@ -341,6 +347,12 @@ function shouldFinishRace(room) {
 
 function roomPublicState(room) {
   syncRoomState(room);
+  const now = Date.now();
+  if (!Array.isArray(room.reactionEvents)) {
+    room.reactionEvents = [];
+  } else {
+    room.reactionEvents = room.reactionEvents.filter((e) => now - e.ts <= 6000);
+  }
   const rankings = buildRankings(room);
   const players = Array.from(room.players.values())
     .map((p) => ({
@@ -379,6 +391,7 @@ function roomPublicState(room) {
     rankings,
     players,
     chatMessages: Array.isArray(room.chatMessages) ? room.chatMessages : [],
+    reactionEvents: room.reactionEvents,
     winner,
     isFinished: room.state === "finished",
     serverNow: Date.now(),
@@ -642,6 +655,7 @@ app.post("/race/create", requireAuth, async (req, res) => {
       gameStartAt: null,
       winnerPlayerId: null,
       chatMessages: [],
+      reactionEvents: [],
       players: new Map(),
     };
     room.players.set(playerId, {
@@ -887,6 +901,7 @@ app.post("/race/rematch", async (req, res) => {
     room.countdownStartAt = null;
     room.gameStartAt = null;
     room.winnerPlayerId = null;
+    room.reactionEvents = [];
     room.finishTarget = Math.max(1, room.players.size - 1);
     for (const p of room.players.values()) {
       p.isReady = false;
@@ -947,6 +962,49 @@ app.post("/race/chat", requireAuth, (req, res) => {
   });
   if (room.chatMessages.length > 120) {
     room.chatMessages = room.chatMessages.slice(-120);
+  }
+  return res.json({ ok: true, room: roomPublicState(room) });
+});
+
+app.post("/race/reaction", requireAuth, (req, res) => {
+  const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
+  const playerId = String(req.body?.playerId || "").trim();
+  const targetPlayerId = String(req.body?.targetPlayerId || "").trim();
+  const emoji = normalizeReactionEmoji(req.body?.emoji);
+  if (!roomCode || !playerId || !targetPlayerId) {
+    return res.status(400).json({ ok: false, error: "roomCode/playerId/targetPlayerId are required" });
+  }
+  if (!emoji) {
+    return res.status(400).json({ ok: false, error: "Invalid emoji" });
+  }
+  const room = raceRooms.get(roomCode);
+  if (!room) {
+    return res.status(404).json({ ok: false, error: "Room not found" });
+  }
+  const sender = room.players.get(playerId);
+  const target = room.players.get(targetPlayerId);
+  if (!sender || !target) {
+    return res.status(404).json({ ok: false, error: "Player not found in room" });
+  }
+  if (sender.userId !== req.authUser.id) {
+    return res.status(403).json({ ok: false, error: "Forbidden player" });
+  }
+  if (sender.disconnectedAt || target.disconnectedAt) {
+    return res.status(400).json({ ok: false, error: "Disconnected player cannot react" });
+  }
+
+  if (!Array.isArray(room.reactionEvents)) room.reactionEvents = [];
+  room.reactionEvents.push({
+    id: crypto.randomBytes(8).toString("hex"),
+    fromPlayerId: sender.playerId,
+    fromNickname: sender.nickname,
+    toPlayerId: target.playerId,
+    toNickname: target.nickname,
+    emoji,
+    ts: Date.now(),
+  });
+  if (room.reactionEvents.length > 80) {
+    room.reactionEvents = room.reactionEvents.slice(-80);
   }
   return res.json({ ok: true, room: roomPublicState(room) });
 });
