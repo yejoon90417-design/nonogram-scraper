@@ -261,10 +261,31 @@
   display: flex;
   gap: 0.4rem;
   align-items: center;
+  position: relative;
+}
+
+.chatInputRow input {
+  flex: 1;
 }
 
 .chatInputRow button {
   min-width: 64px;
+}
+
+.emojiWrap {
+  position: relative;
+}
+
+.emojiWrap > button {
+  min-width: 42px;
+  padding: 0.38rem 0.45rem;
+}
+
+.emojiPopover {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 25;
 }
 
 .timerBar {

@@ -1,4 +1,5 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import EmojiPicker from "emoji-picker-react";
 import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -115,11 +116,13 @@ function App() {
   const [signupFieldErrors, setSignupFieldErrors] = useState({ username: "", nickname: "", password: "" });
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
+  const emojiWrapRef = useRef(null);
   const dragRef = useRef(null); // { button: 'left'|'right', paintValue }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
@@ -672,6 +675,7 @@ function App() {
     setRaceState(null);
     setRaceSubmitting(false);
     setChatInput("");
+    setShowEmojiPicker(false);
     setPublicRooms([]);
     setStatus("");
     raceFinishedSentRef.current = false;
@@ -1328,6 +1332,18 @@ function App() {
     el.scrollTop = el.scrollHeight;
   }, [chatMessages.length, isInRaceRoom]);
 
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const onDocPointerDown = (event) => {
+      if (!emojiWrapRef.current) return;
+      if (!emojiWrapRef.current.contains(event.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDocPointerDown);
+    return () => document.removeEventListener("pointerdown", onDocPointerDown);
+  }, [showEmojiPicker]);
+
   return (
     <main className="page">
       <section className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""}`}>
@@ -1705,6 +1721,27 @@ function App() {
                 )}
               </div>
               <div className="chatInputRow">
+                <div className="emojiWrap" ref={emojiWrapRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    title="이모지"
+                  >
+                    🙂
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="emojiPopover">
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) => {
+                          setChatInput((prev) => `${prev}${emojiData.emoji}`);
+                        }}
+                        skinTonesDisabled
+                        width={300}
+                        height={340}
+                      />
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={chatInput}
@@ -1735,7 +1772,7 @@ function App() {
               aria-label="Undo"
               title="Undo"
             >
-              ↶
+              ?
             </button>
             <button
               className="iconBtn"
@@ -1744,7 +1781,7 @@ function App() {
               aria-label="Redo"
               title="Redo"
             >
-              ↷
+              ?
             </button>
             <button
               className="iconBtn danger"
@@ -1753,7 +1790,7 @@ function App() {
               aria-label="Clear board"
               title="Clear"
             >
-              ✕
+              ?
             </button>
           </div>
         )}
@@ -1976,5 +2013,7 @@ function App() {
 }
 
 export default App;
+
+
 
 
