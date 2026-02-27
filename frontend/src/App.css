@@ -777,3 +777,152 @@ button:disabled {
     font-size: 58px;
   }
 }
+
+/* ------------------------------------------------------------------
+   Modern UI override (remove “toy / vibe-coding” look)
+   ------------------------------------------------------------------ */
+
+:root {
+  --ink: #0b1220;
+  --muted: #5b6474;
+  --line: rgba(15, 23, 42, 0.12);
+  --line-strong: rgba(15, 23, 42, 0.18);
+  --panel: #ffffff;
+  --panel-soft: #f7f8fb;
+  --accent: #2563eb;
+  --accent-ink: #ffffff;
+  --danger: #b42318;
+  --success: #067647;
+}
+
+.page {
+  place-items: start center;
+  padding: clamp(16px, 2.5vw, 28px);
+  background: radial-gradient(1200px 800px at 15% 10%, rgba(37, 99, 235, 0.08), transparent 60%),
+    radial-gradient(900px 600px at 85% 20%, rgba(16, 185, 129, 0.06), transparent 55%),
+    #f3f5f9;
+  font-family: "SUIT Variable", "Pretendard Variable", "Noto Sans KR", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
+  overflow: hidden;
+}
+
+.panel::before {
+  display: none;
+}
+
+.topBar {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+
+.title {
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-weight: 800;
+}
+
+.lead {
+  margin: 0.2rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.userChip {
+  border-radius: 999px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+.modeChooser {
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.modeBtn {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06);
+  padding: 18px;
+}
+
+.modeSingle {
+  border-color: rgba(37, 99, 235, 0.22);
+}
+
+.modeMulti {
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+.modeDesc {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Buttons / inputs */
+input,
+select,
+button {
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: rgba(15, 23, 42, 0.92);
+  padding: 0.5rem 0.72rem;
+  font-size: 0.92rem;
+}
+
+button {
+  background: #fff;
+  font-weight: 650;
+}
+
+button:hover:enabled {
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+button:focus-visible,
+input:focus,
+select:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.6);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+/* Explicit button variants (used in header) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  border-color: rgba(37, 99, 235, 0.75);
+  color: var(--accent-ink);
+}
+
+.btnPrimary:hover:enabled {
+  border-color: rgba(37, 99, 235, 0.95);
+}
+
+/* Make the default "primary" action less gimmicky (old last-child gradient) */
+.raceActions button:last-child,
+.modalActions button:last-child {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: rgba(37, 99, 235, 0.75);
+}
+
+/* Board wrapper: remove patterns */
+.boardWrap {
+  background: #fff;
+  border: 1px solid var(--line);
+}
