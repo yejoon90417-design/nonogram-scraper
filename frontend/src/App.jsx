@@ -192,9 +192,9 @@ function App() {
   const raceResultText = useMemo(() => {
     if (!raceState?.winner) return "";
     if (raceState.winner.playerId === racePlayerId) {
-      return `?밸━?섏??듬땲??(${raceState.winner.elapsedSec}s)`;
+      return `승리하였습니다 (${raceState.winner.elapsedSec}s)`;
     }
-    return `?⑤같?섏??듬땲??(?뱀옄: ${raceState.winner.nickname}, ${raceState.winner.elapsedSec}s)`;
+    return `패배하였습니다 (승자: ${raceState.winner.nickname}, ${raceState.winner.elapsedSec}s)`;
   }, [raceState, racePlayerId]);
   const roomTitleText = raceState?.roomTitle || "";
 
@@ -458,7 +458,7 @@ function App() {
     const name = createNickname.trim();
     const roomTitle = createRoomTitle.trim();
     if (!name) {
-      setStatus("?됰꽕?꾩쓣 ?낅젰?댁쨾.");
+      setStatus("닉네임을 입력해줘.");
       return;
     }
     const [wStr, hStr] = createSize.split("x");
@@ -564,7 +564,7 @@ function App() {
       if (!res.ok || !data.ok) throw new Error(data.error || "Failed to start race.");
       applyRaceRoomState(data.room);
       playSfx("ui");
-      setStatus("5珥????쒖옉?⑸땲??");
+      setStatus("5초 후 시작합니다.");
     } catch (err) {
       setStatus(err.message);
     }
@@ -586,7 +586,7 @@ function App() {
         initializePuzzle(data.puzzle, {
           resume: false,
           startTimer: false,
-          message: "??寃뚯엫 以鍮??꾨즺. ?ㅼ떆 Ready瑜??뚮윭 ?쒖옉??",
+          message: "새 게임 준비 완료. 다시 Ready를 눌러 시작해.",
         });
         playSfx("ui");
       }
@@ -1004,7 +1004,7 @@ function App() {
         initializePuzzle(data.puzzle, {
           resume: false,
           startTimer: false,
-          message: `諛??쇱쫹??蹂寃쎈맖: ${data.puzzle.id}`,
+          message: `방 퍼즐이 변경됨: ${data.puzzle.id}`,
         });
       } catch {
         // ignore transient sync errors
@@ -1078,7 +1078,8 @@ function App() {
                 }}
                 disabled={isLoading}
               >
-                諛?留뚮뱾湲?              </button>
+                방 만들기
+              </button>
               <button onClick={joinRaceRoom} disabled={isLoading || !nickname.trim() || !roomCodeInput.trim()}>
                 Join Room
               </button>
