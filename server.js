@@ -94,6 +94,16 @@ function countCorrectAnswerCells(solutionBits, userBits) {
   return total;
 }
 
+function toSolutionBits(raw) {
+  if (Buffer.isBuffer(raw)) return raw;
+  if (raw instanceof Uint8Array) return Buffer.from(raw);
+  if (typeof raw === "string") {
+    if (raw.startsWith("\\x")) return Buffer.from(raw.slice(2), "hex");
+    return Buffer.from(raw, "base64");
+  }
+  return null;
+}
+
 function randomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -223,7 +233,7 @@ const getRandomPuzzleBySize = async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, width, height, row_hints, col_hints, is_unique, solution_bits
        FROM puzzles
-       WHERE width = $1 AND height = $2
+       WHERE width = $1 AND height = $2 AND solution_bits IS NOT NULL
        ORDER BY random()
        LIMIT 1`,
       [width, height]
@@ -280,12 +290,16 @@ app.post("/race/create", async (req, res) => {
     const roomCode = makeRoomCode();
     const playerId = randomPlayerId();
     const nowIso = new Date().toISOString();
+    const solutionBits = toSolutionBits(puzzle.solution_bits);
+    if (!solutionBits) {
+      return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
+    }
     const room = {
       roomCode,
       roomTitle,
       puzzleId: puzzle.id,
-      solutionBits: Buffer.from(puzzle.solution_bits),
-      totalAnswerCells: popcountBuffer(Buffer.from(puzzle.solution_bits)),
+      solutionBits,
+      totalAnswerCells: popcountBuffer(solutionBits),
       width: puzzle.width,
       height: puzzle.height,
       createdAt: Date.now(),
@@ -485,7 +499,7 @@ app.post("/race/rematch", async (req, res) => {
     const { rows } = await pool.query(
       `SELECT id, width, height, row_hints, col_hints, is_unique, solution_bits
        FROM puzzles
-       WHERE width = $1 AND height = $2
+       WHERE width = $1 AND height = $2 AND solution_bits IS NOT NULL
        ORDER BY random()
        LIMIT 1`,
       [room.width, room.height]
@@ -502,9 +516,13 @@ app.post("/race/rematch", async (req, res) => {
       col_hints: puzzle.col_hints,
       is_unique: puzzle.is_unique,
     };
+    const solutionBits = toSolutionBits(puzzle.solution_bits);
+    if (!solutionBits) {
+      return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
+    }
     room.puzzleId = puzzle.id;
-    room.solutionBits = Buffer.from(puzzle.solution_bits);
-    room.totalAnswerCells = popcountBuffer(Buffer.from(puzzle.solution_bits));
+    room.solutionBits = solutionBits;
+    room.totalAnswerCells = popcountBuffer(solutionBits);
     room.state = "lobby";
     room.countdownStartAt = null;
     room.gameStartAt = null;
