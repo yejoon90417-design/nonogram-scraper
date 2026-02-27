@@ -51,6 +51,16 @@ async function parseJsonSafe(res) {
   throw new Error(`Server returned non-JSON response (${res.status}): ${text.slice(0, 120)}`);
 }
 
+function isRaceOnlyStatusMessage(message) {
+  if (!message) return false;
+  return (
+    message === "승리하였습니다." ||
+    message === "패배하였습니다." ||
+    message === "완주! 다른 플레이어 결과 대기중..." ||
+    message === "5초 후 시작합니다."
+  );
+}
+
 function App() {
   const [playMode, setPlayMode] = useState("menu"); // menu | single | multi
   const [selectedSize, setSelectedSize] = useState("25x25");
@@ -475,6 +485,7 @@ function App() {
     setRaceState(null);
     setRaceSubmitting(false);
     setPublicRooms([]);
+    setStatus("");
     raceFinishedSentRef.current = false;
     raceResultShownRef.current = false;
     raceProgressLastSentRef.current = 0;
@@ -1096,6 +1107,13 @@ function App() {
     if (isInRaceRoom) return;
     fetchPublicRooms();
   }, [isInRaceRoom]);
+
+  useEffect(() => {
+    if (isInRaceRoom) return;
+    if (isRaceOnlyStatusMessage(status)) {
+      setStatus("");
+    }
+  }, [isInRaceRoom, status]);
 
   return (
     <main className="page">
