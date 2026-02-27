@@ -1,19 +1,15 @@
 ﻿:root {
-  --bg: #f6f7fb;
-  --surface: #ffffff;
-  --surface-2: #f3f5f9;
-  --ink: #101828;
-  --muted: #475467;
-  --border: rgba(16, 24, 40, 0.12);
-  --border-strong: rgba(16, 24, 40, 0.18);
-  --shadow: 0 10px 30px rgba(16, 24, 40, 0.10);
-  --shadow-soft: 0 6px 18px rgba(16, 24, 40, 0.08);
-  --accent: #2563eb;
+  --ink: #0f1a2a;
+  --muted: #4e5f78;
+  --line: #8ea3bf;
+  --line-strong: #556f92;
+  --panel: #f3f8ff;
+  --panel-soft: #e8f0fb;
+  --accent: #0b7f89;
   --accent-ink: #ffffff;
-  --danger: #b42318;
-  --success: #067647;
+  --danger: #9a2036;
+  --success: #0c6f52;
 }
-
 
 * {
   box-sizing: border-box;
@@ -21,34 +17,42 @@
 
 .page {
   min-height: 100vh;
-  padding: clamp(14px, 2vw, 22px);
+  padding: 1rem;
   display: grid;
-  place-items: start center;
+  place-items: center;
   background:
-    radial-gradient(1200px 600px at 15% 10%, rgba(37, 99, 235, 0.12), transparent 60%),
-    radial-gradient(1000px 520px at 90% 0%, rgba(16, 185, 129, 0.10), transparent 55%),
-    var(--bg);
+    linear-gradient(120deg, rgba(62, 131, 212, 0.12) 0%, rgba(62, 131, 212, 0) 42%),
+    linear-gradient(300deg, rgba(255, 142, 47, 0.1) 0%, rgba(255, 142, 47, 0) 40%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(102, 131, 169, 0.07) 0,
+      rgba(102, 131, 169, 0.07) 1px,
+      transparent 1px,
+      transparent 28px
+    ),
+    #dce7f3;
   color: var(--ink);
-  font-family: "SUIT Variable", "Pretendard Variable", "Pretendard", "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Rajdhani", "Pretendard", "Noto Sans KR", sans-serif;
 }
-
 
 .panel {
   width: min(1220px, 100%);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  padding: clamp(14px, 1.2vw, 18px);
-  box-shadow: var(--shadow);
+  border: 2px solid var(--line-strong);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #f9fcff 0%, var(--panel) 100%);
+  padding: 0.9rem;
+  box-shadow: 0 8px 0 rgba(43, 70, 103, 0.2);
   position: relative;
   overflow: hidden;
 }
 
-
-.panel::before { content: none; }
-
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: linear-gradient(90deg, #1bc3c9 0%, #4f95e9 52%, #ff9d43 100%);
+}
 
 .panelMenu {
   max-width: 980px;
@@ -56,29 +60,25 @@
 
 .title {
   margin: 0;
-  font-size: clamp(1.35rem, 2vw, 1.9rem);
-  letter-spacing: -0.02em;
-  font-weight: 800;
+  font-size: clamp(1.5rem, 2.2vw, 2.15rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
-
 
 .lead {
-  margin: 0.2rem 0 0.6rem;
+  margin: 0.12rem 0 0.65rem;
   color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: 0.96rem;
 }
-
 
 .topBar {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
+  gap: 0.8rem;
+  border-bottom: 1px solid #b9cbe0;
+  padding-bottom: 0.5rem;
 }
-
 
 .topAuth {
   display: flex;
@@ -113,58 +113,59 @@
 .modeChooser {
   display: grid;
   grid-template-columns: repeat(2, minmax(220px, 1fr));
-  gap: 12px;
-  margin-top: 14px;
+  gap: 0.65rem;
+  margin-top: 0.65rem;
 }
 
-
 .modeBtn {
-  min-height: 120px;
+  min-height: 110px;
+  font-size: 1rem;
+  font-weight: 900;
   display: grid;
   align-content: center;
   justify-items: start;
-  gap: 6px;
-  border-radius: 14px;
-  padding: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  gap: 0.16rem;
+  border-radius: 6px;
+  padding: 0.8rem;
+  border-width: 2px;
 }
-.modeBtn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 36px rgba(16, 24, 40, 0.12);
-  border-color: var(--border-strong);
-}
-
 
 .modeSingle {
   background:
-    radial-gradient(900px 240px at 15% 20%, rgba(37, 99, 235, 0.12), transparent 60%),
-    var(--surface);
+    linear-gradient(180deg, #f7fcff 0%, #e9f4ff 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(100, 150, 210, 0.09) 0,
+      rgba(100, 150, 210, 0.09) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+  border-color: #7ca6d6;
 }
-
 
 .modeMulti {
   background:
-    radial-gradient(900px 240px at 15% 20%, rgba(245, 158, 11, 0.14), transparent 60%),
-    var(--surface);
+    linear-gradient(180deg, #fffaf0 0%, #ffeecf 100%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(212, 145, 75, 0.1) 0,
+      rgba(212, 145, 75, 0.1) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+  border-color: #d6a05b;
 }
-
 
 .modeName {
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 1.06rem;
+  font-weight: 900;
 }
-
 
 .modeDesc {
-  font-size: 0.88rem;
-  color: var(--muted);
-  font-weight: 600;
+  font-size: 0.82rem;
+  color: #364f6d;
+  font-weight: 700;
 }
-
 
 .authBar {
   margin-top: 0.6rem;
@@ -175,13 +176,12 @@
 }
 
 .authScreen {
-  margin-top: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  border-radius: 14px;
-  padding: 14px;
+  margin-top: 0.6rem;
+  border: 1px solid #c0d1e4;
+  background: var(--panel-soft);
+  border-radius: 6px;
+  padding: 0.65rem;
 }
-
 
 .authTabs {
   display: flex;
@@ -611,12 +611,25 @@ button:disabled {
 }
 
 .boardWrap {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-soft);
+  --board-cursor: crosshair;
+  margin-top: 0.72rem;
+  overflow: auto;
+  border: 1px solid #b6c8dd;
+  border-radius: 6px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(220, 232, 244, 0.62)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(129, 156, 185, 0.08) 0,
+      rgba(129, 156, 185, 0.08) 8px,
+      rgba(255, 255, 255, 0) 8px,
+      rgba(255, 255, 255, 0) 16px
+    );
+  padding: 0.66rem;
+  user-select: none;
+  display: flex;
+  justify-content: center;
 }
-
 
 .nonogram {
   --cell-size: 24px;
@@ -763,152 +776,4 @@ button:disabled {
   .countdownOverlay {
     font-size: 58px;
   }
-}
-
-/* ------------------------------------------------------------------
-   Modern UI override (remove “toy / vibe-coding” look)
-   ------------------------------------------------------------------ */
-
-:root {
-  --ink: #0b1220;
-  --muted: #5b6474;
-  --line: rgba(15, 23, 42, 0.12);
-  --line-strong: rgba(15, 23, 42, 0.18);
-  --panel: #ffffff;
-  --panel-soft: #f7f8fb;
-  --accent: #2563eb;
-  --accent-ink: #ffffff;
-  --danger: #b42318;
-  --success: #067647;
-}
-
-.page {
-  place-items: start center;
-  padding: clamp(16px, 2.5vw, 28px);
-  background: radial-gradient(1200px 800px at 15% 10%, rgba(37, 99, 235, 0.08), transparent 60%),
-    radial-gradient(900px 600px at 85% 20%, rgba(16, 185, 129, 0.06), transparent 55%),
-    #f3f5f9;
-  font-family: "SUIT Variable", "Pretendard Variable", "Noto Sans KR", "Segoe UI", system-ui,
-    -apple-system, sans-serif;
-}
-
-.panel {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--panel);
-  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
-  overflow: hidden;
-}
-
-.panel::before { content: none; }
-
-
-.topBar {
-  border-bottom: 1px solid var(--line);
-  padding-bottom: 14px;
-}
-
-.title {
-  text-transform: none;
-  letter-spacing: -0.01em;
-  font-weight: 800;
-}
-
-.lead {
-  margin: 0.2rem 0 0;
-  font-size: 0.92rem;
-  line-height: 1.45;
-}
-
-.userChip {
-  border-radius: 999px;
-  background: var(--panel-soft);
-  border: 1px solid var(--line);
-  color: rgba(15, 23, 42, 0.86);
-}
-
-.modeChooser {
-  gap: 14px;
-  margin-top: 16px;
-}
-
-.modeBtn {
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: #fff;
-  box-shadow: 0 8px 20px rgba(2, 6, 23, 0.06);
-  padding: 18px;
-}
-
-.modeSingle {
-  border-color: rgba(37, 99, 235, 0.22);
-}
-
-.modeMulti {
-  border-color: rgba(16, 185, 129, 0.22);
-}
-
-.modeDesc {
-  color: var(--muted);
-  font-weight: 600;
-}
-
-/* Buttons / inputs */
-input,
-select,
-button {
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: rgba(15, 23, 42, 0.92);
-  padding: 0.5rem 0.72rem;
-  font-size: 0.92rem;
-}
-
-button {
-  background: #fff;
-  font-weight: 650;
-}
-
-button:hover:enabled {
-  border-color: rgba(37, 99, 235, 0.35);
-}
-
-button:focus-visible,
-input:focus,
-select:focus {
-  outline: none;
-  border-color: rgba(37, 99, 235, 0.6);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
-}
-
-/* Explicit button variants (used in header) */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btnPrimary {
-  background: var(--accent);
-  border-color: rgba(37, 99, 235, 0.75);
-  color: var(--accent-ink);
-}
-
-.btnPrimary:hover:enabled {
-  border-color: rgba(37, 99, 235, 0.95);
-}
-
-/* Make the default "primary" action less gimmicky (old last-child gradient) */
-.raceActions button:last-child,
-.modalActions button:last-child {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: rgba(37, 99, 235, 0.75);
-}
-
-/* Board wrapper: remove patterns */
-.boardWrap {
-  background: #fff;
-  border: 1px solid var(--line);
 }

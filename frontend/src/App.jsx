@@ -8,7 +8,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 const MAX_HISTORY = 200;
 const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
-// Keep audio feedback minimal and professional (no novelty SFX assets).
+const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
 
 function toBase64Bits(cells, width, height) {
   const byteLength = Math.ceil((width * height) / 8);
@@ -148,10 +148,12 @@ function App() {
   const raceProgressBusyRef = useRef(false);
   const audioCtxRef = useRef(null);
   const masterGainRef = useRef(null);
-  const pootAudioRef = useRef(null);
   const countdownCueRef = useRef(-1);
   const prevRacePhaseRef = useRef("idle");
   const lastPaintSfxAtRef = useRef(0);
+  const poopBufferRef = useRef(null);
+  const poopLoadingRef = useRef(false);
+  const poopAudioFallbackRef = useRef(null);
   const deferredCells = useDeferredValue(cells);
 
   useEffect(() => {
@@ -197,7 +199,31 @@ function App() {
     return () => window.removeEventListener("pointerdown", unlock);
   }, []);
 
-  // novelty SFX loader removed
+  useEffect(() => {
+    const ctx = ensureAudio();
+    if (!ctx || poopBufferRef.current || poopLoadingRef.current) return;
+    poopLoadingRef.current = true;
+    fetch(POOP_SFX_URL)
+      .then((res) => res.arrayBuffer())
+      .then((buf) => ctx.decodeAudioData(buf))
+      .then((decoded) => {
+        poopBufferRef.current = decoded;
+      })
+      .catch(() => {
+        // keep fallback tone
+      })
+      .finally(() => {
+        poopLoadingRef.current = false;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (poopAudioFallbackRef.current) return;
+    const audio = new Audio(POOP_SFX_URL);
+    audio.preload = "auto";
+    audio.volume = 1;
+    poopAudioFallbackRef.current = audio;
+  }, []);
 
   const rowHints = useMemo(() => {
     if (!Array.isArray(puzzle?.row_hints)) return [];
@@ -307,17 +333,6 @@ function App() {
     return ctx;
   };
 
-  useEffect(() => {
-    // Poop SFX (required): lightweight audio element backed by /public/sounds/poot.mp3
-    const audio = new Audio("/sounds/poot.mp3");
-    audio.preload = "auto";
-    audio.volume = 0.7;
-    pootAudioRef.current = audio;
-    return () => {
-      pootAudioRef.current = null;
-    };
-  }, []);
-
   const authHeaders = useMemo(() => {
     if (!authToken) return {};
     return { Authorization: `Bearer ${authToken}` };
@@ -393,19 +408,34 @@ function App() {
     tone(500, 60, { type: "triangle", gain: 0.05 });
   };
 
-  const playReactionSfx = (emoji) => {
+  const playPoopSfx = () => {
     if (!soundOn) return;
-    if (emoji === "💩") {
-      const audio = pootAudioRef.current;
-      if (audio) {
-        try {
-          audio.currentTime = 0;
-        } catch (_) {}
-        audio.play().catch(() => {});
-        return;
+    const ctx = ensureAudio();
+    const master = masterGainRef.current;
+    if (!ctx || !master || !poopBufferRef.current) {
+      const fallback = poopAudioFallbackRef.current;
+      if (!fallback) return;
+      try {
+        fallback.currentTime = 0;
+        fallback.volume = 1;
+        fallback.play().catch(() => {});
+      } catch {
+        // ignore fallback playback errors
       }
+      return;
     }
-    playSfx("ui");
+    try {
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const src = ctx.createBufferSource();
+      src.buffer = poopBufferRef.current;
+      const gain = ctx.createGain();
+      gain.gain.value = 2.1;
+      src.connect(gain);
+      gain.connect(master);
+      src.start();
+    } catch {
+      // ignore playback errors
+    }
   };
 
   const handleToggleSfx = () => {
@@ -1415,7 +1445,9 @@ function App() {
         dx: to.left + to.width / 2 - (from.left + from.width / 2),
         dy: to.top + to.height / 2 - (from.top + from.height / 2),
       });
-      if (event.emoji) playReactionSfx(event.emoji);
+      if (event.emoji === "💩") {
+        playPoopSfx();
+      }
     }
     if (!nextFlights.length) return;
     setReactionFlights((prev) => [
@@ -1490,6 +1522,8 @@ function App() {
 
   return (
     <main className="page">
+      <div className="bgGlow bgGlowA" />
+      <div className="bgGlow bgGlowB" />
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -1497,9 +1531,9 @@ function App() {
         className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""}`}
       >
         <div className="topBar">
-          <div className="brandBlock">
-            <h1 className="title">Nonogram</h1>
-            <p className="lead">퍼즐을 풀고 기록을 남기세요. 싱글/멀티 모두 지원합니다.</p>
+          <div>
+            <h1 className="title">Nonogram Arena</h1>
+            <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
           </div>
           {!isModeAuth && (
             <div className="topAuth">
@@ -1512,10 +1546,10 @@ function App() {
                 </>
               ) : (
                 <>
-                  <button className="btn btnPrimary" onClick={() => openAuthScreen("login", "menu")}>
+                  <button onClick={() => openAuthScreen("login", "menu")}>
                     <LogIn size={15} /> 로그인
                   </button>
-                  <button className="btn" onClick={() => openAuthScreen("signup", "menu")}>
+                  <button onClick={() => openAuthScreen("signup", "menu")}>
                     <UserPlus size={15} /> 회원가입
                   </button>
                 </>
@@ -1532,8 +1566,8 @@ function App() {
               className="modeBtn modeSingle"
               onClick={goSingleMode}
             >
-              <span className="modeName">싱글 플레이</span>
-              <span className="modeDesc">랜덤 퍼즐을 선택해 풀이</span>
+              <span className="modeName">싱글플레이</span>
+              <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
             </motion.button>
             <motion.button
               whileHover={{ y: -2 }}
@@ -1541,8 +1575,8 @@ function App() {
               className="modeBtn modeMulti"
               onClick={goMultiMode}
             >
-              <span className="modeName">멀티 플레이</span>
-              <span className="modeDesc">방을 만들거나 참가해 함께 풀기</span>
+              <span className="modeName">멀티플레이</span>
+              <span className="modeDesc">방 생성/참가 실시간 대결</span>
             </motion.button>
           </div>
         )}
