@@ -1052,9 +1052,13 @@ function App() {
                   {p.nickname}
                   {raceState?.hostPlayerId === p.playerId ? " [host]" : ""}
                   {p.isReady ? " [ready]" : " [not ready]"}:
-                  {Number.isInteger(p.elapsedSec)
-                    ? ` ${p.elapsedSec}s`
-                    : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
+                  {p.playerId === racePlayerId
+                    ? Number.isInteger(p.elapsedSec)
+                      ? " 완료"
+                      : " 플레이 중"
+                    : Number.isInteger(p.elapsedSec)
+                      ? ` ${p.elapsedSec}s`
+                      : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
                 </span>
               ))}
             </div>
