@@ -1,13 +1,8 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
 import { Eraser, LogIn, Redo2, Undo2, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
-import { MainMenu } from "./components/MainMenu";
-import { AuthScreen } from "./components/AuthScreen";
-import { TopBar } from "./components/TopBar";
-import { SinglePlayer } from "./components/SinglePlayer";
-import { MultiplayerLobby } from "./components/MultiplayerLobby";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://nonogram-api.onrender.com").replace(/\/$/, "");
 const MAX_HISTORY = 200;
@@ -286,12 +281,10 @@ function App() {
     if (!puzzle) return false;
     return solvedRows.size === puzzle.height && solvedCols.size === puzzle.width;
   }, [puzzle, solvedRows, solvedCols]);
-  
   const isModeMenu = playMode === "menu";
   const isModeSingle = playMode === "single";
   const isModeMulti = playMode === "multi";
   const isModeAuth = playMode === "auth";
-
   const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
   const shouldShowPuzzleBoard = Boolean(
@@ -1182,10 +1175,6 @@ function App() {
         if (v === 1) {
           ctx.fillStyle = "#1d1d1d";
           ctx.fillRect(px, py, cellSize, cellSize);
-          // Keep visible borders between adjacent filled cells.
-          ctx.strokeStyle = "#7f8d9b";
-          ctx.lineWidth = 1;
-          ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
         } else if (v === 2) {
           ctx.strokeStyle = "#8f0000";
           ctx.lineWidth = 1.8;
@@ -1531,87 +1520,6 @@ function App() {
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [reactionMenuForPlayerId]);
 
-  const renderContent = () => {
-    if (isModeMenu) {
-      return <MainMenu goSingleMode={goSingleMode} goMultiMode={goMultiMode} />;
-    }
-    if (isModeAuth) {
-      return (
-        <AuthScreen
-          authTab={authTab}
-          setAuthTab={setAuthTab}
-          backToMenu={backToMenu}
-          loginUsername={loginUsername}
-          setLoginUsername={setLoginUsername}
-          loginPassword={loginPassword}
-          setLoginPassword={setLoginPassword}
-          loginError={loginError}
-          setLoginError={setLoginError}
-          loginFieldErrors={loginFieldErrors}
-          setLoginFieldErrors={setLoginFieldErrors}
-          login={login}
-          signupUsername={signupUsername}
-          setSignupUsername={setSignupUsername}
-          signupNickname={signupNickname}
-          setSignupNickname={setSignupNickname}
-          signupPassword={signupPassword}
-          setSignupPassword={setSignupPassword}
-          signupError={signupError}
-          setSignupError={setSignupError}
-          signupFieldErrors={signupFieldErrors}
-          setSignupFieldErrors={setSignupFieldErrors}
-          signup={signup}
-          isLoading={isLoading}
-        />
-      );
-    }
-    if (isModeSingle) {
-      return (
-        <SinglePlayer
-          selectedSize={selectedSize}
-          setSelectedSize={setSelectedSize}
-          loadRandomBySize={loadRandomBySize}
-          isLoading={isLoading}
-          soundOn={soundOn}
-          handleToggleSfx={handleToggleSfx}
-          backToMenu={backToMenu}
-          isInRaceRoom={isInRaceRoom}
-        />
-      );
-    }
-    if (isModeMulti) {
-      if (!isInRaceRoom) {
-        return (
-          <MultiplayerLobby
-            isLoading={isLoading}
-            roomsLoading={roomsLoading}
-            publicRooms={publicRooms}
-            soundOn={soundOn}
-            handleToggleSfx={handleToggleSfx}
-            backToMenu={backToMenu}
-            isInRaceRoom={isInRaceRoom}
-            setShowCreateModal={setShowCreateModal}
-            setCreateRoomTitle={setCreateRoomTitle}
-            setCreateSize={setCreateSize}
-            selectedSize={selectedSize}
-            setCreateMaxPlayers={setCreateMaxPlayers}
-            setCreateVisibility={setCreateVisibility}
-            setCreatePassword={setCreatePassword}
-            setShowJoinModal={setShowJoinModal}
-            setJoinRoomType={setJoinRoomType}
-            setJoinPassword={setJoinPassword}
-            fetchPublicRooms={fetchPublicRooms}
-            setJoinRoomCode={setJoinRoomCode}
-          />
-        );
-      } else {
-        // TODO: Extract to RaceRoom.jsx
-        return <div>Race Room Placeholder</div>;
-      }
-    }
-    return null;
-  };
-
   return (
     <main className="page">
       <div className="bgGlow bgGlowA" />
@@ -1622,17 +1530,736 @@ function App() {
         transition={{ duration: 0.35, ease: "easeOut" }}
         className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""}`}
       >
-        <TopBar
-          isLoggedIn={isLoggedIn}
-          authUser={authUser}
-          logout={logout}
-          openAuthScreen={openAuthScreen}
-          isModeAuth={isModeAuth}
-        />
-        {renderContent()}
+        <div className="topBar">
+          <div>
+            <h1 className="title">Nonogram Arena</h1>
+            <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
+          </div>
+          {!isModeAuth && (
+            <div className="topAuth">
+              {isLoggedIn ? (
+                <>
+                  <span className="userChip">
+                    {authUser.nickname} ({authUser.username})
+                  </span>
+                  <button onClick={logout}>로그아웃</button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => openAuthScreen("login", "menu")}>
+                    <LogIn size={15} /> 로그인
+                  </button>
+                  <button onClick={() => openAuthScreen("signup", "menu")}>
+                    <UserPlus size={15} /> 회원가입
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {isModeMenu && (
+          <div className="modeChooser">
+            <motion.button
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="modeBtn modeSingle"
+              onClick={goSingleMode}
+            >
+              <span className="modeName">싱글플레이</span>
+              <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
+            </motion.button>
+            <motion.button
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              className="modeBtn modeMulti"
+              onClick={goMultiMode}
+            >
+              <span className="modeName">멀티플레이</span>
+              <span className="modeDesc">방 생성/참가 실시간 대결</span>
+            </motion.button>
+          </div>
+        )}
+
+        {isModeAuth && (
+          <div className="authScreen">
+            <div className="authTabs">
+              <button
+                className={authTab === "login" ? "active" : ""}
+                onClick={() => {
+                  setAuthTab("login");
+                  setLoginError("");
+                  setLoginFieldErrors({ username: "", password: "" });
+                }}
+              >
+                로그인
+              </button>
+              <button
+                className={authTab === "signup" ? "active" : ""}
+                onClick={() => {
+                  setAuthTab("signup");
+                  setSignupError("");
+                  setSignupFieldErrors({ username: "", nickname: "", password: "" });
+                }}
+              >
+                회원가입
+              </button>
+              <button onClick={backToMenu}>메인으로</button>
+            </div>
+
+            {authTab === "login" && (
+              <div className="authCard">
+                <label>
+                  아이디
+                  <input
+                    type="text"
+                    className={loginFieldErrors.username ? "fieldError" : ""}
+                    value={loginUsername}
+                    onChange={(e) => {
+                      setLoginUsername(e.target.value);
+                      setLoginFieldErrors((prev) => ({ ...prev, username: "" }));
+                      if (loginError) setLoginError("");
+                    }}
+                    placeholder="아이디"
+                  />
+                  {loginFieldErrors.username && <span className="fieldErrorText">{loginFieldErrors.username}</span>}
+                </label>
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    className={loginFieldErrors.password ? "fieldError" : ""}
+                    value={loginPassword}
+                    onChange={(e) => {
+                      setLoginPassword(e.target.value);
+                      setLoginFieldErrors((prev) => ({ ...prev, password: "" }));
+                      if (loginError) setLoginError("");
+                    }}
+                    placeholder="비밀번호"
+                  />
+                  {loginFieldErrors.password && <span className="fieldErrorText">{loginFieldErrors.password}</span>}
+                </label>
+                {loginError && <div className="modalError">{loginError}</div>}
+                <div className="modalActions">
+                  <button onClick={backToMenu}>취소</button>
+                  <button onClick={login} disabled={isLoading || !loginUsername.trim() || !loginPassword}>
+                    {isLoading ? "로그인 중..." : "로그인"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {authTab === "signup" && (
+              <div className="authCard">
+                <label>
+                  아이디
+                  <input
+                    type="text"
+                    className={signupFieldErrors.username ? "fieldError" : ""}
+                    value={signupUsername}
+                    onChange={(e) => {
+                      setSignupUsername(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, username: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="아이디(3~24자)"
+                  />
+                  {signupFieldErrors.username && (
+                    <span className="fieldErrorText">{signupFieldErrors.username}</span>
+                  )}
+                </label>
+                <label>
+                  닉네임
+                  <input
+                    type="text"
+                    className={signupFieldErrors.nickname ? "fieldError" : ""}
+                    value={signupNickname}
+                    onChange={(e) => {
+                      setSignupNickname(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, nickname: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="닉네임"
+                  />
+                  {signupFieldErrors.nickname && (
+                    <span className="fieldErrorText">{signupFieldErrors.nickname}</span>
+                  )}
+                </label>
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    className={signupFieldErrors.password ? "fieldError" : ""}
+                    value={signupPassword}
+                    onChange={(e) => {
+                      setSignupPassword(e.target.value);
+                      setSignupFieldErrors((prev) => ({ ...prev, password: "" }));
+                      if (signupError) setSignupError("");
+                    }}
+                    placeholder="영문+숫자 포함 8자 이상"
+                  />
+                  {signupFieldErrors.password && (
+                    <span className="fieldErrorText">{signupFieldErrors.password}</span>
+                  )}
+                </label>
+                {signupError && <div className="modalError">{signupError}</div>}
+                <div className="modalActions">
+                  <button onClick={backToMenu}>취소</button>
+                  <button
+                    onClick={signup}
+                    disabled={isLoading || !signupUsername.trim() || !signupNickname.trim() || !signupPassword}
+                  >
+                    {isLoading ? "가입 중..." : "회원가입"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {isModeSingle && (
+          <div className="controls">
+            {!isInRaceRoom && (
+              <>
+                <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
+                  <option value="5x5">5x5</option>
+                  <option value="10x10">10x10</option>
+                  <option value="15x15">15x15</option>
+                  <option value="20x20">20x20</option>
+                  <option value="25x25">25x25</option>
+                </select>
+                <button onClick={loadRandomBySize} disabled={isLoading}>
+                  {isLoading ? "Loading..." : "Load Random Size"}
+                </button>
+              </>
+            )}
+            <button onClick={handleToggleSfx}>
+              {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              {soundOn ? "SFX ON" : "SFX OFF"}
+            </button>
+            <button onClick={backToMenu} disabled={isInRaceRoom}>
+              메인으로
+            </button>
+          </div>
+        )}
+
+        {isModeMulti && (
+          <>
+            <div className="controls">
+              <button onClick={handleToggleSfx}>
+                {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+                {soundOn ? "SFX ON" : "SFX OFF"}
+              </button>
+              <button onClick={backToMenu} disabled={isInRaceRoom}>
+                메인으로
+              </button>
+            </div>
+
+            {!isLoggedIn && (
+              <div className="raceStateBox">
+                <div>오른쪽 상단에서 로그인 후 멀티플레이를 이용하세요.</div>
+              </div>
+            )}
+
+            {isLoggedIn && (
+              <div className="racePanel">
+                {!isInRaceRoom && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setCreateRoomTitle("");
+                        setCreateSize(selectedSize);
+                        setCreateMaxPlayers("2");
+                        setCreateVisibility("public");
+                        setCreatePassword("");
+                        setShowCreateModal(true);
+                      }}
+                      disabled={isLoading}
+                    >
+                      방 만들기
+                    </button>
+                    <button
+                      onClick={() => {
+                        setJoinRoomType("unknown");
+                        setJoinPassword("");
+                        setShowJoinModal(true);
+                      }}
+                      disabled={isLoading}
+                    >
+                      Join Room
+                    </button>
+                    <button onClick={fetchPublicRooms} disabled={roomsLoading}>
+                      {roomsLoading ? "목록 불러오는 중..." : "오픈방 새로고침"}
+                    </button>
+                  </>
+                )}
+                <button onClick={leaveRace} disabled={!raceRoomCode}>
+                  Leave Room
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {isModeMulti && isLoggedIn && !isInRaceRoom && (
+          <div className="raceStateBox">
+            <div><b>방 리스트</b></div>
+            {publicRooms.length === 0 ? (
+              <div>입장 가능한 방이 없습니다.</div>
+            ) : (
+              <div className="roomList">
+                {publicRooms.map((room) => (
+                  <div className="roomRow" key={room.roomCode}>
+                    <span>
+                      <span className={`roomBadge ${room.isPrivate ? "private" : "public"}`}>
+                        {room.isPrivate ? "LOCK" : "OPEN"}
+                      </span>{" "}
+                      [{room.roomCode}] {room.roomTitle} ({room.width}x{room.height}) {room.currentPlayers}/
+                      {room.maxPlayers}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setJoinRoomCode(room.roomCode);
+                        setJoinRoomType(room.isPrivate ? "private" : "public");
+                        setJoinPassword("");
+                        setShowJoinModal(true);
+                      }}
+                    >
+                      참가
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isModeMulti && isLoggedIn && raceRoomCode && (
+          <div className="raceStateBox">
+            <div>
+              Room: <b>{raceRoomCode}</b>
+            </div>
+            {roomTitleText && (
+              <div>
+                Title: <b>{roomTitleText}</b>
+              </div>
+            )}
+            <div>
+              Players: {(raceState?.players || []).length}/{raceState?.maxPlayers || 2}
+            </div>
+            <div>State: {racePhase}</div>
+            <div>Submit: {raceSubmitting ? "Sending..." : "Idle"}</div>
+            {myRacePlayer && <div>Me: {myRacePlayer.nickname}</div>}
+            {isRaceLobby && (
+              <div className="raceActions">
+                <button
+                  onClick={() => setReady(!(myRacePlayer?.isReady === true))}
+                  disabled={!myRacePlayer}
+                >
+                  {myRacePlayer?.isReady ? "Unready" : "Ready"}
+                </button>
+                <button
+                  onClick={startRace}
+                  disabled={raceState?.hostPlayerId !== racePlayerId || !raceState?.canStart}
+                >
+                  Start (Host)
+                </button>
+              </div>
+            )}
+            {isRaceFinished && raceResultText && <div className="raceResult">{raceResultText}</div>}
+            {isRaceFinished && (
+              <div className="raceActions">
+                <button onClick={requestRematch} disabled={isRematchLoading}>
+                  {isRematchLoading ? "준비중..." : "한판 더?"}
+                </button>
+              </div>
+            )}
+            {isRaceFinished && Array.isArray(raceState?.rankings) && raceState.rankings.length > 0 && (
+              <div className="rankings">
+                <b>최종 순위</b>
+                {raceState.rankings.map((r) => (
+                  <div key={r.playerId}>
+                    {r.rank ? `${r.rank}등` : "-"} {r.nickname}
+                    {Number.isInteger(r.elapsedSec)
+                      ? ` (${r.elapsedSec}s)`
+                      : r.status === "left"
+                        ? " (중도 이탈)"
+                        : " (미완주)"}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="racePlayers">
+              {(raceState?.players || []).map((p) => (
+                <span
+                  key={p.playerId}
+                  className="playerBadge"
+                  ref={(el) => {
+                    if (el) playerBadgeRefs.current.set(p.playerId, el);
+                    else playerBadgeRefs.current.delete(p.playerId);
+                  }}
+                >
+                  <span className="nameWrap">
+                    <button
+                      className="nickBtn"
+                      onClick={() => {
+                        if (p.playerId === racePlayerId) return;
+                        setReactionMenuForPlayerId((prev) => (prev === p.playerId ? "" : p.playerId));
+                      }}
+                      disabled={p.playerId === racePlayerId}
+                    >
+                      {p.nickname}
+                    </button>
+                    {reactionMenuForPlayerId === p.playerId && (
+                      <span className="reactionMenu">
+                        <button onClick={() => sendReaction(p.playerId, "💩")}>💩</button>
+                        <button onClick={() => sendReaction(p.playerId, "👍")}>👍</button>
+                        <button onClick={() => sendReaction(p.playerId, "❤️")}>❤️</button>
+                      </span>
+                    )}
+                  </span>
+                  <span className="playerStateText">
+                    {raceState?.hostPlayerId === p.playerId ? " [host]" : ""}
+                    {p.disconnectedAt ? " [left]" : p.isReady ? " [ready]" : " [not ready]"}:
+                    {p.playerId === racePlayerId
+                      ? Number.isInteger(p.elapsedSec)
+                        ? " 완료 (대기중)"
+                        : " 플레이 중"
+                      : p.disconnectedAt
+                        ? " 중도 이탈"
+                      : Number.isInteger(p.elapsedSec)
+                        ? ` ${p.elapsedSec}s`
+                        : ` 남은 정답칸 ${Math.max(0, Number(p.remainingAnswerCells || 0))}`}
+                  </span>
+                </span>
+              ))}
+            </div>
+            <div className="reactionLayer">
+              {reactionFlights.map((f) => (
+                <span
+                  key={f.id}
+                  className="reactionFlight"
+                  style={{
+                    left: `${f.x}px`,
+                    top: `${f.y}px`,
+                    opacity: f.opacity,
+                    "--flight-scale": f.scale,
+                  }}
+                >
+                  {f.emoji}
+                </span>
+              ))}
+            </div>
+            <div className="chatBox">
+              <div className="chatTitle">Room Chat</div>
+              <div className="chatBody" ref={chatBodyRef}>
+                {chatMessages.length === 0 ? (
+                  <div className="chatEmpty">아직 채팅이 없습니다.</div>
+                ) : (
+                  chatMessages.map((msg) => (
+                    <div className="chatMsg" key={msg.id}>
+                      <b>{msg.nickname}</b>: {msg.text}
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="chatInputRow">
+                <div className="emojiWrap" ref={emojiWrapRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    title="이모지"
+                  >
+                    🙂
+                  </button>
+                  {showEmojiPicker && (
+                    <div className="emojiPopover">
+                      <EmojiPicker
+                        onEmojiClick={(emojiData) => {
+                          setChatInput((prev) => `${prev}${emojiData.emoji}`);
+                          setShowEmojiPicker(false);
+                        }}
+                        skinTonesDisabled
+                        width={300}
+                        height={340}
+                      />
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  placeholder="메시지 입력..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      sendRaceChat();
+                    }
+                  }}
+                />
+                <button onClick={sendRaceChat} disabled={chatSending || !chatInput.trim()}>
+                  {chatSending ? "..." : "전송"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {shouldShowPuzzleBoard && <div className="timerBar">TIME {formattedTime}</div>}
+        {shouldShowPuzzleBoard && (
+          <div className="gameTools" role="toolbar" aria-label="Board tools">
+            <button
+              className="iconBtn"
+              onClick={undo}
+              disabled={!canUndo || !canInteractBoard}
+              aria-label="Undo"
+              title="Undo"
+            >
+              <Undo2 size={16} />
+            </button>
+            <button
+              className="iconBtn"
+              onClick={redo}
+              disabled={!canRedo || !canInteractBoard}
+              aria-label="Redo"
+              title="Redo"
+            >
+              <Redo2 size={16} />
+            </button>
+            <button
+              className="iconBtn danger"
+              onClick={resetGrid}
+              disabled={!canInteractBoard}
+              aria-label="Clear board"
+              title="Clear"
+            >
+              <Eraser size={16} />
+            </button>
+          </div>
+        )}
+
+        {status && !isModeAuth && <div className="status">{status}</div>}
+
+        {showCreateModal && (
+          <div className="modalBackdrop" onClick={() => setShowCreateModal(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>방 만들기</h2>
+              <label>
+                퍼즐 유형
+                <select value={createSize} onChange={(e) => setCreateSize(e.target.value)}>
+                  <option value="5x5">5x5</option>
+                  <option value="10x10">10x10</option>
+                  <option value="15x15">15x15</option>
+                  <option value="20x20">20x20</option>
+                  <option value="25x25">25x25</option>
+                </select>
+              </label>
+              <label>
+                최대 인원
+                <select value={createMaxPlayers} onChange={(e) => setCreateMaxPlayers(e.target.value)}>
+                  <option value="2">2명</option>
+                  <option value="3">3명</option>
+                  <option value="4">4명</option>
+                </select>
+              </label>
+              <label>
+                방 공개 설정
+                <select value={createVisibility} onChange={(e) => setCreateVisibility(e.target.value)}>
+                  <option value="public">오픈방</option>
+                  <option value="private">비밀방</option>
+                </select>
+              </label>
+              {createVisibility === "private" && (
+                <label>
+                  비밀번호
+                  <input
+                    type="password"
+                    value={createPassword}
+                    onChange={(e) => setCreatePassword(e.target.value)}
+                    placeholder="비밀번호"
+                  />
+                </label>
+              )}
+              <label>
+                방 제목
+                <input
+                  type="text"
+                  value={createRoomTitle}
+                  onChange={(e) => setCreateRoomTitle(e.target.value)}
+                  placeholder="예: 10x10 스피드전"
+                />
+              </label>
+              <div className="modalActions">
+                <button onClick={() => setShowCreateModal(false)}>취소</button>
+                <button onClick={createRaceRoom} disabled={isLoading}>
+                  {isLoading ? "생성중..." : "생성"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showJoinModal && (
+          <div className="modalBackdrop" onClick={() => setShowJoinModal(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>방 참가</h2>
+              <label>
+                방 코드
+                <input
+                  type="text"
+                  value={joinRoomCode}
+                  onChange={(e) => {
+                    const code = e.target.value.toUpperCase();
+                    setJoinRoomCode(code);
+                    const matched = publicRooms.find((r) => r.roomCode === code);
+                    setJoinRoomType(matched ? (matched.isPrivate ? "private" : "public") : "unknown");
+                  }}
+                  placeholder="예: AB12CD"
+                />
+              </label>
+              {joinRoomType !== "public" && (
+                <label>
+                  비밀번호(비밀방만)
+                  <input
+                    type="password"
+                    value={joinPassword}
+                    onChange={(e) => setJoinPassword(e.target.value)}
+                    placeholder="비밀방 비밀번호"
+                  />
+                </label>
+              )}
+              <div className="modalActions">
+                <button onClick={() => setShowJoinModal(false)}>취소</button>
+                <button onClick={joinRaceRoom} disabled={isLoading || !joinRoomCode.trim()}>
+                  {isLoading ? "참가중..." : "참가"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showNeedLoginPopup && (
+          <div className="modalBackdrop" onClick={() => setShowNeedLoginPopup(false)}>
+            <div className="modalCard" onClick={(e) => e.stopPropagation()}>
+              <h2>로그인 필요</h2>
+              <p>멀티플레이는 로그인 후 이용 가능합니다.</p>
+              <div className="modalActions">
+                <button onClick={() => setShowNeedLoginPopup(false)}>취소</button>
+                <button
+                  onClick={() => {
+                    setShowNeedLoginPopup(false);
+                    openAuthScreen("login", "multi");
+                  }}
+                >
+                  로그인하러 가기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {shouldShowPuzzleBoard && (
+          <div className="boardWrap" onContextMenu={(e) => e.preventDefault()}>
+            <div
+              className="nonogram"
+              style={{
+                "--cell-size": `${cellSize}px`,
+                "--left-depth": maxRowHintDepth,
+                "--top-depth": maxColHintDepth,
+                "--board-w": puzzle.width,
+                "--board-h": puzzle.height,
+              }}
+            >
+              <div className="corner" />
+
+              <div
+                className="colHints"
+                style={{
+                  gridTemplateColumns: `repeat(${puzzle.width}, var(--cell-size))`,
+                }}
+              >
+                {colHints.map((hint, colIdx) => (
+                  <div
+                    key={`col-${colIdx}`}
+                    className="colHintCol"
+                    style={{ gridTemplateRows: `repeat(${maxColHintDepth}, var(--cell-size))` }}
+                  >
+                    {Array.from({ length: maxColHintDepth }).map((_, depthIdx) => {
+                      const value = hint[hint.length - maxColHintDepth + depthIdx];
+                      const hintId = `c-${colIdx}-${depthIdx}`;
+                      return (
+                        <button
+                          key={hintId}
+                          type="button"
+                          className={`hintNum ${activeHints.has(hintId) ? "active" : ""}`}
+                          onClick={() => toggleHint(hintId)}
+                        >
+                          {value ?? ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                className="rowHints"
+                style={{ gridTemplateRows: `repeat(${puzzle.height}, var(--cell-size))` }}
+              >
+                {rowHints.map((hint, rowIdx) => (
+                  <div
+                    key={`row-${rowIdx}`}
+                    className="rowHintRow"
+                    style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}
+                  >
+                    {Array.from({ length: maxRowHintDepth }).map((_, depthIdx) => {
+                      const value = hint[hint.length - maxRowHintDepth + depthIdx];
+                      const hintId = `r-${rowIdx}-${depthIdx}`;
+                      return (
+                        <button
+                          key={hintId}
+                          type="button"
+                          className={`hintNum ${activeHints.has(hintId) ? "active" : ""}`}
+                          onClick={() => toggleHint(hintId)}
+                        >
+                          {value ?? ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                ref={boardRef}
+                className="board"
+                style={{
+                  width: `${puzzle.width * cellSize}px`,
+                  height: `${puzzle.height * cellSize}px`,
+                  cursor: canInteractBoard ? "crosshair" : "not-allowed",
+                }}
+                onPointerDown={onBoardPointerDown}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <canvas ref={canvasRef} className="boardCanvas" />
+                {isRaceCountdown && (
+                  <div className="countdownOverlay">{countdownLeft ?? 0}</div>
+                )}
+                {isRaceLobby && <div className="countdownOverlay wait">READY 대기</div>}
+                {isRaceFinished && <div className="countdownOverlay result">{raceResultText}</div>}
+              </div>
+            </div>
+          </div>
+        )}
       </motion.section>
     </main>
   );
 }
 
 export default App;
+
+
+
+
+
