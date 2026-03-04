@@ -1,7 +1,7 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
-import { Eraser, LogIn, Redo2, Undo2, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Eraser, LogIn, Redo2, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://nonogram-api.onrender.com").replace(/\/$/, "");
@@ -1535,9 +1535,9 @@ function App() {
         className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""}`}
       >
         <div className="topBar">
-          <div>
+          <div className="brandWrap">
+            <div className="logoPixel" aria-hidden="true" />
             <h1 className="title">Nonogram Arena</h1>
-            <p className="lead">드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서 경쟁하세요.</p>
           </div>
           {!isModeAuth && (
             <div className="topAuth">
@@ -1550,11 +1550,15 @@ function App() {
                 </>
               ) : (
                 <>
-                  <button onClick={() => openAuthScreen("login", "menu")}>
-                    <LogIn size={15} /> 로그인
+                  <span className="guestIcon" aria-hidden="true">
+                    <User size={18} />
+                    <ChevronDown size={16} />
+                  </span>
+                  <button className="ghostBtn" onClick={() => openAuthScreen("login", "menu")}>
+                    <LogIn size={15} /> Login
                   </button>
-                  <button onClick={() => openAuthScreen("signup", "menu")}>
-                    <UserPlus size={15} /> 회원가입
+                  <button className="primaryBtn" onClick={() => openAuthScreen("signup", "menu")}>
+                    <UserPlus size={15} /> Sign Up
                   </button>
                 </>
               )}
@@ -1563,26 +1567,30 @@ function App() {
         </div>
 
         {isModeMenu && (
-          <div className="modeChooser">
-            <motion.button
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="modeBtn modeSingle"
-              onClick={goSingleMode}
-            >
-              <span className="modeName">싱글플레이</span>
-              <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
-            </motion.button>
-            <motion.button
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="modeBtn modeMulti"
-              onClick={goMultiMode}
-            >
-              <span className="modeName">멀티플레이</span>
-              <span className="modeDesc">방 생성/참가 실시간 대결</span>
-            </motion.button>
-          </div>
+          <section className="menuStage">
+            <div className="modeChooser">
+              <motion.button
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.98 }}
+                className="modeBtn modeSingle"
+                onClick={goSingleMode}
+              >
+                <span className="modeName">SINGLE PLAYER</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.98 }}
+                className="modeBtn modeMulti"
+                onClick={goMultiMode}
+              >
+                {!isLoggedIn && <span className="modeTag">Login Required</span>}
+                <span className="modeName">MULTI PLAYER</span>
+              </motion.button>
+            </div>
+            <div className="menuDust menuDustA" />
+            <div className="menuDust menuDustB" />
+            <div className="menuDust menuDustC" />
+          </section>
         )}
 
         {isModeAuth && (

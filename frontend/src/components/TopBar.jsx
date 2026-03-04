@@ -1,21 +1,13 @@
-import { LogIn, UserPlus } from "lucide-react";
+import { ChevronDown, LogIn, User, UserPlus } from "lucide-react";
 
-export function TopBar({
-  isLoggedIn,
-  authUser,
-  logout,
-  openAuthScreen,
-  isModeAuth,
-}) {
+export function TopBar({ isLoggedIn, authUser, logout, openAuthScreen, isModeAuth }) {
   return (
     <div className="topBar">
-      <div>
+      <div className="brandWrap">
+        <div className="logoPixel" aria-hidden="true" />
         <h1 className="title">Nonogram Arena</h1>
-        <p className="lead">
-          드래그로 그리는 타임어택 픽셀 전투. 싱글 연습 후 멀티에서
-          경쟁하세요.
-        </p>
       </div>
+
       {!isModeAuth && (
         <div className="topAuth">
           {isLoggedIn ? (
@@ -27,11 +19,15 @@ export function TopBar({
             </>
           ) : (
             <>
-              <button onClick={() => openAuthScreen("login", "menu")}>
-                <LogIn size={15} /> 로그인
+              <span className="guestIcon" aria-hidden="true">
+                <User size={18} />
+                <ChevronDown size={16} />
+              </span>
+              <button className="ghostBtn" onClick={() => openAuthScreen("login", "menu")}>
+                <LogIn size={16} /> Login
               </button>
-              <button onClick={() => openAuthScreen("signup", "menu")}>
-                <UserPlus size={15} /> 회원가입
+              <button className="primaryBtn" onClick={() => openAuthScreen("signup", "menu")}>
+                <UserPlus size={16} /> Sign Up
               </button>
             </>
           )}

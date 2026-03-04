@@ -1,26 +1,30 @@
 import { motion } from "framer-motion";
 
-export function MainMenu({ goSingleMode, goMultiMode }) {
+export function MainMenu({ goSingleMode, goMultiMode, isLoggedIn }) {
   return (
-    <div className="modeChooser">
-      <motion.button
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.98 }}
-        className="modeBtn modeSingle"
-        onClick={goSingleMode}
-      >
-        <span className="modeName">싱글플레이</span>
-        <span className="modeDesc">랜덤 퍼즐 연습 모드</span>
-      </motion.button>
-      <motion.button
-        whileHover={{ y: -2 }}
-        whileTap={{ scale: 0.98 }}
-        className="modeBtn modeMulti"
-        onClick={goMultiMode}
-      >
-        <span className="modeName">멀티플레이</span>
-        <span className="modeDesc">방 생성/참가 실시간 대결</span>
-      </motion.button>
-    </div>
+    <section className="menuStage">
+      <div className="modeChooser">
+        <motion.button
+          whileHover={{ y: -3 }}
+          whileTap={{ scale: 0.98 }}
+          className="modeBtn modeSingle"
+          onClick={goSingleMode}
+        >
+          <span className="modeName">SINGLE PLAYER</span>
+        </motion.button>
+        <motion.button
+          whileHover={{ y: -3 }}
+          whileTap={{ scale: 0.98 }}
+          className="modeBtn modeMulti"
+          onClick={goMultiMode}
+        >
+          {!isLoggedIn && <span className="modeTag">Login Required</span>}
+          <span className="modeName">MULTI PLAYER</span>
+        </motion.button>
+      </div>
+      <div className="menuDust menuDustA" />
+      <div className="menuDust menuDustB" />
+      <div className="menuDust menuDustC" />
+    </section>
   );
 }
