@@ -285,9 +285,9 @@ function App() {
   const isModeSingle = playMode === "single";
   const isModeMulti = playMode === "multi";
   const isModeAuth = playMode === "auth";
-  const isSingleSoloMode = isModeSingle && !isInRaceRoom;
   const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
+  const isSingleSoloMode = isModeSingle && !isInRaceRoom;
   const shouldShowPuzzleBoard = Boolean(
     puzzle && ((isModeSingle && !isInRaceRoom) || (isModeMulti && isInRaceRoom))
   );
@@ -1893,12 +1893,6 @@ function App() {
               <div>Room: <b>{roomTitleText || raceRoomCode}</b></div>
               <div>Code: <b>{raceRoomCode}</b></div>
               <div>Players: {(raceState?.players || []).length}/{raceState?.maxPlayers || 2}</div>
-              <div className="raceInfoProgress">
-                PROGRESS:{" "}
-                {raceState?.totalAnswerCells
-                  ? `${Math.round(((myRacePlayer?.correctAnswerCells || 0) / raceState.totalAnswerCells) * 100)}%`
-                  : "0%"}
-              </div>
               {myRacePlayer && <div className="raceInfoMe">{myRacePlayer.nickname}</div>}
               <div className="timerBar">TIME {formattedTime}</div>
               <div className="raceActions">
@@ -1991,7 +1985,9 @@ function App() {
 
             <aside className="raceSidePane">
               <div className="raceSidePlayers">
-                {(raceState?.players || []).map((p) => {
+                {(raceState?.players || [])
+                  .filter((p) => p.playerId !== racePlayerId)
+                  .map((p) => {
                   const percent = raceState?.totalAnswerCells
                     ? Math.round(((p.correctAnswerCells || 0) / raceState.totalAnswerCells) * 100)
                     : 0;
