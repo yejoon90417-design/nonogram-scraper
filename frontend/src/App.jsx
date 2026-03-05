@@ -25,21 +25,21 @@ const TUTORIAL_GUIDE_STEPS = [
   {
     key: "row2full",
     title: "2번째 줄 힌트 5",
-    prompt: "힌트 5: 2번째 줄 5칸을 전부 칠하세요.",
+    prompt: "힌트가 5라서 이 줄은 빈칸 없이 꽉 찹니다. 2번째 줄을 모두 채우세요.",
     rowHighlights: [1],
     fill: [5, 6, 7, 8, 9],
   },
   {
     key: "row3full",
     title: "3번째 줄 힌트 5",
-    prompt: "같은 논리: 3번째 줄도 전부 칠하세요.",
+    prompt: "위쪽이 이미 확정돼 경계가 잡혔어요. 3번째 줄도 전부 채우면 됩니다.",
     rowHighlights: [2],
     fill: [10, 11, 12, 13, 14],
   },
   {
     key: "row4gaps",
     title: "4번째 줄 힌트 1 1 1",
-    prompt: "1칸씩 3묶음이므로 사이칸은 X 표시하세요.",
+    prompt: "힌트 1-1-1은 각 칸이 떨어져야 하니, 사이칸(2칸·4칸)을 X로 막아주세요.",
     rowHighlights: [3],
     mark: [16, 18],
     cellHighlights: [16, 18],
@@ -47,7 +47,7 @@ const TUTORIAL_GUIDE_STEPS = [
   {
     key: "row4fills",
     title: "4번째 줄 채우기",
-    prompt: "남은 칸(1,3,5번째 칸)을 칠하세요.",
+    prompt: "막힌 칸 사이로 가능한 자리가 확정됐습니다. 1·3·5칸을 채우세요.",
     rowHighlights: [3],
     fill: [15, 17, 19],
     cellHighlights: [15, 17, 19],
@@ -55,7 +55,7 @@ const TUTORIAL_GUIDE_STEPS = [
   {
     key: "row1pair",
     title: "1번째 줄 힌트 1 1",
-    prompt: "1번째 줄은 떨어진 1칸 2개입니다. 가운데 두 칸을 칠하세요.",
+    prompt: "아래 줄이 이미 막고 있어서 더 내려갈 수 없어요. 1번째 줄은 가운데 두 칸만 채우면 1,1이 맞습니다.",
     rowHighlights: [0],
     fill: [1, 3],
     cellHighlights: [1, 3],
@@ -63,7 +63,7 @@ const TUTORIAL_GUIDE_STEPS = [
   {
     key: "row5three",
     title: "5번째 줄 힌트 3",
-    prompt: "마지막 줄은 가운데 3칸을 칠하면 됩니다.",
+    prompt: "세로 힌트와 맞춰보면 마지막 줄은 중앙 3칸만 가능합니다. 가운데 3칸을 채우세요.",
     rowHighlights: [4],
     fill: [21, 22, 23],
     cellHighlights: [21, 22, 23],
@@ -71,7 +71,7 @@ const TUTORIAL_GUIDE_STEPS = [
   {
     key: "finish",
     title: "완성",
-    prompt: "잘했어요. 퍼즐 완성!",
+    prompt: "좋아요. 논리대로 모두 맞췄고 퍼즐이 완성됐습니다.",
     requireSolved: true,
   },
 ];
