@@ -132,7 +132,7 @@ function isRaceOnlyStatusMessage(message) {
 }
 
 function App() {
-  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi | tutorial | auth
+  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi | pvp | tutorial | auth
   const [selectedSize, setSelectedSize] = useState("25x25");
   const [puzzle, setPuzzle] = useState(null);
   const [cells, setCells] = useState([]); // 0 empty, 1 filled, 2 marked(X)
@@ -173,6 +173,7 @@ function App() {
   const [authTab, setAuthTab] = useState("login"); // login | signup
   const [authReturnMode, setAuthReturnMode] = useState("menu");
   const [showNeedLoginPopup, setShowNeedLoginPopup] = useState(false);
+  const [needLoginReturnMode, setNeedLoginReturnMode] = useState("multi");
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -189,6 +190,9 @@ function App() {
   const [reactionFlights, setReactionFlights] = useState([]);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
+  const [pvpTicketId, setPvpTicketId] = useState("");
+  const [pvpSearching, setPvpSearching] = useState(false);
+  const [pvpQueueSize, setPvpQueueSize] = useState(0);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -207,8 +211,10 @@ function App() {
   const redoStackRef = useRef([]);
   const autoSolvedShownRef = useRef(false);
   const racePollRef = useRef(0);
+  const pvpPollRef = useRef(0);
   const raceRoomCodeRef = useRef("");
   const racePlayerIdRef = useRef("");
+  const pvpTicketRef = useRef("");
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -234,9 +240,14 @@ function App() {
   }, [raceRoomCode, racePlayerId]);
 
   useEffect(() => {
+    pvpTicketRef.current = pvpTicketId;
+  }, [pvpTicketId]);
+
+  useEffect(() => {
     return () => {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
       if (racePollRef.current) clearInterval(racePollRef.current);
+      if (pvpPollRef.current) clearInterval(pvpPollRef.current);
       if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
@@ -245,23 +256,45 @@ function App() {
     const sendLeaveBeacon = () => {
       const roomCode = raceRoomCodeRef.current;
       const playerId = racePlayerIdRef.current;
-      if (!roomCode || !playerId) return;
-      const payload = JSON.stringify({ roomCode, playerId });
-      try {
-        if (navigator.sendBeacon) {
-          const blob = new Blob([payload], { type: "application/json" });
-          navigator.sendBeacon(`${API_BASE}/race/leave`, blob);
-          return;
+      const ticketId = pvpTicketRef.current;
+
+      if (roomCode && playerId) {
+        const payload = JSON.stringify({ roomCode, playerId });
+        try {
+          if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: "application/json" });
+            navigator.sendBeacon(`${API_BASE}/race/leave`, blob);
+          } else {
+            fetch(`${API_BASE}/race/leave`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payload,
+              keepalive: true,
+            }).catch(() => {});
+          }
+        } catch {
+          // ignore beacon errors
         }
-      } catch {
-        // fallback below
       }
-      fetch(`${API_BASE}/race/leave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-        keepalive: true,
-      }).catch(() => {});
+
+      if (ticketId) {
+        const payload = JSON.stringify({ ticketId });
+        try {
+          if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: "application/json" });
+            navigator.sendBeacon(`${API_BASE}/pvp/queue/cancel`, blob);
+          } else {
+            fetch(`${API_BASE}/pvp/queue/cancel`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: payload,
+              keepalive: true,
+            }).catch(() => {});
+          }
+        } catch {
+          // ignore beacon errors
+        }
+      }
     };
 
     window.addEventListener("pagehide", sendLeaveBeacon);
@@ -388,13 +421,14 @@ function App() {
   const isModeMenu = playMode === "menu";
   const isModeSingle = playMode === "single";
   const isModeMulti = playMode === "multi";
+  const isModePvp = playMode === "pvp";
   const isModeAuth = playMode === "auth";
   const isModeTutorial = playMode === "tutorial";
   const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
   const isSingleSoloMode = (isModeSingle || isModeTutorial) && !isInRaceRoom;
   const shouldShowPuzzleBoard = Boolean(
-    puzzle && ((isSingleSoloMode && !isInRaceRoom) || (isModeMulti && isInRaceRoom))
+    puzzle && ((isSingleSoloMode && !isInRaceRoom) || ((isModeMulti || isModePvp) && isInRaceRoom))
   );
   const racePhase = raceState?.state || "idle";
   const isRaceLobby = isInRaceRoom && racePhase === "lobby";
@@ -727,6 +761,9 @@ function App() {
   };
 
   const goSingleMode = () => {
+    if (pvpSearching && !isInRaceRoom) {
+      void cancelPvpQueue({ silent: true });
+    }
     if (!isInRaceRoom) clearPuzzleViewState();
     setPlayMode("single");
     setStatus("");
@@ -745,18 +782,36 @@ function App() {
 
   const goMultiMode = () => {
     if (!isLoggedIn) {
+      setNeedLoginReturnMode("multi");
       setShowNeedLoginPopup(true);
       return;
+    }
+    if (pvpSearching && !isInRaceRoom) {
+      void cancelPvpQueue({ silent: true });
     }
     if (!isInRaceRoom) clearPuzzleViewState();
     setPlayMode("multi");
     setStatus("");
   };
 
+  const goPvpMode = () => {
+    if (!isLoggedIn) {
+      setNeedLoginReturnMode("pvp");
+      setShowNeedLoginPopup(true);
+      return;
+    }
+    if (!isInRaceRoom) clearPuzzleViewState();
+    setPlayMode("pvp");
+    setStatus("");
+  };
+
   const backToMenu = async () => {
     if (isInRaceRoom) {
-      setStatus("멀티 방에서는 먼저 Leave Room을 눌러줘.");
+      setStatus("진행 중인 경기에서는 먼저 Leave를 눌러줘.");
       return;
+    }
+    if (pvpSearching) {
+      await cancelPvpQueue({ silent: true });
     }
     clearPuzzleViewState();
     setPlayMode("menu");
@@ -811,7 +866,7 @@ function App() {
       setSignupNickname("");
       setSignupPassword("");
       setStatus(`환영합니다, ${data.user.nickname}!`);
-      setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
+      setPlayMode(authReturnMode === "multi" || authReturnMode === "pvp" ? authReturnMode : "menu");
     } catch (err) {
       const msg = String(err.message || "");
       if (msg.includes("password must be 8+ chars")) {
@@ -852,7 +907,7 @@ function App() {
       setLoginUsername("");
       setLoginPassword("");
       setStatus(`로그인 완료: ${data.user.nickname}`);
-      setPlayMode(authReturnMode === "multi" ? "multi" : "menu");
+      setPlayMode(authReturnMode === "multi" || authReturnMode === "pvp" ? authReturnMode : "menu");
     } catch (err) {
       const msg = String(err.message || "");
       if (msg.includes("Invalid credentials")) {
@@ -896,7 +951,142 @@ function App() {
     }
   };
 
+  const stopPvpPolling = () => {
+    if (pvpPollRef.current) {
+      clearInterval(pvpPollRef.current);
+      pvpPollRef.current = 0;
+    }
+  };
+
+  const resetPvpQueueState = () => {
+    stopPvpPolling();
+    setPvpSearching(false);
+    setPvpTicketId("");
+    setPvpQueueSize(0);
+  };
+
+  const applyPvpMatch = (data) => {
+    stopPvpPolling();
+    setPvpSearching(false);
+    setPvpQueueSize(0);
+    if (data.ticketId) setPvpTicketId(data.ticketId);
+    setRaceRoomCode(data.roomCode);
+    setRacePlayerId(data.playerId);
+    applyRaceRoomState(data.room, data.playerId);
+    initializePuzzle(data.puzzle, {
+      resume: false,
+      startTimer: false,
+      message: "매칭 성공! 5초 카운트다운 후 시작됩니다.",
+    });
+    setPlayMode("pvp");
+    startRacePolling(data.roomCode, data.playerId);
+    playSfx("ui");
+  };
+
+  const pollPvpQueueStatus = async (ticketIdArg = pvpTicketRef.current) => {
+    const ticketId = String(ticketIdArg || "").trim();
+    if (!ticketId || !isLoggedIn) return;
+    try {
+      const res = await fetch(`${API_BASE}/pvp/queue/status?ticketId=${encodeURIComponent(ticketId)}`, {
+        headers: { ...authHeaders },
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        if (res.status === 404) resetPvpQueueState();
+        return;
+      }
+      if (data.matched) {
+        applyPvpMatch(data);
+        return;
+      }
+      setPvpSearching(true);
+      setPvpQueueSize(Number(data.queueSize || 0));
+    } catch {
+      // ignore transient matchmaking poll errors
+    }
+  };
+
+  const startPvpPolling = (ticketId) => {
+    stopPvpPolling();
+    pollPvpQueueStatus(ticketId);
+    pvpPollRef.current = window.setInterval(() => {
+      pollPvpQueueStatus(ticketId);
+    }, 900);
+  };
+
+  const joinPvpQueue = async () => {
+    if (!isLoggedIn) {
+      setShowNeedLoginPopup(true);
+      return;
+    }
+    if (isInRaceRoom) {
+      setStatus("이미 경기 방에 참여 중입니다.");
+      return;
+    }
+    if (pvpSearching) return;
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/pvp/queue/join`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({}),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "매칭 대기열 참가 실패");
+      if (data.matched) {
+        applyPvpMatch(data);
+        return;
+      }
+      setPvpSearching(true);
+      setPvpTicketId(data.ticketId);
+      setPvpQueueSize(Number(data.queueSize || 0));
+      setStatus("상대를 찾는 중...");
+      setPlayMode("pvp");
+      startPvpPolling(data.ticketId);
+      playSfx("ui");
+    } catch (err) {
+      setStatus(err.message);
+      resetPvpQueueState();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelPvpQueue = async ({ silent = false } = {}) => {
+    const ticketId = String(pvpTicketRef.current || pvpTicketId || "").trim();
+    if (!ticketId) {
+      resetPvpQueueState();
+      return;
+    }
+    try {
+      await fetch(`${API_BASE}/pvp/queue/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ ticketId }),
+      });
+    } catch {
+      // ignore cancellation errors
+    }
+    resetPvpQueueState();
+    if (!silent) setStatus("매칭 대기를 취소했습니다.");
+  };
+
   const leaveRace = async () => {
+    if (pvpSearching && !raceRoomCode && !racePlayerId) {
+      await cancelPvpQueue({ silent: true });
+    }
+    const ticketId = String(pvpTicketRef.current || pvpTicketId || "").trim();
+    if (ticketId) {
+      try {
+        await fetch(`${API_BASE}/pvp/queue/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ticketId }),
+        });
+      } catch {
+        // ignore pvp ticket cleanup errors
+      }
+    }
     if (raceRoomCode && racePlayerId) {
       try {
         await fetch(`${API_BASE}/race/leave`, {
@@ -912,9 +1102,13 @@ function App() {
       clearInterval(racePollRef.current);
       racePollRef.current = 0;
     }
+    stopPvpPolling();
     setRaceRoomCode("");
     setRacePlayerId("");
     setRaceState(null);
+    setPvpSearching(false);
+    setPvpQueueSize(0);
+    setPvpTicketId("");
     setRaceSubmitting(false);
     setChatInput("");
     setShowEmojiPicker(false);
@@ -1589,9 +1783,14 @@ function App() {
   }, [isInRaceRoom, raceState?.puzzleId, puzzle?.id]);
 
   useEffect(() => {
-    if (isInRaceRoom) return;
+    if (isInRaceRoom || !isModeMulti) return;
     fetchPublicRooms();
-  }, [isInRaceRoom]);
+  }, [isInRaceRoom, isModeMulti]);
+
+  useEffect(() => {
+    if (isLoggedIn) return;
+    resetPvpQueueState();
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (isInRaceRoom) return;
@@ -1782,6 +1981,15 @@ function App() {
               >
                 {!isLoggedIn && <span className="modeTag">Login Required</span>}
                 <span className="modeName">MULTI PLAYER</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ y: -3 }}
+                whileTap={{ scale: 0.98 }}
+                className="modeBtn modePvp"
+                onClick={goPvpMode}
+              >
+                {!isLoggedIn && <span className="modeTag">Login Required</span>}
+                <span className="modeName">PVP MATCH</span>
               </motion.button>
             </div>
             <button className="menuTutorialBtn" onClick={startTutorialMode}>
@@ -1986,6 +2194,43 @@ function App() {
           </section>
         )}
 
+        {isModePvp && (
+          <>
+            {!isLoggedIn && (
+              <div className="raceStateBox">
+                <div>오른쪽 상단에서 로그인 후 PvP 매칭을 이용하세요.</div>
+              </div>
+            )}
+            {isLoggedIn && !isInRaceRoom && (
+              <section className="pvpQueuePanel">
+                <div className="pvpQueueTitle">RANKED PVP MATCH</div>
+                <div className="pvpQueueDesc">랜덤 사이즈(5x5/10x10/15x15/20x20/25x25) 중 1개로 매칭됩니다.</div>
+                <div className="pvpQueueState">
+                  {pvpSearching ? `매칭 중... 대기열 ${pvpQueueSize}명` : "대기 중"}
+                </div>
+                <div className="pvpQueueActions">
+                  <button className="singleActionBtn" onClick={joinPvpQueue} disabled={isLoading || pvpSearching}>
+                    {isLoading ? "MATCHING..." : pvpSearching ? "SEARCHING..." : "FIND OPPONENT"}
+                  </button>
+                  <button className="singleHomeBtn" onClick={() => cancelPvpQueue()} disabled={!pvpSearching}>
+                    CANCEL
+                  </button>
+                  <button className="singleSfxBtn" onClick={backToMenu}>
+                    HOME
+                  </button>
+                </div>
+              </section>
+            )}
+            {isLoggedIn && isInRaceRoom && (
+              <div className="racePanel">
+                <button onClick={leaveRace} disabled={!raceRoomCode}>
+                  Leave Match
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
         {isModeMulti && (
           <>
             {!isInRaceRoom && (
@@ -2123,7 +2368,7 @@ function App() {
           </div>
         )}
 
-        {isModeMulti && isLoggedIn && raceRoomCode && shouldShowPuzzleBoard && (
+        {(isModeMulti || isModePvp) && isLoggedIn && raceRoomCode && shouldShowPuzzleBoard && (
           <section className="raceMatchLayout">
             <aside className="raceInfoPane">
               <div className="raceInfoTitle">경기 상태: {isRacePlaying ? "진행 중" : racePhase}</div>
@@ -2133,7 +2378,7 @@ function App() {
               {myRacePlayer && <div className="raceInfoMe">{myRacePlayer.nickname}</div>}
               <div className="timerBar">TIME {formattedTime}</div>
               <div className="raceActions">
-                {isRaceLobby && (
+                {isModeMulti && isRaceLobby && (
                   <>
                     <button onClick={() => setReady(!(myRacePlayer?.isReady === true))} disabled={!myRacePlayer}>
                       {myRacePlayer?.isReady ? "Unready" : "Ready"}
@@ -2144,7 +2389,7 @@ function App() {
                   </>
                 )}
                 <button onClick={leaveRace} disabled={!raceRoomCode}>Leave</button>
-                {isRaceFinished && (
+                {isModeMulti && isRaceFinished && (
                   <button onClick={requestRematch} disabled={isRematchLoading}>
                     {isRematchLoading ? "준비중..." : "한판 더?"}
                   </button>
@@ -2483,13 +2728,13 @@ function App() {
           <div className="modalBackdrop" onClick={() => setShowNeedLoginPopup(false)}>
             <div className="modalCard" onClick={(e) => e.stopPropagation()}>
               <h2>로그인 필요</h2>
-              <p>멀티플레이는 로그인 후 이용 가능합니다.</p>
+              <p>{needLoginReturnMode === "pvp" ? "PVP 매칭은 로그인 후 이용 가능합니다." : "멀티플레이는 로그인 후 이용 가능합니다."}</p>
               <div className="modalActions">
                 <button onClick={() => setShowNeedLoginPopup(false)}>취소</button>
                 <button
                   onClick={() => {
                     setShowNeedLoginPopup(false);
-                    openAuthScreen("login", "multi");
+                    openAuthScreen("login", needLoginReturnMode);
                   }}
                 >
                   로그인하러 가기

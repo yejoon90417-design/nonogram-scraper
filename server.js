@@ -20,9 +20,21 @@ const DB_CONFIG = {
 const app = express();
 const pool = new Pool(DB_CONFIG);
 const raceRooms = new Map();
+const pvpQueueTickets = new Map();
+const pvpUserTicket = new Map();
+const pvpWaitingOrder = [];
 const ROOM_TTL_MS = 1000 * 60 * 60 * 12;
 const PLAYER_STALE_MS = 1000 * 45;
 const COUNTDOWN_MS = 5000;
+const PVP_QUEUE_STALE_MS = 1000 * 60 * 2;
+const PVP_MATCH_TICKET_TTL_MS = 1000 * 60 * 5;
+const PVP_SIZE_OPTIONS = [
+  [5, 5],
+  [10, 10],
+  [15, 15],
+  [20, 20],
+  [25, 25],
+];
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const POPCOUNT = new Uint8Array(256);
 for (let i = 0; i < 256; i += 1) {
@@ -290,6 +302,69 @@ function normalizeMaxPlayers(raw) {
   return Math.max(2, Math.min(4, n));
 }
 
+function randomPvpSize() {
+  return PVP_SIZE_OPTIONS[Math.floor(Math.random() * PVP_SIZE_OPTIONS.length)];
+}
+
+function isUserInAnyRoom(userId) {
+  if (!userId) return false;
+  for (const room of raceRooms.values()) {
+    for (const p of room.players.values()) {
+      if (p.userId === userId && !p.disconnectedAt) return true;
+    }
+  }
+  return false;
+}
+
+function removePvpTicket(ticketId) {
+  const id = String(ticketId || "");
+  if (!id) return;
+  const ticket = pvpQueueTickets.get(id);
+  if (ticket) {
+    pvpUserTicket.delete(ticket.userId);
+    pvpQueueTickets.delete(id);
+  }
+  const idx = pvpWaitingOrder.indexOf(id);
+  if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
+}
+
+function cleanupPvpQueue(now = Date.now()) {
+  for (const [ticketId, ticket] of pvpQueueTickets.entries()) {
+    const age = now - Number(ticket.updatedAt || ticket.createdAt || now);
+    if (ticket.state === "waiting" && age > PVP_QUEUE_STALE_MS) {
+      removePvpTicket(ticketId);
+      continue;
+    }
+    if (ticket.state === "matched" && age > PVP_MATCH_TICKET_TTL_MS) {
+      removePvpTicket(ticketId);
+    }
+  }
+}
+
+async function fetchRandomPuzzleForSize(width, height) {
+  const { rows } = await pool.query(
+    `SELECT id, width, height, row_hints, col_hints, is_unique, solution_bits
+     FROM puzzles
+     WHERE width = $1 AND height = $2 AND solution_bits IS NOT NULL
+     ORDER BY random()
+     LIMIT 1`,
+    [width, height]
+  );
+  if (!rows.length) return null;
+  return rows[0];
+}
+
+function puzzleClientView(puzzle) {
+  return {
+    id: puzzle.id,
+    width: puzzle.width,
+    height: puzzle.height,
+    row_hints: puzzle.row_hints,
+    col_hints: puzzle.col_hints,
+    is_unique: puzzle.is_unique,
+  };
+}
+
 function syncRoomState(room) {
   if (room.state === "countdown" && room.gameStartAt && Date.now() >= room.gameStartAt) {
     room.state = "playing";
@@ -493,6 +568,10 @@ setInterval(() => {
   }
 }, 1000 * 10);
 
+setInterval(() => {
+  cleanupPvpQueue(Date.now());
+}, 1000 * 10);
+
 setInterval(async () => {
   try {
     await pool.query(`DELETE FROM user_sessions WHERE expires_at <= now()`);
@@ -657,6 +736,255 @@ app.get("/race-rooms", (_req, res) => {
     .filter((room) => room.state === "lobby" && room.currentPlayers < room.maxPlayers)
     .sort((a, b) => b.createdAt - a.createdAt);
   return res.json({ ok: true, rooms });
+});
+
+app.post("/pvp/queue/join", requireAuth, async (req, res) => {
+  cleanupPvpQueue(Date.now());
+
+  if (isUserInAnyRoom(req.authUser.id)) {
+    return res.status(400).json({ ok: false, error: "You are already in a room" });
+  }
+
+  const existingTicketId = pvpUserTicket.get(req.authUser.id);
+  if (existingTicketId) {
+    const existing = pvpQueueTickets.get(existingTicketId);
+    if (existing && existing.state === "waiting") {
+      existing.updatedAt = Date.now();
+      return res.json({
+        ok: true,
+        matched: false,
+        ticketId: existing.ticketId,
+        queueSize: pvpWaitingOrder.length,
+      });
+    }
+    if (existing && existing.state === "matched" && existing.roomCode && existing.playerId) {
+      const room = raceRooms.get(existing.roomCode);
+      if (room) {
+        const roomPlayer = room.players.get(existing.playerId);
+        if (!roomPlayer) {
+          removePvpTicket(existingTicketId);
+        } else {
+        touchPlayer(room, existing.playerId);
+        try {
+          const { rows } = await pool.query(
+            `SELECT id, width, height, row_hints, col_hints, is_unique
+             FROM puzzles
+             WHERE id = $1`,
+            [room.puzzleId]
+          );
+          if (rows.length) {
+            return res.json({
+              ok: true,
+              matched: true,
+              ticketId: existing.ticketId,
+              roomCode: existing.roomCode,
+              playerId: existing.playerId,
+              puzzle: rows[0],
+              room: roomPublicState(room),
+            });
+          }
+        } catch {
+          // fallback to fresh queue join below
+        }
+        }
+      }
+    }
+    removePvpTicket(existingTicketId);
+  }
+
+  let opponentTicket = null;
+  while (pvpWaitingOrder.length > 0) {
+    const candidateId = pvpWaitingOrder.shift();
+    const candidate = pvpQueueTickets.get(candidateId);
+    if (!candidate) continue;
+    if (candidate.userId === req.authUser.id) continue;
+    if (candidate.state !== "waiting") continue;
+    if (Date.now() - Number(candidate.updatedAt || candidate.createdAt || Date.now()) > PVP_QUEUE_STALE_MS) {
+      removePvpTicket(candidateId);
+      continue;
+    }
+    if (isUserInAnyRoom(candidate.userId)) {
+      removePvpTicket(candidateId);
+      continue;
+    }
+    opponentTicket = candidate;
+    break;
+  }
+
+  const myTicketId = randomPlayerId();
+  const now = Date.now();
+  const myTicket = {
+    ticketId: myTicketId,
+    userId: req.authUser.id,
+    nickname: req.authUser.nickname,
+    state: "waiting",
+    createdAt: now,
+    updatedAt: now,
+    roomCode: null,
+    playerId: null,
+  };
+  pvpQueueTickets.set(myTicketId, myTicket);
+  pvpUserTicket.set(req.authUser.id, myTicketId);
+
+  if (!opponentTicket) {
+    pvpWaitingOrder.push(myTicketId);
+    return res.json({ ok: true, matched: false, ticketId: myTicketId, queueSize: pvpWaitingOrder.length });
+  }
+
+  try {
+    const [width, height] = randomPvpSize();
+    const puzzle = await fetchRandomPuzzleForSize(width, height);
+    if (!puzzle) {
+      removePvpTicket(myTicketId);
+      pvpWaitingOrder.push(opponentTicket.ticketId);
+      return res.status(404).json({ ok: false, error: "No puzzle found for matchmaking size" });
+    }
+
+    let solutionBits = toSolutionBits(puzzle.solution_bits);
+    if (!solutionBits) {
+      solutionBits = await loadSolutionBitsHexById(puzzle.id);
+    }
+    if (!solutionBits) {
+      removePvpTicket(myTicketId);
+      pvpWaitingOrder.push(opponentTicket.ticketId);
+      return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
+    }
+
+    const roomCode = makeRoomCode();
+    const nowIso = new Date().toISOString();
+    const p1 = randomPlayerId();
+    const p2 = randomPlayerId();
+    const room = {
+      roomCode,
+      roomTitle: "PvP Match",
+      visibility: "public",
+      passwordHash: null,
+      puzzleId: puzzle.id,
+      solutionBits,
+      totalAnswerCells: popcountBuffer(solutionBits),
+      maxPlayers: 2,
+      finishTarget: 1,
+      width: puzzle.width,
+      height: puzzle.height,
+      createdAt: Date.now(),
+      hostPlayerId: p1,
+      state: "countdown",
+      countdownStartAt: Date.now(),
+      gameStartAt: Date.now() + COUNTDOWN_MS,
+      winnerPlayerId: null,
+      chatMessages: [],
+      reactionEvents: [],
+      players: new Map(),
+    };
+    room.players.set(p1, {
+      playerId: p1,
+      userId: req.authUser.id,
+      nickname: req.authUser.nickname,
+      joinedAt: nowIso,
+      finishedAt: null,
+      elapsedSec: null,
+      isReady: true,
+      disconnectedAt: null,
+      correctAnswerCells: 0,
+      lastSeenAt: Date.now(),
+    });
+    room.players.set(p2, {
+      playerId: p2,
+      userId: opponentTicket.userId,
+      nickname: opponentTicket.nickname,
+      joinedAt: nowIso,
+      finishedAt: null,
+      elapsedSec: null,
+      isReady: true,
+      disconnectedAt: null,
+      correctAnswerCells: 0,
+      lastSeenAt: Date.now(),
+    });
+    raceRooms.set(roomCode, room);
+
+    myTicket.state = "matched";
+    myTicket.roomCode = roomCode;
+    myTicket.playerId = p1;
+    myTicket.updatedAt = Date.now();
+
+    opponentTicket.state = "matched";
+    opponentTicket.roomCode = roomCode;
+    opponentTicket.playerId = p2;
+    opponentTicket.updatedAt = Date.now();
+
+    return res.json({
+      ok: true,
+      matched: true,
+      ticketId: myTicket.ticketId,
+      roomCode,
+      playerId: p1,
+      puzzle: puzzleClientView(puzzle),
+      room: roomPublicState(room),
+    });
+  } catch (err) {
+    removePvpTicket(myTicketId);
+    if (opponentTicket) pvpWaitingOrder.push(opponentTicket.ticketId);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/pvp/queue/status", requireAuth, async (req, res) => {
+  cleanupPvpQueue(Date.now());
+  const ticketId = String(req.query?.ticketId || "").trim();
+  if (!ticketId) return res.status(400).json({ ok: false, error: "ticketId is required" });
+  const ticket = pvpQueueTickets.get(ticketId);
+  if (!ticket || ticket.userId !== req.authUser.id) {
+    return res.status(404).json({ ok: false, error: "Match ticket not found" });
+  }
+  ticket.updatedAt = Date.now();
+
+  if (ticket.state === "waiting") {
+    return res.json({ ok: true, matched: false, ticketId, queueSize: pvpWaitingOrder.length });
+  }
+
+  if (ticket.state === "matched" && ticket.roomCode && ticket.playerId) {
+    const room = raceRooms.get(ticket.roomCode);
+    if (!room) {
+      removePvpTicket(ticketId);
+      return res.status(404).json({ ok: false, error: "Matched room expired" });
+    }
+    touchPlayer(room, ticket.playerId);
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, width, height, row_hints, col_hints, is_unique
+         FROM puzzles
+         WHERE id = $1`,
+        [room.puzzleId]
+      );
+      if (!rows.length) {
+        return res.status(404).json({ ok: false, error: "Puzzle not found for matched room" });
+      }
+      return res.json({
+        ok: true,
+        matched: true,
+        ticketId,
+        roomCode: ticket.roomCode,
+        playerId: ticket.playerId,
+        puzzle: rows[0],
+        room: roomPublicState(room),
+      });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  }
+
+  return res.json({ ok: true, matched: false, ticketId, queueSize: pvpWaitingOrder.length });
+});
+
+app.post("/pvp/queue/cancel", (req, res) => {
+  const ticketId = String(req.body?.ticketId || "").trim();
+  if (!ticketId) return res.status(400).json({ ok: false, error: "ticketId is required" });
+  const ticket = pvpQueueTickets.get(ticketId);
+  if (!ticket) {
+    return res.status(404).json({ ok: false, error: "Match ticket not found" });
+  }
+  removePvpTicket(ticketId);
+  return res.json({ ok: true, cancelled: true });
 });
 
 app.post("/race/create", requireAuth, async (req, res) => {
