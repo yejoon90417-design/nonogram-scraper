@@ -202,6 +202,7 @@ function App() {
   const [pvpAcceptBusy, setPvpAcceptBusy] = useState(false);
   const [pvpBanBusy, setPvpBanBusy] = useState(false);
   const [pvpRevealIndex, setPvpRevealIndex] = useState(0);
+  const [pvpRatingFx, setPvpRatingFx] = useState(null);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -227,6 +228,10 @@ function App() {
   const pvpTicketRef = useRef("");
   const pvpMatchPhaseRef = useRef("");
   const pvpRevealSpinPrevRef = useRef(false);
+  const pvpRatingAnimRef = useRef(0);
+  const pvpRatingBaseRef = useRef(null);
+  const pvpRatingBaseGamesRef = useRef(null);
+  const pvpRatingFxDoneRoomRef = useRef("");
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -261,6 +266,7 @@ function App() {
       if (racePollRef.current) clearInterval(racePollRef.current);
       if (pvpPollRef.current) clearInterval(pvpPollRef.current);
       if (pvpRevealAnimRef.current) clearInterval(pvpRevealAnimRef.current);
+      if (pvpRatingAnimRef.current) cancelAnimationFrame(pvpRatingAnimRef.current);
       if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
@@ -587,6 +593,18 @@ function App() {
     if (kind === "roulette-stop") {
       tone(620, 60, { type: "triangle", gain: 0.06 });
       setTimeout(() => tone(840, 80, { type: "triangle", gain: 0.065 }), 60);
+      return;
+    }
+    if (kind === "rank-up") {
+      tone(560, 80, { type: "triangle", gain: 0.075 });
+      setTimeout(() => tone(770, 90, { type: "triangle", gain: 0.08 }), 75);
+      setTimeout(() => tone(1040, 120, { type: "triangle", gain: 0.085 }), 160);
+      return;
+    }
+    if (kind === "rank-down") {
+      tone(560, 90, { type: "sawtooth", gain: 0.06, slideTo: 460 });
+      setTimeout(() => tone(430, 110, { type: "sawtooth", gain: 0.055, slideTo: 320 }), 90);
+      setTimeout(() => tone(300, 130, { type: "sawtooth", gain: 0.05, slideTo: 220 }), 200);
       return;
     }
     if (kind === "go") {
@@ -1035,6 +1053,60 @@ function App() {
     }
   };
 
+  const stopPvpRatingAnimation = () => {
+    if (pvpRatingAnimRef.current) {
+      cancelAnimationFrame(pvpRatingAnimRef.current);
+      pvpRatingAnimRef.current = 0;
+    }
+  };
+
+  const startPvpRatingAnimation = (fromRating, toRating, roomCode) => {
+    stopPvpRatingAnimation();
+    const from = Number(fromRating);
+    const to = Number(toRating);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return;
+    const delta = to - from;
+    const duration = 1850;
+    const startAt = performance.now();
+
+    setPvpRatingFx({
+      roomCode,
+      from,
+      to,
+      delta,
+      ratingNow: from,
+      deltaNow: 0,
+      done: false,
+    });
+    playSfx("ui");
+
+    const tick = (now) => {
+      const t = Math.max(0, Math.min(1, (now - startAt) / duration));
+      const eased = 1 - (1 - t) ** 3;
+      const ratingNow = Math.round(from + (to - from) * eased);
+      const deltaNow = Math.round(delta * eased);
+      setPvpRatingFx((prev) =>
+        prev
+          ? {
+              ...prev,
+              ratingNow,
+              deltaNow,
+              done: t >= 1,
+            }
+          : prev
+      );
+
+      if (t < 1) {
+        pvpRatingAnimRef.current = requestAnimationFrame(tick);
+      } else {
+        pvpRatingAnimRef.current = 0;
+        playSfx(delta >= 0 ? "rank-up" : "rank-down");
+      }
+    };
+
+    pvpRatingAnimRef.current = requestAnimationFrame(tick);
+  };
+
   const pvpCancelReasonText = (reason) => {
     if (reason === "accept_timeout") return "매칭 수락 시간이 지나 자동 취소되었습니다.";
     if (reason === "cancelled_by_user") return "상대가 수락을 취소해 매칭이 종료되었습니다.";
@@ -1047,6 +1119,7 @@ function App() {
   const resetPvpQueueState = () => {
     stopPvpPolling();
     stopPvpRevealAnimation();
+    stopPvpRatingAnimation();
     setPvpSearching(false);
     setPvpTicketId("");
     setPvpQueueSize(0);
@@ -1055,12 +1128,17 @@ function App() {
     setPvpAcceptBusy(false);
     setPvpBanBusy(false);
     setPvpRevealIndex(0);
+    setPvpRatingFx(null);
     pvpMatchPhaseRef.current = "";
+    pvpRatingBaseRef.current = null;
+    pvpRatingBaseGamesRef.current = null;
+    pvpRatingFxDoneRoomRef.current = "";
   };
 
   const applyPvpMatch = (data) => {
     stopPvpPolling();
     stopPvpRevealAnimation();
+    stopPvpRatingAnimation();
     setPvpSearching(false);
     setPvpQueueSize(0);
     setPvpServerState("ready");
@@ -1068,7 +1146,11 @@ function App() {
     setPvpAcceptBusy(false);
     setPvpBanBusy(false);
     setPvpRevealIndex(0);
+    setPvpRatingFx(null);
     pvpMatchPhaseRef.current = "";
+    pvpRatingBaseRef.current = Number(authUser?.rating ?? 1500);
+    pvpRatingBaseGamesRef.current = Number(authUser?.rating_games ?? 0);
+    pvpRatingFxDoneRoomRef.current = "";
     if (data.ticketId) setPvpTicketId(data.ticketId);
     setRaceRoomCode(data.roomCode);
     setRacePlayerId(data.playerId);
@@ -1931,6 +2013,20 @@ function App() {
   }, [isLoggedIn, isModePvp, isInRaceRoom, racePhase, authHeaders]);
 
   useEffect(() => {
+    if (!isLoggedIn || !isModePvp || !isInRaceRoom || racePhase !== "finished" || !raceRoomCode) return;
+    if (pvpRatingFxDoneRoomRef.current === raceRoomCode) return;
+    const fromRating = Number(pvpRatingBaseRef.current);
+    const fromGames = Number(pvpRatingBaseGamesRef.current);
+    const toRating = Number(authUser?.rating);
+    const toGames = Number(authUser?.rating_games);
+    if (!Number.isFinite(fromRating) || !Number.isFinite(fromGames)) return;
+    if (!Number.isFinite(toRating) || !Number.isFinite(toGames)) return;
+    if (toGames <= fromGames) return;
+    pvpRatingFxDoneRoomRef.current = raceRoomCode;
+    startPvpRatingAnimation(fromRating, toRating, raceRoomCode);
+  }, [isLoggedIn, isModePvp, isInRaceRoom, racePhase, raceRoomCode, authUser?.rating, authUser?.rating_games]);
+
+  useEffect(() => {
     if (!isRaceCountdown || countdownLeft == null) {
       countdownCueRef.current = -1;
       return;
@@ -2409,7 +2505,6 @@ function App() {
                   <tr>
                     <th>#</th>
                     <th>닉네임</th>
-                    <th>아이디</th>
                     <th>레이팅</th>
                     <th>전적</th>
                     <th>승률</th>
@@ -2418,7 +2513,7 @@ function App() {
                 <tbody>
                   {ratingUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="rankingEmpty">
+                      <td colSpan={5} className="rankingEmpty">
                         {ratingLoading ? "불러오는 중..." : "표시할 유저가 없습니다."}
                       </td>
                     </tr>
@@ -2432,7 +2527,6 @@ function App() {
                         <tr key={u.id}>
                           <td>{idx + 1}</td>
                           <td>{u.nickname}</td>
-                          <td>{u.username}</td>
                           <td className="ratingScore">{Number(u.rating || 1500)}</td>
                           <td>
                             {wins}W {losses}L ({games})
@@ -2803,6 +2897,35 @@ function App() {
               <div>Players: {(raceState?.players || []).length}/{raceState?.maxPlayers || 2}</div>
               {myRacePlayer && <div className="raceInfoMe">{myRacePlayer.nickname}</div>}
               <div className="timerBar">TIME {formattedTime}</div>
+              {isModePvp && isRaceFinished && pvpRatingFx && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.28, ease: "easeOut" }}
+                  className={`ratingFxCard ${pvpRatingFx.delta >= 0 ? "up" : "down"} ${pvpRatingFx.done ? "done" : ""}`}
+                >
+                  <div className="ratingFxHead">RATING UPDATE</div>
+                  <div className="ratingFxNums">
+                    <span className="old">{pvpRatingFx.from}</span>
+                    <span className="arrow">→</span>
+                    <span className="now">{pvpRatingFx.ratingNow}</span>
+                  </div>
+                  <div className={`ratingFxDelta ${pvpRatingFx.delta >= 0 ? "plus" : "minus"}`}>
+                    {pvpRatingFx.deltaNow > 0 ? `+${pvpRatingFx.deltaNow}` : String(pvpRatingFx.deltaNow)}
+                  </div>
+                  <div className="ratingFxParticles" aria-hidden="true">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <span
+                        key={`rating-p-${i}`}
+                        style={{
+                          "--rx": `${(i - 5.5) * 11}px`,
+                          "--rd": `${0.22 + i * 0.035}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
               <div className="raceActions">
                 {isModeMulti && isRaceLobby && (
                   <>
