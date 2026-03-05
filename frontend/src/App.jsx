@@ -1,7 +1,7 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
-import { ChevronDown, Eraser, Home, Lock, LogIn, Redo2, Sparkles, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Eraser, Home, Lock, LogIn, Redo2, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://nonogram-api.onrender.com").replace(/\/$/, "");
@@ -2308,9 +2308,6 @@ function App() {
           </div>
           {!isModeAuth && (
             <div className="topAuth">
-              <button className="ghostBtn tutorialTriggerBtn" onClick={startTutorialMode}>
-                <Sparkles size={15} /> {isModeTutorial ? L("튜토리얼 다시 시작", "Restart Tutorial") : L("튜토리얼", "Tutorial")}
-              </button>
               <div className="langSwitch" role="group" aria-label="Language switch">
                 <button type="button" className={lang === "ko" ? "active" : ""} onClick={() => setLang("ko")}>
                   KO

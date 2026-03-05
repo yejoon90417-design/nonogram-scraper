@@ -153,20 +153,6 @@
   color: #fff;
 }
 
-.topAuth .tutorialTriggerBtn {
-  min-width: 122px;
-  min-height: 48px;
-  border: 2px solid #244f88;
-  background: linear-gradient(180deg, #edf7ff 0%, #d8ecff 100%);
-  color: #1e4370;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.32rem;
-  font-size: 0.94rem;
-  font-weight: 900;
-}
-
 .panel.langEn {
   letter-spacing: 0;
 }
@@ -1890,13 +1876,6 @@ button:disabled {
     min-height: 44px;
     font-size: 0.95rem;
     border-width: 2px;
-  }
-
-  .topAuth .tutorialTriggerBtn {
-    min-width: 98px;
-    min-height: 40px;
-    font-size: 0.82rem;
-    padding: 0.25rem 0.44rem;
   }
 
   .lobbyActions {
