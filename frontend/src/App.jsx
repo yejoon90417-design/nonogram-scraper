@@ -556,7 +556,17 @@ function App() {
     }
   };
 
+  const clearPuzzleViewState = () => {
+    setPuzzle(null);
+    applySnapshot([]);
+    setActiveHints(new Set());
+    resetHistory();
+    setElapsedSec(0);
+    setTimerRunning(false);
+  };
+
   const goSingleMode = () => {
+    if (!isInRaceRoom) clearPuzzleViewState();
     setPlayMode("single");
     setStatus("");
   };
@@ -577,6 +587,7 @@ function App() {
       setShowNeedLoginPopup(true);
       return;
     }
+    if (!isInRaceRoom) clearPuzzleViewState();
     setPlayMode("multi");
     setStatus("");
   };
@@ -586,6 +597,7 @@ function App() {
       setStatus("멀티 방에서는 먼저 Leave Room을 눌러줘.");
       return;
     }
+    clearPuzzleViewState();
     setPlayMode("menu");
     setStatus("");
   };
@@ -765,10 +777,11 @@ function App() {
     }
   };
 
-  const pollRaceRoom = async (roomCode) => {
+  const pollRaceRoom = async (roomCode, playerId = racePlayerId) => {
     if (!roomCode) return;
     try {
-      const res = await fetch(`${API_BASE}/race/${roomCode}`);
+      const qs = playerId ? `?playerId=${encodeURIComponent(playerId)}` : "";
+      const res = await fetch(`${API_BASE}/race/${roomCode}${qs}`);
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) return;
       applyRaceRoomState(data.room);
@@ -777,11 +790,11 @@ function App() {
     }
   };
 
-  const startRacePolling = (roomCode) => {
+  const startRacePolling = (roomCode, playerId) => {
     if (racePollRef.current) clearInterval(racePollRef.current);
-    pollRaceRoom(roomCode);
+    pollRaceRoom(roomCode, playerId);
     racePollRef.current = window.setInterval(() => {
-      pollRaceRoom(roomCode);
+      pollRaceRoom(roomCode, playerId);
     }, 700);
   };
 
@@ -832,7 +845,7 @@ function App() {
         startTimer: false,
         message: `Room ${data.roomCode} created. Wait for ready.`,
       });
-      startRacePolling(data.roomCode);
+      startRacePolling(data.roomCode, data.playerId);
       playSfx("ui");
     } catch (err) {
       setStatus(err.message);
@@ -869,7 +882,7 @@ function App() {
         startTimer: false,
         message: `Joined room ${data.roomCode}. Press ready.`,
       });
-      startRacePolling(data.roomCode);
+      startRacePolling(data.roomCode, data.playerId);
       setJoinPassword("");
       setShowJoinModal(false);
       playSfx("ui");

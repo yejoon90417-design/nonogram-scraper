@@ -21,6 +21,7 @@ const app = express();
 const pool = new Pool(DB_CONFIG);
 const raceRooms = new Map();
 const ROOM_TTL_MS = 1000 * 60 * 60 * 12;
+const PLAYER_STALE_MS = 1000 * 45;
 const COUNTDOWN_MS = 5000;
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const POPCOUNT = new Uint8Array(256);
@@ -295,6 +296,51 @@ function syncRoomState(room) {
   }
 }
 
+function touchPlayer(room, playerId) {
+  if (!room || !playerId) return null;
+  const player = room.players.get(playerId);
+  if (!player) return null;
+  player.lastSeenAt = Date.now();
+  return player;
+}
+
+function removeStalePlayers(room, now = Date.now()) {
+  let changed = false;
+
+  for (const [playerId, p] of room.players.entries()) {
+    const lastSeenAt = Number(p.lastSeenAt || 0);
+    if (!lastSeenAt || now - lastSeenAt <= PLAYER_STALE_MS) continue;
+
+    if (room.state === "lobby") {
+      room.players.delete(playerId);
+      changed = true;
+      if (room.hostPlayerId === playerId && room.players.size > 0) {
+        const nextHost = Array.from(room.players.values()).sort((a, b) =>
+          a.joinedAt > b.joinedAt ? 1 : -1
+        )[0];
+        room.hostPlayerId = nextHost.playerId;
+      }
+    } else {
+      if (!p.disconnectedAt) p.disconnectedAt = new Date(now).toISOString();
+      p.isReady = false;
+      changed = true;
+    }
+  }
+
+  if (room.players.size === 0) return { changed: true, deleteRoom: true };
+
+  if (room.state === "playing" && shouldFinishRace(room)) {
+    const finished = getFinishedPlayers(room);
+    if (!room.winnerPlayerId && finished.length > 0) {
+      room.winnerPlayerId = finished[0].playerId;
+    }
+    room.state = "finished";
+    changed = true;
+  }
+
+  return { changed, deleteRoom: false };
+}
+
 function canStartRoom(room) {
   const activePlayers = Array.from(room.players.values()).filter((p) => !p.disconnectedAt);
   if (activePlayers.length < 2) return false;
@@ -347,6 +393,7 @@ function shouldFinishRace(room) {
 
 function roomPublicState(room) {
   syncRoomState(room);
+  removeStalePlayers(room, Date.now());
   const now = Date.now();
   if (!Array.isArray(room.reactionEvents)) {
     room.reactionEvents = [];
@@ -417,11 +464,27 @@ function roomListItem(room) {
 setInterval(() => {
   const now = Date.now();
   for (const [code, room] of raceRooms.entries()) {
+    syncRoomState(room);
+    const stale = removeStalePlayers(room, now);
+    if (stale.deleteRoom) {
+      raceRooms.delete(code);
+      continue;
+    }
     if (now - room.createdAt > ROOM_TTL_MS) {
       raceRooms.delete(code);
     }
   }
 }, 1000 * 60 * 15);
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [code, room] of raceRooms.entries()) {
+    const stale = removeStalePlayers(room, now);
+    if (stale.deleteRoom) {
+      raceRooms.delete(code);
+    }
+  }
+}, 1000 * 10);
 
 setInterval(async () => {
   try {
@@ -668,6 +731,7 @@ app.post("/race/create", requireAuth, async (req, res) => {
       isReady: false,
       disconnectedAt: null,
       correctAnswerCells: 0,
+      lastSeenAt: Date.now(),
     });
     raceRooms.set(roomCode, room);
 
@@ -733,6 +797,7 @@ app.post("/race/join", requireAuth, async (req, res) => {
       isReady: false,
       disconnectedAt: null,
       correctAnswerCells: 0,
+      lastSeenAt: Date.now(),
     });
 
     return res.json({
@@ -766,6 +831,7 @@ app.post("/race/ready", (req, res) => {
   if (!player) {
     return res.status(404).json({ ok: false, error: "Player not found in room" });
   }
+  touchPlayer(room, playerId);
   player.isReady = ready;
   return res.json({ ok: true, room: roomPublicState(room) });
 });
@@ -787,6 +853,7 @@ app.post("/race/start", (req, res) => {
   if (room.hostPlayerId !== playerId) {
     return res.status(403).json({ ok: false, error: "Only host can start" });
   }
+  touchPlayer(room, playerId);
   if (!canStartRoom(room)) {
     return res.status(400).json({ ok: false, error: "All players must be ready (min 2 players)" });
   }
@@ -802,6 +869,7 @@ app.post("/race/start", (req, res) => {
     p.elapsedSec = null;
     p.disconnectedAt = null;
     p.correctAnswerCells = 0;
+    p.lastSeenAt = now;
   }
 
   return res.json({ ok: true, room: roomPublicState(room) });
@@ -823,6 +891,7 @@ app.post("/race/progress", async (req, res) => {
   if (!player) {
     return res.status(404).json({ ok: false, error: "Player not found in room" });
   }
+  touchPlayer(room, playerId);
   if (room.state !== "playing" && room.state !== "finished") {
     return res.status(400).json({ ok: false, error: "Race has not started yet" });
   }
@@ -862,6 +931,7 @@ app.post("/race/rematch", async (req, res) => {
   if (!room.players.has(playerId)) {
     return res.status(403).json({ ok: false, error: "Only room members can request rematch" });
   }
+  touchPlayer(room, playerId);
   if (room.state !== "finished") {
     return res.status(400).json({ ok: false, error: "Rematch is available only after finish" });
   }
@@ -909,6 +979,7 @@ app.post("/race/rematch", async (req, res) => {
       p.elapsedSec = null;
       p.disconnectedAt = null;
       p.correctAnswerCells = 0;
+      p.lastSeenAt = Date.now();
     }
     return res.json({ ok: true, puzzle: puzzleForClient, room: roomPublicState(room) });
   } catch (err) {
@@ -922,6 +993,8 @@ app.get("/race/:roomCode", (req, res) => {
   if (!room) {
     return res.status(404).json({ ok: false, error: "Room not found" });
   }
+  const playerId = String(req.query?.playerId || "").trim();
+  if (playerId) touchPlayer(room, playerId);
   return res.json({ ok: true, room: roomPublicState(room) });
 });
 
@@ -943,6 +1016,7 @@ app.post("/race/chat", requireAuth, (req, res) => {
   if (!player) {
     return res.status(404).json({ ok: false, error: "Player not found in room" });
   }
+  touchPlayer(room, playerId);
   if (player.userId !== req.authUser.id) {
     return res.status(403).json({ ok: false, error: "Forbidden player" });
   }
@@ -986,6 +1060,8 @@ app.post("/race/reaction", requireAuth, (req, res) => {
   if (!sender || !target) {
     return res.status(404).json({ ok: false, error: "Player not found in room" });
   }
+  touchPlayer(room, playerId);
+  touchPlayer(room, targetPlayerId);
   if (sender.playerId === target.playerId) {
     return res.status(400).json({ ok: false, error: "Cannot react to yourself" });
   }
@@ -1032,6 +1108,7 @@ app.post("/race/finish", async (req, res) => {
   if (!player) {
     return res.status(404).json({ ok: false, error: "Player not found in room" });
   }
+  touchPlayer(room, playerId);
 
   if (!Number.isInteger(player.elapsedSec)) {
     if (!room.totalAnswerCells || !room.solutionBits) {
