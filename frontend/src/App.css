@@ -363,6 +363,176 @@
   gap: 0.55rem;
 }
 
+.pvpStageCard {
+  border: 2px solid #2d618e;
+  border-radius: 10px;
+  background: #f7fbff;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pvpStageTitle {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #163a60;
+}
+
+.pvpGaugeWrap {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid #35658f;
+  background: #e0edf9;
+  overflow: hidden;
+}
+
+.pvpGaugeWrap.ban {
+  border-color: #8a4f2a;
+  background: #fde8da;
+}
+
+.pvpGaugeFill {
+  height: 100%;
+  background: linear-gradient(90deg, #2e93e0 0%, #30cdf2 100%);
+  transition: width 120ms linear;
+}
+
+.pvpDeadlineText {
+  font-size: 0.86rem;
+  font-weight: 900;
+  color: #173a5f;
+}
+
+.pvpAcceptPlayers {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.pvpAcceptPlayer {
+  border: 1px solid #98b9d8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #224869;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pvpAcceptPlayer.accepted {
+  border-color: #2f8e56;
+  color: #1f6f42;
+  background: #ecfff3;
+}
+
+.pvpBanGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.pvpBanCard {
+  position: relative;
+  min-height: 74px;
+  border: 2px solid #21527b;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e3e61;
+  font-weight: 900;
+  display: grid;
+  place-items: center;
+  gap: 0.15rem;
+  padding: 0.35rem;
+}
+
+.pvpBanCard.mine {
+  border-color: #1e8750;
+  box-shadow: 0 0 0 2px rgba(30, 135, 80, 0.2) inset;
+}
+
+.pvpBanCard.banned {
+  border-color: #98393c;
+  background: #fff2f2;
+}
+
+.pvpBanSize {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.pvpBanMark {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  font-weight: 900;
+  color: rgba(196, 40, 40, 0.42);
+  pointer-events: none;
+}
+
+.pvpBanMeta {
+  font-size: 0.68rem;
+  line-height: 1.1;
+  color: #7a2a2a;
+  text-align: center;
+}
+
+.pvpRevealTrack {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.pvpRevealItem {
+  border: 2px solid #2a557e;
+  border-radius: 9px;
+  background: #f7fbff;
+  min-height: 72px;
+  padding: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 900;
+  color: #16385e;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.15rem;
+  transition: transform 80ms linear, background-color 80ms linear, border-color 80ms linear;
+}
+
+.pvpRevealItem.active {
+  transform: translateY(-2px) scale(1.03);
+  border-color: #1266b8;
+  background: #d9efff;
+}
+
+.pvpRevealItem.banned {
+  border-color: #994041;
+  background: #fff0f1;
+  color: #7b2a2a;
+}
+
+.pvpRevealItem.chosen {
+  border-color: #2e8a59;
+  background: #e8fff2;
+  color: #1f6942;
+}
+
+.pvpRevealBan {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pvpRevealResult {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #163b5f;
+}
+
 .raceMatchLayout {
   margin-top: 0.9rem;
   display: grid;
@@ -1489,6 +1659,16 @@ button:disabled {
   .pvpQueueActions .singleSfxBtn {
     min-width: 0;
     flex: 1;
+  }
+
+  .pvpBanGrid,
+  .pvpRevealTrack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .pvpBanCard,
+  .pvpRevealItem {
+    min-height: 60px;
   }
 
   .joinActionBtn {

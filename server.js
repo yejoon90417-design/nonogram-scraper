@@ -23,11 +23,15 @@ const raceRooms = new Map();
 const pvpQueueTickets = new Map();
 const pvpUserTicket = new Map();
 const pvpWaitingOrder = [];
+const pvpMatches = new Map();
 const ROOM_TTL_MS = 1000 * 60 * 60 * 12;
 const PLAYER_STALE_MS = 1000 * 45;
 const COUNTDOWN_MS = 5000;
 const PVP_QUEUE_STALE_MS = 1000 * 60 * 2;
 const PVP_MATCH_TICKET_TTL_MS = 1000 * 60 * 5;
+const PVP_ACCEPT_MS = 12000;
+const PVP_BAN_MS = 10000;
+const PVP_REVEAL_MS = 4200;
 const PVP_SIZE_OPTIONS = [
   [5, 5],
   [10, 10],
@@ -306,6 +310,10 @@ function randomPvpSize() {
   return PVP_SIZE_OPTIONS[Math.floor(Math.random() * PVP_SIZE_OPTIONS.length)];
 }
 
+function pvpSizeKey(width, height) {
+  return `${width}x${height}`;
+}
+
 function isUserInAnyRoom(userId) {
   if (!userId) return false;
   for (const room of raceRooms.values()) {
@@ -326,19 +334,6 @@ function removePvpTicket(ticketId) {
   }
   const idx = pvpWaitingOrder.indexOf(id);
   if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
-}
-
-function cleanupPvpQueue(now = Date.now()) {
-  for (const [ticketId, ticket] of pvpQueueTickets.entries()) {
-    const age = now - Number(ticket.updatedAt || ticket.createdAt || now);
-    if (ticket.state === "waiting" && age > PVP_QUEUE_STALE_MS) {
-      removePvpTicket(ticketId);
-      continue;
-    }
-    if (ticket.state === "matched" && age > PVP_MATCH_TICKET_TTL_MS) {
-      removePvpTicket(ticketId);
-    }
-  }
 }
 
 async function fetchRandomPuzzleForSize(width, height) {
@@ -363,6 +358,254 @@ function puzzleClientView(puzzle) {
     col_hints: puzzle.col_hints,
     is_unique: puzzle.is_unique,
   };
+}
+
+function getPvpMatchPlayer(match, userId) {
+  if (!match || !userId) return null;
+  return match.players.find((p) => p.userId === userId) || null;
+}
+
+function buildPvpMatchPublicState(match, viewerUserId) {
+  const me = getPvpMatchPlayer(match, viewerUserId);
+  return {
+    matchId: match.matchId,
+    state: match.state,
+    cancelReason: match.cancelReason || null,
+    createdAt: match.createdAt,
+    updatedAt: match.updatedAt,
+    acceptDeadlineAt: match.acceptDeadlineAt || null,
+    banDeadlineAt: match.banDeadlineAt || null,
+    revealStartAt: match.revealStartAt || null,
+    revealEndAt: match.revealEndAt || null,
+    chosenSizeKey: match.chosenSizeKey || null,
+    chosenWidth: match.chosenWidth || null,
+    chosenHeight: match.chosenHeight || null,
+    roomCode: match.roomCode || null,
+    players: match.players.map((p) => ({
+      userId: p.userId,
+      nickname: p.nickname,
+      accepted: p.accepted === true,
+      acceptedAt: p.acceptedAt || null,
+      banSubmitted: p.banSubmitted === true,
+      bannedSizeKey: p.bannedSizeKey || null,
+      playerId: p.playerId || null,
+    })),
+    options: match.options.map((o) => ({
+      sizeKey: o.sizeKey,
+      width: o.width,
+      height: o.height,
+      banned: Array.isArray(o.bannedByUserIds) && o.bannedByUserIds.length > 0,
+      bannedByUserIds: Array.isArray(o.bannedByUserIds) ? o.bannedByUserIds : [],
+      bannedByNicknames: Array.isArray(o.bannedByNicknames) ? o.bannedByNicknames : [],
+    })),
+    me: me
+      ? {
+          userId: me.userId,
+          accepted: me.accepted === true,
+          banSubmitted: me.banSubmitted === true,
+          bannedSizeKey: me.bannedSizeKey || null,
+          playerId: me.playerId || null,
+        }
+      : null,
+  };
+}
+
+function cancelPvpMatch(match, reason = "cancelled", actorUserId = null) {
+  if (!match || match.state === "cancelled" || match.state === "ready") return;
+  const now = Date.now();
+  match.state = "cancelled";
+  match.cancelReason = reason;
+  match.cancelledByUserId = actorUserId || null;
+  match.updatedAt = now;
+
+  for (const p of match.players) {
+    const ticket = pvpQueueTickets.get(p.ticketId);
+    if (!ticket) continue;
+    ticket.state = "cancelled";
+    ticket.cancelReason = reason;
+    ticket.updatedAt = now;
+  }
+}
+
+function finalizePvpBans(match) {
+  for (const option of match.options) {
+    option.bannedByUserIds = [];
+    option.bannedByNicknames = [];
+  }
+
+  for (const p of match.players) {
+    if (!p.bannedSizeKey) continue;
+    const option = match.options.find((o) => o.sizeKey === p.bannedSizeKey);
+    if (!option) continue;
+    if (!option.bannedByUserIds.includes(p.userId)) option.bannedByUserIds.push(p.userId);
+    if (!option.bannedByNicknames.includes(p.nickname)) option.bannedByNicknames.push(p.nickname);
+  }
+
+  const available = match.options.filter((o) => !o.bannedByUserIds.length);
+  const pool = available.length ? available : match.options;
+  const chosen = pool[Math.floor(Math.random() * pool.length)];
+  match.chosenSizeKey = chosen.sizeKey;
+  match.chosenWidth = chosen.width;
+  match.chosenHeight = chosen.height;
+  match.state = "reveal";
+  match.revealStartAt = Date.now();
+  match.revealEndAt = match.revealStartAt + PVP_REVEAL_MS;
+  match.updatedAt = Date.now();
+}
+
+async function createPvpRoomForMatch(match) {
+  if (!match || match.roomCode) return;
+  if (!match.chosenWidth || !match.chosenHeight) {
+    cancelPvpMatch(match, "invalid_selected_size");
+    return;
+  }
+
+  const puzzle = await fetchRandomPuzzleForSize(match.chosenWidth, match.chosenHeight);
+  if (!puzzle) {
+    cancelPvpMatch(match, "no_puzzle_for_selected_size");
+    return;
+  }
+
+  let solutionBits = toSolutionBits(puzzle.solution_bits);
+  if (!solutionBits) {
+    solutionBits = await loadSolutionBitsHexById(puzzle.id);
+  }
+  if (!solutionBits) {
+    cancelPvpMatch(match, "puzzle_solution_missing");
+    return;
+  }
+
+  const roomCode = makeRoomCode();
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const playerIdByUserId = new Map();
+
+  const room = {
+    roomCode,
+    roomTitle: "PvP Match",
+    visibility: "public",
+    passwordHash: null,
+    puzzleId: puzzle.id,
+    solutionBits,
+    totalAnswerCells: popcountBuffer(solutionBits),
+    maxPlayers: 2,
+    finishTarget: 1,
+    width: puzzle.width,
+    height: puzzle.height,
+    createdAt: now,
+    hostPlayerId: null,
+    state: "countdown",
+    countdownStartAt: now,
+    gameStartAt: now + COUNTDOWN_MS,
+    winnerPlayerId: null,
+    chatMessages: [],
+    reactionEvents: [],
+    players: new Map(),
+  };
+
+  for (const p of match.players) {
+    const playerId = randomPlayerId();
+    playerIdByUserId.set(p.userId, playerId);
+    room.players.set(playerId, {
+      playerId,
+      userId: p.userId,
+      nickname: p.nickname,
+      joinedAt: nowIso,
+      finishedAt: null,
+      elapsedSec: null,
+      isReady: true,
+      disconnectedAt: null,
+      correctAnswerCells: 0,
+      lastSeenAt: now,
+    });
+  }
+
+  const first = match.players[0];
+  room.hostPlayerId = first ? playerIdByUserId.get(first.userId) : randomPlayerId();
+  raceRooms.set(roomCode, room);
+
+  match.roomCode = roomCode;
+  match.puzzleId = puzzle.id;
+  match.state = "ready";
+  match.updatedAt = Date.now();
+  match.puzzlePreview = puzzleClientView(puzzle);
+
+  for (const p of match.players) {
+    p.playerId = playerIdByUserId.get(p.userId) || null;
+    const ticket = pvpQueueTickets.get(p.ticketId);
+    if (!ticket) continue;
+    ticket.state = "matched";
+    ticket.roomCode = roomCode;
+    ticket.playerId = p.playerId;
+    ticket.updatedAt = Date.now();
+  }
+}
+
+async function syncPvpMatchState(match) {
+  if (!match) return;
+  const now = Date.now();
+
+  if (match.state === "accept") {
+    const allAccepted = match.players.every((p) => p.accepted === true);
+    if (allAccepted) {
+      match.state = "ban";
+      match.banDeadlineAt = now + PVP_BAN_MS;
+      match.updatedAt = now;
+    } else if (now >= match.acceptDeadlineAt) {
+      cancelPvpMatch(match, "accept_timeout");
+    }
+  }
+
+  if (match.state === "ban") {
+    const allSubmitted = match.players.every((p) => p.banSubmitted === true);
+    if (allSubmitted || now >= match.banDeadlineAt) {
+      finalizePvpBans(match);
+    }
+  }
+
+  if (match.state === "reveal" && now >= match.revealEndAt) {
+    await createPvpRoomForMatch(match);
+  }
+}
+
+function cleanupPvpQueue(now = Date.now()) {
+  for (const [matchId, match] of pvpMatches.entries()) {
+    if (match.state === "accept" && now >= match.acceptDeadlineAt) {
+      const allAccepted = match.players.every((p) => p.accepted === true);
+      if (!allAccepted) cancelPvpMatch(match, "accept_timeout");
+    }
+    if (match.state === "cancelled" && now - Number(match.updatedAt || now) > PVP_MATCH_TICKET_TTL_MS) {
+      pvpMatches.delete(matchId);
+      continue;
+    }
+    if (match.state === "ready" && now - Number(match.updatedAt || now) > PVP_MATCH_TICKET_TTL_MS) {
+      pvpMatches.delete(matchId);
+    }
+  }
+
+  for (const [ticketId, ticket] of pvpQueueTickets.entries()) {
+    const age = now - Number(ticket.updatedAt || ticket.createdAt || now);
+    if (ticket.state === "waiting" && age > PVP_QUEUE_STALE_MS) {
+      removePvpTicket(ticketId);
+      continue;
+    }
+    if (ticket.state === "matching") {
+      const match = pvpMatches.get(ticket.matchId);
+      if (!match) {
+        removePvpTicket(ticketId);
+        continue;
+      }
+      if (match.state === "cancelled") {
+        ticket.state = "cancelled";
+        ticket.cancelReason = match.cancelReason || "cancelled";
+        ticket.updatedAt = now;
+      }
+      continue;
+    }
+    if ((ticket.state === "matched" || ticket.state === "cancelled") && age > PVP_MATCH_TICKET_TTL_MS) {
+      removePvpTicket(ticketId);
+    }
+  }
 }
 
 function syncRoomState(room) {
@@ -568,9 +811,17 @@ setInterval(() => {
   }
 }, 1000 * 10);
 
-setInterval(() => {
-  cleanupPvpQueue(Date.now());
-}, 1000 * 10);
+setInterval(async () => {
+  const now = Date.now();
+  for (const match of pvpMatches.values()) {
+    try {
+      await syncPvpMatchState(match);
+    } catch {
+      // ignore pvp transition errors
+    }
+  }
+  cleanupPvpQueue(now);
+}, 1000);
 
 setInterval(async () => {
   try {
@@ -738,66 +989,124 @@ app.get("/race-rooms", (_req, res) => {
   return res.json({ ok: true, rooms });
 });
 
-app.post("/pvp/queue/join", requireAuth, async (req, res) => {
-  cleanupPvpQueue(Date.now());
+async function buildPvpReadyPayload(ticket) {
+  if (!ticket || !ticket.roomCode || !ticket.playerId) return null;
+  const room = raceRooms.get(ticket.roomCode);
+  if (!room) return null;
+  const roomPlayer = room.players.get(ticket.playerId);
+  if (!roomPlayer) return null;
+  touchPlayer(room, ticket.playerId);
 
-  if (isUserInAnyRoom(req.authUser.id)) {
-    return res.status(400).json({ ok: false, error: "You are already in a room" });
+  const { rows } = await pool.query(
+    `SELECT id, width, height, row_hints, col_hints, is_unique
+     FROM puzzles
+     WHERE id = $1`,
+    [room.puzzleId]
+  );
+  if (!rows.length) return null;
+  return {
+    matched: true,
+    state: "ready",
+    roomCode: ticket.roomCode,
+    playerId: ticket.playerId,
+    puzzle: rows[0],
+    room: roomPublicState(room),
+  };
+}
+
+async function buildPvpStatusPayload(ticket, viewerUserId) {
+  if (!ticket) return null;
+  const base = {
+    ok: true,
+    ticketId: ticket.ticketId,
+    queueSize: pvpWaitingOrder.length,
+  };
+
+  if (ticket.state === "waiting") {
+    return {
+      ...base,
+      state: "waiting",
+      matched: false,
+    };
   }
 
-  const existingTicketId = pvpUserTicket.get(req.authUser.id);
-  if (existingTicketId) {
-    const existing = pvpQueueTickets.get(existingTicketId);
-    if (existing && existing.state === "waiting") {
-      existing.updatedAt = Date.now();
-      return res.json({
-        ok: true,
-        matched: false,
-        ticketId: existing.ticketId,
-        queueSize: pvpWaitingOrder.length,
-      });
+  if (ticket.state === "matched" && ticket.roomCode && ticket.playerId) {
+    const ready = await buildPvpReadyPayload(ticket);
+    if (!ready) {
+      removePvpTicket(ticket.ticketId);
+      return null;
     }
-    if (existing && existing.state === "matched" && existing.roomCode && existing.playerId) {
-      const room = raceRooms.get(existing.roomCode);
-      if (room) {
-        const roomPlayer = room.players.get(existing.playerId);
-        if (!roomPlayer) {
-          removePvpTicket(existingTicketId);
-        } else {
-        touchPlayer(room, existing.playerId);
-        try {
-          const { rows } = await pool.query(
-            `SELECT id, width, height, row_hints, col_hints, is_unique
-             FROM puzzles
-             WHERE id = $1`,
-            [room.puzzleId]
-          );
-          if (rows.length) {
-            return res.json({
-              ok: true,
-              matched: true,
-              ticketId: existing.ticketId,
-              roomCode: existing.roomCode,
-              playerId: existing.playerId,
-              puzzle: rows[0],
-              room: roomPublicState(room),
-            });
-          }
-        } catch {
-          // fallback to fresh queue join below
-        }
-        }
+    return {
+      ...base,
+      ...ready,
+    };
+  }
+
+  if (ticket.state === "matching" && ticket.matchId) {
+    const match = pvpMatches.get(ticket.matchId);
+    if (!match) {
+      removePvpTicket(ticket.ticketId);
+      return null;
+    }
+
+    await syncPvpMatchState(match);
+
+    if (match.state === "ready") {
+      const ready = await buildPvpReadyPayload(ticket);
+      if (!ready) {
+        removePvpTicket(ticket.ticketId);
+        return null;
       }
+      return {
+        ...base,
+        ...ready,
+        match: buildPvpMatchPublicState(match, viewerUserId),
+      };
     }
-    removePvpTicket(existingTicketId);
+
+    if (match.state === "cancelled") {
+      ticket.state = "cancelled";
+      ticket.cancelReason = match.cancelReason || "cancelled";
+      ticket.updatedAt = Date.now();
+      return {
+        ...base,
+        state: "cancelled",
+        matched: false,
+        cancelReason: ticket.cancelReason,
+        match: buildPvpMatchPublicState(match, viewerUserId),
+      };
+    }
+
+    return {
+      ...base,
+      state: "matching",
+      matched: false,
+      match: buildPvpMatchPublicState(match, viewerUserId),
+    };
   }
 
-  let opponentTicket = null;
+  if (ticket.state === "cancelled") {
+    return {
+      ...base,
+      state: "cancelled",
+      matched: false,
+      cancelReason: ticket.cancelReason || "cancelled",
+    };
+  }
+
+  return {
+    ...base,
+    state: "waiting",
+    matched: false,
+  };
+}
+
+function findPvpOpponent(myUserId) {
   while (pvpWaitingOrder.length > 0) {
     const candidateId = pvpWaitingOrder.shift();
     const candidate = pvpQueueTickets.get(candidateId);
     if (!candidate) continue;
-    if (candidate.userId === req.authUser.id) continue;
+    if (candidate.userId === myUserId) continue;
     if (candidate.state !== "waiting") continue;
     if (Date.now() - Number(candidate.updatedAt || candidate.createdAt || Date.now()) > PVP_QUEUE_STALE_MS) {
       removePvpTicket(candidateId);
@@ -807,12 +1116,104 @@ app.post("/pvp/queue/join", requireAuth, async (req, res) => {
       removePvpTicket(candidateId);
       continue;
     }
-    opponentTicket = candidate;
-    break;
+    return candidate;
+  }
+  return null;
+}
+
+function createPvpMatch(ticketA, ticketB) {
+  const now = Date.now();
+  const matchId = randomPlayerId();
+  const match = {
+    matchId,
+    state: "accept",
+    cancelReason: null,
+    createdAt: now,
+    updatedAt: now,
+    acceptDeadlineAt: now + PVP_ACCEPT_MS,
+    banDeadlineAt: null,
+    revealStartAt: null,
+    revealEndAt: null,
+    chosenSizeKey: null,
+    chosenWidth: null,
+    chosenHeight: null,
+    roomCode: null,
+    puzzleId: null,
+    puzzlePreview: null,
+    players: [
+      {
+        userId: ticketA.userId,
+        nickname: ticketA.nickname,
+        ticketId: ticketA.ticketId,
+        accepted: false,
+        acceptedAt: null,
+        banSubmitted: false,
+        bannedSizeKey: null,
+        banSubmittedAt: null,
+        playerId: null,
+      },
+      {
+        userId: ticketB.userId,
+        nickname: ticketB.nickname,
+        ticketId: ticketB.ticketId,
+        accepted: false,
+        acceptedAt: null,
+        banSubmitted: false,
+        bannedSizeKey: null,
+        banSubmittedAt: null,
+        playerId: null,
+      },
+    ],
+    options: PVP_SIZE_OPTIONS.map(([width, height]) => ({
+      sizeKey: pvpSizeKey(width, height),
+      width,
+      height,
+      bannedByUserIds: [],
+      bannedByNicknames: [],
+    })),
+  };
+
+  pvpMatches.set(matchId, match);
+
+  ticketA.state = "matching";
+  ticketA.matchId = matchId;
+  ticketA.cancelReason = null;
+  ticketA.updatedAt = now;
+  ticketB.state = "matching";
+  ticketB.matchId = matchId;
+  ticketB.cancelReason = null;
+  ticketB.updatedAt = now;
+
+  return match;
+}
+
+app.post("/pvp/queue/join", requireAuth, async (req, res) => {
+  cleanupPvpQueue(Date.now());
+
+  if (isUserInAnyRoom(req.authUser.id)) {
+    return res.status(400).json({ ok: false, error: "You are already in a room" });
+  }
+
+  const now = Date.now();
+  const existingTicketId = pvpUserTicket.get(req.authUser.id);
+  if (existingTicketId) {
+    const existing = pvpQueueTickets.get(existingTicketId);
+    if (existing) {
+      existing.updatedAt = now;
+      const payload = await buildPvpStatusPayload(existing, req.authUser.id);
+      if (!payload) {
+        removePvpTicket(existingTicketId);
+      } else if (payload.state === "cancelled") {
+        removePvpTicket(existingTicketId);
+      } else {
+        return res.json(payload);
+      }
+    } else {
+      pvpUserTicket.delete(req.authUser.id);
+    }
   }
 
   const myTicketId = randomPlayerId();
-  const now = Date.now();
   const myTicket = {
     ticketId: myTicketId,
     userId: req.authUser.id,
@@ -820,112 +1221,35 @@ app.post("/pvp/queue/join", requireAuth, async (req, res) => {
     state: "waiting",
     createdAt: now,
     updatedAt: now,
+    matchId: null,
     roomCode: null,
     playerId: null,
+    cancelReason: null,
   };
   pvpQueueTickets.set(myTicketId, myTicket);
   pvpUserTicket.set(req.authUser.id, myTicketId);
 
-  if (!opponentTicket) {
+  const opponent = findPvpOpponent(req.authUser.id);
+  if (!opponent) {
     pvpWaitingOrder.push(myTicketId);
-    return res.json({ ok: true, matched: false, ticketId: myTicketId, queueSize: pvpWaitingOrder.length });
-  }
-
-  try {
-    const [width, height] = randomPvpSize();
-    const puzzle = await fetchRandomPuzzleForSize(width, height);
-    if (!puzzle) {
-      removePvpTicket(myTicketId);
-      pvpWaitingOrder.push(opponentTicket.ticketId);
-      return res.status(404).json({ ok: false, error: "No puzzle found for matchmaking size" });
-    }
-
-    let solutionBits = toSolutionBits(puzzle.solution_bits);
-    if (!solutionBits) {
-      solutionBits = await loadSolutionBitsHexById(puzzle.id);
-    }
-    if (!solutionBits) {
-      removePvpTicket(myTicketId);
-      pvpWaitingOrder.push(opponentTicket.ticketId);
-      return res.status(500).json({ ok: false, error: "Puzzle solution_bits is missing" });
-    }
-
-    const roomCode = makeRoomCode();
-    const nowIso = new Date().toISOString();
-    const p1 = randomPlayerId();
-    const p2 = randomPlayerId();
-    const room = {
-      roomCode,
-      roomTitle: "PvP Match",
-      visibility: "public",
-      passwordHash: null,
-      puzzleId: puzzle.id,
-      solutionBits,
-      totalAnswerCells: popcountBuffer(solutionBits),
-      maxPlayers: 2,
-      finishTarget: 1,
-      width: puzzle.width,
-      height: puzzle.height,
-      createdAt: Date.now(),
-      hostPlayerId: p1,
-      state: "countdown",
-      countdownStartAt: Date.now(),
-      gameStartAt: Date.now() + COUNTDOWN_MS,
-      winnerPlayerId: null,
-      chatMessages: [],
-      reactionEvents: [],
-      players: new Map(),
-    };
-    room.players.set(p1, {
-      playerId: p1,
-      userId: req.authUser.id,
-      nickname: req.authUser.nickname,
-      joinedAt: nowIso,
-      finishedAt: null,
-      elapsedSec: null,
-      isReady: true,
-      disconnectedAt: null,
-      correctAnswerCells: 0,
-      lastSeenAt: Date.now(),
-    });
-    room.players.set(p2, {
-      playerId: p2,
-      userId: opponentTicket.userId,
-      nickname: opponentTicket.nickname,
-      joinedAt: nowIso,
-      finishedAt: null,
-      elapsedSec: null,
-      isReady: true,
-      disconnectedAt: null,
-      correctAnswerCells: 0,
-      lastSeenAt: Date.now(),
-    });
-    raceRooms.set(roomCode, room);
-
-    myTicket.state = "matched";
-    myTicket.roomCode = roomCode;
-    myTicket.playerId = p1;
-    myTicket.updatedAt = Date.now();
-
-    opponentTicket.state = "matched";
-    opponentTicket.roomCode = roomCode;
-    opponentTicket.playerId = p2;
-    opponentTicket.updatedAt = Date.now();
-
     return res.json({
       ok: true,
-      matched: true,
-      ticketId: myTicket.ticketId,
-      roomCode,
-      playerId: p1,
-      puzzle: puzzleClientView(puzzle),
-      room: roomPublicState(room),
+      ticketId: myTicketId,
+      state: "waiting",
+      matched: false,
+      queueSize: pvpWaitingOrder.length,
     });
-  } catch (err) {
-    removePvpTicket(myTicketId);
-    if (opponentTicket) pvpWaitingOrder.push(opponentTicket.ticketId);
-    return res.status(500).json({ ok: false, error: err.message });
   }
+
+  const match = createPvpMatch(myTicket, opponent);
+  return res.json({
+    ok: true,
+    ticketId: myTicketId,
+    state: "matching",
+    matched: false,
+    queueSize: pvpWaitingOrder.length,
+    match: buildPvpMatchPublicState(match, req.authUser.id),
+  });
 });
 
 app.get("/pvp/queue/status", requireAuth, async (req, res) => {
@@ -938,42 +1262,11 @@ app.get("/pvp/queue/status", requireAuth, async (req, res) => {
   }
   ticket.updatedAt = Date.now();
 
-  if (ticket.state === "waiting") {
-    return res.json({ ok: true, matched: false, ticketId, queueSize: pvpWaitingOrder.length });
+  const payload = await buildPvpStatusPayload(ticket, req.authUser.id);
+  if (!payload) {
+    return res.status(404).json({ ok: false, error: "Match ticket expired" });
   }
-
-  if (ticket.state === "matched" && ticket.roomCode && ticket.playerId) {
-    const room = raceRooms.get(ticket.roomCode);
-    if (!room) {
-      removePvpTicket(ticketId);
-      return res.status(404).json({ ok: false, error: "Matched room expired" });
-    }
-    touchPlayer(room, ticket.playerId);
-    try {
-      const { rows } = await pool.query(
-        `SELECT id, width, height, row_hints, col_hints, is_unique
-         FROM puzzles
-         WHERE id = $1`,
-        [room.puzzleId]
-      );
-      if (!rows.length) {
-        return res.status(404).json({ ok: false, error: "Puzzle not found for matched room" });
-      }
-      return res.json({
-        ok: true,
-        matched: true,
-        ticketId,
-        roomCode: ticket.roomCode,
-        playerId: ticket.playerId,
-        puzzle: rows[0],
-        room: roomPublicState(room),
-      });
-    } catch (err) {
-      return res.status(500).json({ ok: false, error: err.message });
-    }
-  }
-
-  return res.json({ ok: true, matched: false, ticketId, queueSize: pvpWaitingOrder.length });
+  return res.json(payload);
 });
 
 app.post("/pvp/queue/cancel", (req, res) => {
@@ -983,8 +1276,95 @@ app.post("/pvp/queue/cancel", (req, res) => {
   if (!ticket) {
     return res.status(404).json({ ok: false, error: "Match ticket not found" });
   }
+  if (ticket.state === "matching" && ticket.matchId) {
+    const match = pvpMatches.get(ticket.matchId);
+    if (match && match.state !== "ready" && match.state !== "cancelled") {
+      cancelPvpMatch(match, "cancelled_by_user", ticket.userId);
+    }
+  }
   removePvpTicket(ticketId);
   return res.json({ ok: true, cancelled: true });
+});
+
+app.post("/pvp/match/accept", requireAuth, async (req, res) => {
+  cleanupPvpQueue(Date.now());
+  const ticketId = String(req.body?.ticketId || "").trim();
+  if (!ticketId) return res.status(400).json({ ok: false, error: "ticketId is required" });
+  const ticket = pvpQueueTickets.get(ticketId);
+  if (!ticket || ticket.userId !== req.authUser.id) {
+    return res.status(404).json({ ok: false, error: "Match ticket not found" });
+  }
+  if (ticket.state !== "matching" || !ticket.matchId) {
+    const payload = await buildPvpStatusPayload(ticket, req.authUser.id);
+    if (!payload) return res.status(404).json({ ok: false, error: "Match ticket expired" });
+    return res.json(payload);
+  }
+  const match = pvpMatches.get(ticket.matchId);
+  if (!match) {
+    removePvpTicket(ticketId);
+    return res.status(404).json({ ok: false, error: "Match not found" });
+  }
+
+  await syncPvpMatchState(match);
+  if (match.state === "accept") {
+    const player = getPvpMatchPlayer(match, req.authUser.id);
+    if (!player) return res.status(403).json({ ok: false, error: "Not a match participant" });
+    player.accepted = true;
+    player.acceptedAt = Date.now();
+    match.updatedAt = Date.now();
+    await syncPvpMatchState(match);
+  }
+
+  const payload = await buildPvpStatusPayload(ticket, req.authUser.id);
+  if (!payload) return res.status(404).json({ ok: false, error: "Match ticket expired" });
+  return res.json(payload);
+});
+
+app.post("/pvp/match/ban", requireAuth, async (req, res) => {
+  cleanupPvpQueue(Date.now());
+  const ticketId = String(req.body?.ticketId || "").trim();
+  if (!ticketId) return res.status(400).json({ ok: false, error: "ticketId is required" });
+  const ticket = pvpQueueTickets.get(ticketId);
+  if (!ticket || ticket.userId !== req.authUser.id) {
+    return res.status(404).json({ ok: false, error: "Match ticket not found" });
+  }
+  if (ticket.state !== "matching" || !ticket.matchId) {
+    const payload = await buildPvpStatusPayload(ticket, req.authUser.id);
+    if (!payload) return res.status(404).json({ ok: false, error: "Match ticket expired" });
+    return res.json(payload);
+  }
+  const match = pvpMatches.get(ticket.matchId);
+  if (!match) {
+    removePvpTicket(ticketId);
+    return res.status(404).json({ ok: false, error: "Match not found" });
+  }
+
+  await syncPvpMatchState(match);
+  if (match.state === "ban") {
+    const player = getPvpMatchPlayer(match, req.authUser.id);
+    if (!player) return res.status(403).json({ ok: false, error: "Not a match participant" });
+    if (!player.banSubmitted) {
+      const skip = req.body?.skip === true;
+      const sizeKey = String(req.body?.sizeKey || "").trim();
+      if (!skip && sizeKey) {
+        const option = match.options.find((o) => o.sizeKey === sizeKey);
+        if (!option) {
+          return res.status(400).json({ ok: false, error: "Invalid sizeKey" });
+        }
+        player.bannedSizeKey = sizeKey;
+      } else {
+        player.bannedSizeKey = null;
+      }
+      player.banSubmitted = true;
+      player.banSubmittedAt = Date.now();
+      match.updatedAt = Date.now();
+      await syncPvpMatchState(match);
+    }
+  }
+
+  const payload = await buildPvpStatusPayload(ticket, req.authUser.id);
+  if (!payload) return res.status(404).json({ ok: false, error: "Match ticket expired" });
+  return res.json(payload);
 });
 
 app.post("/race/create", requireAuth, async (req, res) => {

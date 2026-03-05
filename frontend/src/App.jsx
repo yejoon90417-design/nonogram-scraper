@@ -10,6 +10,7 @@ const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
 const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
 const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
+const PVP_SIZE_KEYS = ["5x5", "10x10", "15x15", "20x20", "25x25"];
 
 const TUTORIAL_PUZZLE = {
   id: "tutorial-5x5",
@@ -193,6 +194,11 @@ function App() {
   const [pvpTicketId, setPvpTicketId] = useState("");
   const [pvpSearching, setPvpSearching] = useState(false);
   const [pvpQueueSize, setPvpQueueSize] = useState(0);
+  const [pvpServerState, setPvpServerState] = useState("idle"); // idle | waiting | matching | ready | cancelled
+  const [pvpMatch, setPvpMatch] = useState(null);
+  const [pvpAcceptBusy, setPvpAcceptBusy] = useState(false);
+  const [pvpBanBusy, setPvpBanBusy] = useState(false);
+  const [pvpRevealIndex, setPvpRevealIndex] = useState(0);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -212,9 +218,11 @@ function App() {
   const autoSolvedShownRef = useRef(false);
   const racePollRef = useRef(0);
   const pvpPollRef = useRef(0);
+  const pvpRevealAnimRef = useRef(0);
   const raceRoomCodeRef = useRef("");
   const racePlayerIdRef = useRef("");
   const pvpTicketRef = useRef("");
+  const pvpMatchPhaseRef = useRef("");
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -248,6 +256,7 @@ function App() {
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
       if (racePollRef.current) clearInterval(racePollRef.current);
       if (pvpPollRef.current) clearInterval(pvpPollRef.current);
+      if (pvpRevealAnimRef.current) clearInterval(pvpRevealAnimRef.current);
       if (audioCtxRef.current) audioCtxRef.current.close();
     };
   }, []);
@@ -478,6 +487,22 @@ function App() {
     const ms = new Date(raceState.gameStartAt).getTime() - nowMs;
     return Math.max(0, Math.ceil(ms / 1000));
   }, [isRaceCountdown, raceState, nowMs]);
+  const pvpMatchState = pvpMatch?.state || "";
+  const pvpOptions = Array.isArray(pvpMatch?.options) ? pvpMatch.options : [];
+  const pvpAcceptLeftMs = useMemo(() => {
+    if (pvpMatchState !== "accept") return 0;
+    const deadlineAt = Number(pvpMatch?.acceptDeadlineAt || 0);
+    if (!deadlineAt) return 0;
+    return Math.max(0, deadlineAt - nowMs);
+  }, [pvpMatchState, pvpMatch, nowMs]);
+  const pvpBanLeftMs = useMemo(() => {
+    if (pvpMatchState !== "ban") return 0;
+    const deadlineAt = Number(pvpMatch?.banDeadlineAt || 0);
+    if (!deadlineAt) return 0;
+    return Math.max(0, deadlineAt - nowMs);
+  }, [pvpMatchState, pvpMatch, nowMs]);
+  const pvpAcceptPercent = pvpMatchState === "accept" ? Math.max(0, Math.min(100, (pvpAcceptLeftMs / 12000) * 100)) : 0;
+  const pvpBanPercent = pvpMatchState === "ban" ? Math.max(0, Math.min(100, (pvpBanLeftMs / 10000) * 100)) : 0;
 
   const ensureAudio = () => {
     if (audioCtxRef.current && audioCtxRef.current.state !== "closed") return audioCtxRef.current;
@@ -540,6 +565,15 @@ function App() {
     }
     if (kind === "countdown") {
       tone(780, 90, { type: "square", gain: 0.08 });
+      return;
+    }
+    if (kind === "roulette-tick") {
+      tone(930, 35, { type: "square", gain: 0.03 });
+      return;
+    }
+    if (kind === "roulette-stop") {
+      tone(620, 60, { type: "triangle", gain: 0.06 });
+      setTimeout(() => tone(840, 80, { type: "triangle", gain: 0.065 }), 60);
       return;
     }
     if (kind === "go") {
@@ -958,17 +992,47 @@ function App() {
     }
   };
 
+  const stopPvpRevealAnimation = () => {
+    if (pvpRevealAnimRef.current) {
+      clearInterval(pvpRevealAnimRef.current);
+      pvpRevealAnimRef.current = 0;
+    }
+  };
+
+  const pvpCancelReasonText = (reason) => {
+    if (reason === "accept_timeout") return "매칭 수락 시간이 지나 자동 취소되었습니다.";
+    if (reason === "cancelled_by_user") return "상대가 수락을 취소해 매칭이 종료되었습니다.";
+    if (reason === "no_puzzle_for_selected_size") return "선택 가능한 퍼즐이 없어 매칭이 취소되었습니다.";
+    if (reason === "puzzle_solution_missing") return "퍼즐 데이터 오류로 매칭이 취소되었습니다.";
+    if (reason === "invalid_selected_size") return "매칭 설정 오류로 매칭이 취소되었습니다.";
+    return "매칭이 취소되었습니다.";
+  };
+
   const resetPvpQueueState = () => {
     stopPvpPolling();
+    stopPvpRevealAnimation();
     setPvpSearching(false);
     setPvpTicketId("");
     setPvpQueueSize(0);
+    setPvpServerState("idle");
+    setPvpMatch(null);
+    setPvpAcceptBusy(false);
+    setPvpBanBusy(false);
+    setPvpRevealIndex(0);
+    pvpMatchPhaseRef.current = "";
   };
 
   const applyPvpMatch = (data) => {
     stopPvpPolling();
+    stopPvpRevealAnimation();
     setPvpSearching(false);
     setPvpQueueSize(0);
+    setPvpServerState("ready");
+    setPvpMatch(null);
+    setPvpAcceptBusy(false);
+    setPvpBanBusy(false);
+    setPvpRevealIndex(0);
+    pvpMatchPhaseRef.current = "";
     if (data.ticketId) setPvpTicketId(data.ticketId);
     setRaceRoomCode(data.roomCode);
     setRacePlayerId(data.playerId);
@@ -983,6 +1047,36 @@ function App() {
     playSfx("ui");
   };
 
+  const applyPvpStatusPayload = (data) => {
+    const state = String(data?.state || (data?.matched ? "ready" : "waiting"));
+    const queueSize = Number(data?.queueSize || 0);
+    const match = data?.match || null;
+
+    if (data?.ticketId) setPvpTicketId(String(data.ticketId));
+    setPvpServerState(state);
+    setPvpQueueSize(queueSize);
+    setPvpMatch(match);
+
+    if (state === "ready" || data?.matched) {
+      applyPvpMatch(data);
+      return "ready";
+    }
+
+    if (state === "cancelled") {
+      stopPvpPolling();
+      stopPvpRevealAnimation();
+      setPvpSearching(false);
+      setPvpAcceptBusy(false);
+      setPvpBanBusy(false);
+      setPvpRevealIndex(0);
+      setStatus(pvpCancelReasonText(String(data?.cancelReason || match?.cancelReason || "")));
+      return "cancelled";
+    }
+
+    setPvpSearching(state === "waiting" || state === "matching");
+    return state;
+  };
+
   const pollPvpQueueStatus = async (ticketIdArg = pvpTicketRef.current) => {
     const ticketId = String(ticketIdArg || "").trim();
     if (!ticketId || !isLoggedIn) return;
@@ -995,22 +1089,19 @@ function App() {
         if (res.status === 404) resetPvpQueueState();
         return;
       }
-      if (data.matched) {
-        applyPvpMatch(data);
-        return;
-      }
-      setPvpSearching(true);
-      setPvpQueueSize(Number(data.queueSize || 0));
+      applyPvpStatusPayload(data);
     } catch {
       // ignore transient matchmaking poll errors
     }
   };
 
   const startPvpPolling = (ticketId) => {
+    const normalized = String(ticketId || "").trim();
+    if (!normalized) return;
     stopPvpPolling();
-    pollPvpQueueStatus(ticketId);
+    pollPvpQueueStatus(normalized);
     pvpPollRef.current = window.setInterval(() => {
-      pollPvpQueueStatus(ticketId);
+      pollPvpQueueStatus(normalized);
     }, 900);
   };
 
@@ -1033,16 +1124,13 @@ function App() {
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data.ok) throw new Error(data.error || "매칭 대기열 참가 실패");
-      if (data.matched) {
-        applyPvpMatch(data);
+      const nextState = applyPvpStatusPayload(data);
+      if (nextState === "ready" || nextState === "cancelled") {
         return;
       }
-      setPvpSearching(true);
-      setPvpTicketId(data.ticketId);
-      setPvpQueueSize(Number(data.queueSize || 0));
-      setStatus("상대를 찾는 중...");
+      setStatus(nextState === "matching" ? "매칭 성사! 수락 버튼을 눌러주세요." : "상대를 찾는 중...");
       setPlayMode("pvp");
-      startPvpPolling(data.ticketId);
+      startPvpPolling(String(data.ticketId || ""));
       playSfx("ui");
     } catch (err) {
       setStatus(err.message);
@@ -1069,6 +1157,49 @@ function App() {
     }
     resetPvpQueueState();
     if (!silent) setStatus("매칭 대기를 취소했습니다.");
+  };
+
+  const acceptPvpMatch = async () => {
+    const ticketId = String(pvpTicketRef.current || pvpTicketId || "").trim();
+    if (!ticketId || !isLoggedIn || pvpAcceptBusy) return;
+    setPvpAcceptBusy(true);
+    try {
+      const res = await fetch(`${API_BASE}/pvp/match/accept`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ ticketId }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "수락 처리 실패");
+      applyPvpStatusPayload(data);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setPvpAcceptBusy(false);
+    }
+  };
+
+  const submitPvpBan = async (sizeKey = "") => {
+    const ticketId = String(pvpTicketRef.current || pvpTicketId || "").trim();
+    if (!ticketId || !isLoggedIn || pvpBanBusy) return;
+    setPvpBanBusy(true);
+    try {
+      const body = sizeKey
+        ? { ticketId, sizeKey }
+        : { ticketId, skip: true };
+      const res = await fetch(`${API_BASE}/pvp/match/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify(body),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || "밴 처리 실패");
+      applyPvpStatusPayload(data);
+    } catch (err) {
+      setStatus(err.message);
+    } finally {
+      setPvpBanBusy(false);
+    }
   };
 
   const leaveRace = async () => {
@@ -1102,13 +1233,10 @@ function App() {
       clearInterval(racePollRef.current);
       racePollRef.current = 0;
     }
-    stopPvpPolling();
+    resetPvpQueueState();
     setRaceRoomCode("");
     setRacePlayerId("");
     setRaceState(null);
-    setPvpSearching(false);
-    setPvpQueueSize(0);
-    setPvpTicketId("");
     setRaceSubmitting(false);
     setChatInput("");
     setShowEmojiPicker(false);
@@ -1690,10 +1818,16 @@ function App() {
   }, [isRacePlaying, raceRoomCode, racePlayerId, cells, puzzle]);
 
   useEffect(() => {
-    if (!isInRaceRoom || (!isRaceCountdown && !isRacePlaying)) return undefined;
+    const shouldTickRace = isInRaceRoom && (isRaceCountdown || isRacePlaying);
+    const shouldTickPvp =
+      isModePvp &&
+      !isInRaceRoom &&
+      pvpSearching &&
+      (pvpMatchState === "accept" || pvpMatchState === "ban" || pvpMatchState === "reveal");
+    if (!shouldTickRace && !shouldTickPvp) return undefined;
     const id = setInterval(() => setNowMs(Date.now()), 200);
     return () => clearInterval(id);
-  }, [isInRaceRoom, isRaceCountdown, isRacePlaying]);
+  }, [isInRaceRoom, isRaceCountdown, isRacePlaying, isModePvp, pvpSearching, pvpMatchState]);
 
   useEffect(() => {
     if (!isInRaceRoom || !raceState?.gameStartAt) return;
@@ -1758,6 +1892,41 @@ function App() {
     }
     prevRacePhaseRef.current = racePhase;
   }, [racePhase]);
+
+  useEffect(() => {
+    const phase = pvpMatchState || "";
+    const prev = pvpMatchPhaseRef.current;
+    if (phase !== prev) {
+      if (phase === "accept") playSfx("ready");
+      else if (phase === "ban") playSfx("ui");
+      else if (phase === "reveal") playSfx("countdown");
+      else if (phase === "cancelled") playSfx("lose");
+    }
+    pvpMatchPhaseRef.current = phase;
+  }, [pvpMatchState]);
+
+  useEffect(() => {
+    if (!isModePvp || !pvpSearching || isInRaceRoom || pvpMatchState !== "reveal" || pvpOptions.length === 0) {
+      stopPvpRevealAnimation();
+      return;
+    }
+    stopPvpRevealAnimation();
+    setPvpRevealIndex(0);
+    let idx = 0;
+    pvpRevealAnimRef.current = window.setInterval(() => {
+      idx = (idx + 1) % pvpOptions.length;
+      setPvpRevealIndex(idx);
+      playSfx("roulette-tick");
+    }, 95);
+    return () => {
+      stopPvpRevealAnimation();
+    };
+  }, [isModePvp, pvpSearching, isInRaceRoom, pvpMatchState, pvpOptions.length]);
+
+  useEffect(() => {
+    if (pvpMatchState !== "reveal" || !pvpMatch?.chosenSizeKey) return;
+    playSfx("roulette-stop");
+  }, [pvpMatchState, pvpMatch?.chosenSizeKey]);
 
   useEffect(() => {
     if (!isInRaceRoom || !raceState?.puzzleId) return;
@@ -2206,8 +2375,121 @@ function App() {
                 <div className="pvpQueueTitle">RANKED PVP MATCH</div>
                 <div className="pvpQueueDesc">랜덤 사이즈(5x5/10x10/15x15/20x20/25x25) 중 1개로 매칭됩니다.</div>
                 <div className="pvpQueueState">
-                  {pvpSearching ? `매칭 중... 대기열 ${pvpQueueSize}명` : "대기 중"}
+                  {pvpServerState === "matching" && pvpMatchState === "accept" && "매칭 성사 - 수락 대기"}
+                  {pvpServerState === "matching" && pvpMatchState === "ban" && "퍼즐 밴 단계"}
+                  {pvpServerState === "matching" && pvpMatchState === "reveal" && "최종 퍼즐 추첨 중"}
+                  {pvpServerState === "matching" && !pvpMatchState && "상대 탐색 중"}
+                  {pvpServerState === "waiting" && `매칭 중... 대기열 ${pvpQueueSize}명`}
+                  {pvpServerState === "cancelled" && "매칭 취소됨"}
+                  {pvpServerState === "idle" && "대기 중"}
                 </div>
+
+                {pvpMatchState === "accept" && (
+                  <div className="pvpStageCard">
+                    <div className="pvpStageTitle">수락을 눌러야 게임이 시작됩니다</div>
+                    <div className="pvpGaugeWrap">
+                      <div className="pvpGaugeFill" style={{ width: `${pvpAcceptPercent}%` }} />
+                    </div>
+                    <div className="pvpDeadlineText">{(pvpAcceptLeftMs / 1000).toFixed(1)}s</div>
+                    <div className="pvpAcceptPlayers">
+                      {(pvpMatch?.players || []).map((p) => (
+                        <div key={p.userId} className={`pvpAcceptPlayer ${p.accepted ? "accepted" : ""}`}>
+                          <span>{p.nickname}</span>
+                          <span>{p.accepted ? "수락 완료" : "대기 중"}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      className="singleActionBtn"
+                      onClick={acceptPvpMatch}
+                      disabled={pvpAcceptBusy || pvpMatch?.me?.accepted === true}
+                    >
+                      {pvpMatch?.me?.accepted ? "ACCEPTED" : pvpAcceptBusy ? "처리중..." : "ACCEPT MATCH"}
+                    </button>
+                  </div>
+                )}
+
+                {pvpMatchState === "ban" && (
+                  <div className="pvpStageCard">
+                    <div className="pvpStageTitle">5개 유형 중 1개를 밴하거나 스킵하세요</div>
+                    <div className="pvpGaugeWrap ban">
+                      <div className="pvpGaugeFill" style={{ width: `${pvpBanPercent}%` }} />
+                    </div>
+                    <div className="pvpDeadlineText">{(pvpBanLeftMs / 1000).toFixed(1)}s</div>
+                    <div className="pvpBanGrid">
+                      {(pvpOptions.length
+                        ? pvpOptions
+                        : PVP_SIZE_KEYS.map((k) => ({ sizeKey: k, bannedByNicknames: [], banned: false }))
+                      ).map((option) => {
+                        const sizeKey = option.sizeKey || `${option.width}x${option.height}`;
+                        const bannedBy = Array.isArray(option.bannedByNicknames) ? option.bannedByNicknames : [];
+                        const bannedLabel = bannedBy.length ? bannedBy.join(", ") : "";
+                        const isBanned = bannedBy.length > 0 || option.banned;
+                        const isMine = pvpMatch?.me?.bannedSizeKey === sizeKey;
+                        return (
+                          <button
+                            key={sizeKey}
+                            className={`pvpBanCard ${isBanned ? "banned" : ""} ${isMine ? "mine" : ""}`}
+                            onClick={() => submitPvpBan(sizeKey)}
+                            disabled={pvpBanBusy || pvpMatch?.me?.banSubmitted === true}
+                          >
+                            <span className="pvpBanSize">{sizeKey}</span>
+                            {isBanned && <span className="pvpBanMark">X</span>}
+                            {bannedLabel && <span className="pvpBanMeta">{bannedLabel}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      className="singleHomeBtn"
+                      onClick={() => submitPvpBan("")}
+                      disabled={pvpBanBusy || pvpMatch?.me?.banSubmitted === true}
+                    >
+                      {pvpMatch?.me?.banSubmitted ? "제출 완료" : "SKIP BAN"}
+                    </button>
+                  </div>
+                )}
+
+                {pvpMatchState === "reveal" && (
+                  <div className="pvpStageCard">
+                    <div className="pvpStageTitle">밴 제외 유형 중 랜덤 추첨</div>
+                    <div className="pvpRevealTrack">
+                      {(pvpOptions.length
+                        ? pvpOptions
+                        : PVP_SIZE_KEYS.map((k) => ({ sizeKey: k, bannedByNicknames: [], banned: false }))
+                      ).map((option, idx) => {
+                        const sizeKey = option.sizeKey || `${option.width}x${option.height}`;
+                        const bannedBy = Array.isArray(option.bannedByNicknames) ? option.bannedByNicknames : [];
+                        const isBanned = bannedBy.length > 0 || option.banned;
+                        const isActive = idx === pvpRevealIndex;
+                        const isChosen = pvpMatch?.chosenSizeKey === sizeKey;
+                        return (
+                          <div
+                            key={`reveal-${sizeKey}`}
+                            className={`pvpRevealItem ${isActive ? "active" : ""} ${isBanned ? "banned" : ""} ${
+                              isChosen ? "chosen" : ""
+                            }`}
+                          >
+                            <span>{sizeKey}</span>
+                            {isBanned && <span className="pvpRevealBan">X {bannedBy.join(", ")}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="pvpRevealResult">
+                      {pvpMatch?.chosenSizeKey ? `선택됨: ${pvpMatch.chosenSizeKey}` : "결정 중..."}
+                    </div>
+                  </div>
+                )}
+
+                {pvpServerState === "cancelled" && (
+                  <div className="pvpStageCard">
+                    <div className="pvpStageTitle">
+                      {pvpCancelReasonText(String(pvpMatch?.cancelReason || ""))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="pvpQueueActions">
                   <button className="singleActionBtn" onClick={joinPvpQueue} disabled={isLoading || pvpSearching}>
                     {isLoading ? "MATCHING..." : pvpSearching ? "SEARCHING..." : "FIND OPPONENT"}
