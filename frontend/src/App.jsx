@@ -202,7 +202,16 @@ function App() {
   const [signupNickname, setSignupNickname] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [signupError, setSignupError] = useState("");
-  const [signupFieldErrors, setSignupFieldErrors] = useState({ username: "", nickname: "", password: "" });
+  const [signupFieldErrors, setSignupFieldErrors] = useState({
+    username: "",
+    nickname: "",
+    password: "",
+    terms: "",
+    privacy: "",
+  });
+  const [signupAgreeTerms, setSignupAgreeTerms] = useState(false);
+  const [signupAgreePrivacy, setSignupAgreePrivacy] = useState(false);
+  const [signupPolicyModal, setSignupPolicyModal] = useState(""); // "" | terms | privacy
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -873,7 +882,10 @@ function App() {
     setLoginError("");
     setSignupError("");
     setLoginFieldErrors({ username: "", password: "" });
-    setSignupFieldErrors({ username: "", nickname: "", password: "" });
+    setSignupFieldErrors({ username: "", nickname: "", password: "", terms: "", privacy: "" });
+    setSignupAgreeTerms(false);
+    setSignupAgreePrivacy(false);
+    setSignupPolicyModal("");
     setStatus("");
     setPlayMode("auth");
   };
@@ -943,7 +955,7 @@ function App() {
     const username = signupUsername.trim().toLowerCase();
     const nickname = signupNickname.trim();
     const password = signupPassword;
-    const fieldErrors = { username: "", nickname: "", password: "" };
+    const fieldErrors = { username: "", nickname: "", password: "", terms: "", privacy: "" };
     if (!username || !nickname || !password) {
       setSignupError(L("아이디, 닉네임, 비밀번호를 모두 입력해줘.", "Please fill in username, nickname, and password."));
       if (!username) fieldErrors.username = L("아이디를 입력해줘.", "Enter your username.");
@@ -957,8 +969,19 @@ function App() {
       setSignupFieldErrors(fieldErrors);
       return;
     }
+    if (!signupAgreeTerms || !signupAgreePrivacy) {
+      if (!signupAgreeTerms) {
+        fieldErrors.terms = L("이용약관 동의가 필요합니다.", "You must agree to the Terms of Service.");
+      }
+      if (!signupAgreePrivacy) {
+        fieldErrors.privacy = L("개인정보처리방침 동의가 필요합니다.", "You must agree to the Privacy Policy.");
+      }
+      setSignupFieldErrors(fieldErrors);
+      setSignupError(L("필수 약관 동의가 필요합니다.", "Required agreements are missing."));
+      return;
+    }
     setSignupError("");
-    setSignupFieldErrors({ username: "", nickname: "", password: "" });
+    setSignupFieldErrors({ username: "", nickname: "", password: "", terms: "", privacy: "" });
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/signup`, {
@@ -972,6 +995,8 @@ function App() {
       setSignupUsername("");
       setSignupNickname("");
       setSignupPassword("");
+      setSignupAgreeTerms(false);
+      setSignupAgreePrivacy(false);
       setStatus(L(`환영합니다, ${data.user.nickname}!`, `Welcome, ${data.user.nickname}!`));
       setPlayMode(authReturnMode === "multi" || authReturnMode === "pvp" ? authReturnMode : "menu");
     } catch (err) {
@@ -2399,6 +2424,7 @@ function App() {
                   setAuthTab("login");
                   setLoginError("");
                   setLoginFieldErrors({ username: "", password: "" });
+                  setSignupPolicyModal("");
                 }}
               >
                 {L("로그인", "Login")}
@@ -2408,7 +2434,7 @@ function App() {
                 onClick={() => {
                   setAuthTab("signup");
                   setSignupError("");
-                  setSignupFieldErrors({ username: "", nickname: "", password: "" });
+                  setSignupFieldErrors({ username: "", nickname: "", password: "", terms: "", privacy: "" });
                 }}
               >
                 {L("회원가입", "Sign Up")}
@@ -2511,18 +2537,136 @@ function App() {
                     <span className="fieldErrorText">{signupFieldErrors.password}</span>
                   )}
                 </label>
+                <div className="signupAgreements">
+                  <label className={`agreementRow ${signupFieldErrors.terms ? "error" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={signupAgreeTerms}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSignupAgreeTerms(checked);
+                        setSignupFieldErrors((prev) => ({ ...prev, terms: "" }));
+                        if (signupError && checked && signupAgreePrivacy) setSignupError("");
+                      }}
+                    />
+                    <span>{L("[필수] 이용약관 동의", "[Required] Agree to Terms of Service")}</span>
+                    <button
+                      type="button"
+                      className="agreementLinkBtn"
+                      onClick={() => setSignupPolicyModal("terms")}
+                    >
+                      {L("보기", "View")}
+                    </button>
+                  </label>
+                  {signupFieldErrors.terms && <span className="fieldErrorText">{signupFieldErrors.terms}</span>}
+
+                  <label className={`agreementRow ${signupFieldErrors.privacy ? "error" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={signupAgreePrivacy}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setSignupAgreePrivacy(checked);
+                        setSignupFieldErrors((prev) => ({ ...prev, privacy: "" }));
+                        if (signupError && checked && signupAgreeTerms) setSignupError("");
+                      }}
+                    />
+                    <span>{L("[필수] 개인정보처리방침 동의", "[Required] Agree to Privacy Policy")}</span>
+                    <button
+                      type="button"
+                      className="agreementLinkBtn"
+                      onClick={() => setSignupPolicyModal("privacy")}
+                    >
+                      {L("보기", "View")}
+                    </button>
+                  </label>
+                  {signupFieldErrors.privacy && <span className="fieldErrorText">{signupFieldErrors.privacy}</span>}
+                </div>
                 {signupError && <div className="modalError">{signupError}</div>}
                 <div className="modalActions">
                   <button onClick={backToMenu}>{L("취소", "Cancel")}</button>
                   <button
                     onClick={signup}
-                    disabled={isLoading || !signupUsername.trim() || !signupNickname.trim() || !signupPassword}
+                    disabled={
+                      isLoading ||
+                      !signupUsername.trim() ||
+                      !signupNickname.trim() ||
+                      !signupPassword ||
+                      !signupAgreeTerms ||
+                      !signupAgreePrivacy
+                    }
                   >
                     {isLoading ? L("가입 중...", "Signing up...") : L("회원가입", "Sign Up")}
                   </button>
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {isModeAuth && signupPolicyModal && (
+          <div className="modalBackdrop" onClick={() => setSignupPolicyModal("")}>
+            <div className="modalCard policyModal" onClick={(e) => e.stopPropagation()}>
+              <h2>
+                {signupPolicyModal === "terms"
+                  ? L("이용약관", "Terms of Service")
+                  : L("개인정보처리방침", "Privacy Policy")}
+              </h2>
+              <div className="policyBody">
+                {signupPolicyModal === "terms" ? (
+                  <>
+                    <h3>{L("1. 서비스 이용", "1. Service Use")}</h3>
+                    <p>
+                      {L(
+                        "본 서비스는 논노그램 게임 이용을 위한 서비스이며, 관련 법령과 운영 정책을 준수해야 합니다.",
+                        "This service provides nonogram gameplay and must be used in compliance with laws and service rules."
+                      )}
+                    </p>
+                    <h3>{L("2. 계정", "2. Account")}</h3>
+                    <p>
+                      {L(
+                        "회원은 본인 계정 정보를 안전하게 관리해야 하며, 타인 명의 도용이나 비정상 이용은 제한될 수 있습니다.",
+                        "Users must keep account credentials secure. Impersonation or abusive use may be restricted."
+                      )}
+                    </p>
+                    <h3>{L("3. 제재", "3. Restrictions")}</h3>
+                    <p>
+                      {L(
+                        "서비스 운영을 방해하거나 치팅, 욕설, 불법 행위가 확인될 경우 이용이 제한될 수 있습니다.",
+                        "Use may be limited for cheating, abuse, illegal actions, or disruption of service operations."
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3>{L("1. 수집 항목", "1. Data Collected")}</h3>
+                    <p>
+                      {L(
+                        "회원가입 시 아이디, 닉네임, 비밀번호(해시 처리)를 수집하며, 경기 기록과 채팅 데이터가 저장될 수 있습니다.",
+                        "At sign-up, username, nickname, and hashed password are collected. Match records and chat data may be stored."
+                      )}
+                    </p>
+                    <h3>{L("2. 이용 목적", "2. Purpose of Use")}</h3>
+                    <p>
+                      {L(
+                        "회원 인증, 멀티플레이 매칭, 랭킹 제공, 서비스 안정화 및 부정 이용 방지 목적으로 이용됩니다.",
+                        "Data is used for authentication, multiplayer matchmaking, ranking, service stability, and abuse prevention."
+                      )}
+                    </p>
+                    <h3>{L("3. 보관 및 보호", "3. Retention & Security")}</h3>
+                    <p>
+                      {L(
+                        "관련 법령 또는 서비스 운영에 필요한 기간 동안 보관하며, 안전한 방식으로 보호합니다.",
+                        "Data is retained as required by law or service operation and protected with appropriate safeguards."
+                      )}
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="modalActions">
+                <button onClick={() => setSignupPolicyModal("")}>{L("닫기", "Close")}</button>
+              </div>
+            </div>
           </div>
         )}
 
