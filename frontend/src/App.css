@@ -1191,28 +1191,88 @@ button:disabled {
   gap: 0.72rem;
 }
 
-.tutorialStageHead {
+.tutorialCoachBar {
   border: 2px solid #1d4f84;
   border-radius: 14px;
   background: linear-gradient(135deg, #f6fcff 0%, #dcebfb 100%);
-  padding: 0.8rem 0.9rem;
+  padding: 0.72rem 0.84rem;
+  display: grid;
+  gap: 0.52rem;
+}
+
+.tutorialCoachProgress {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  flex-wrap: wrap;
+  gap: 0.6rem;
 }
 
-.tutorialStageHead h2 {
+.tutorialCoachBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #8db1d6;
+  border-radius: 999px;
+  padding: 0.14rem 0.52rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  color: #284d75;
+  background: #f3f8ff;
+}
+
+.tutorialCoachBadge.done {
+  border-color: #5ea97f;
+  background: #ebfbf2;
+  color: #1f7948;
+}
+
+.tutorialCoachDots {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+}
+
+.tutorialCoachDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #b8cce2;
+}
+
+.tutorialCoachDot.done {
+  background: #34a96a;
+}
+
+.tutorialCoachDot.active {
+  background: #2f7ec0;
+  animation: tutorialDotPulse 0.82s ease-in-out infinite;
+}
+
+@keyframes tutorialDotPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.65;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 1;
+  }
+}
+
+.tutorialCoachPrompt {
   margin: 0;
-  color: #132f50;
-  font-size: 1.45rem;
+  border: 1px solid #a8c2dd;
+  border-radius: 10px;
+  padding: 0.44rem 0.58rem;
+  background: #f7fbff;
+  color: #173e67;
+  font-size: 0.9rem;
+  font-weight: 800;
 }
 
-.tutorialStageHead p {
-  margin: 0.18rem 0 0;
-  color: #2f4a67;
-  font-size: 0.94rem;
+.tutorialCoachPrompt.done {
+  border-color: #6aae87;
+  background: #effbf4;
+  color: #1b7d4a;
 }
 
 .tutorialStageActions {
@@ -1230,103 +1290,48 @@ button:disabled {
   font-weight: 900;
 }
 
-.tutorialMissionCard {
-  border: 2px solid #1f5d93;
-  border-radius: 14px;
-  background:
-    linear-gradient(180deg, rgba(238, 248, 255, 0.96), rgba(225, 239, 252, 0.96)),
-    #eef6ff;
-  padding: 0.72rem 0.82rem;
-  display: grid;
-  gap: 0.55rem;
+.tutorialHintPulse .hintNum {
+  border-color: #2d74b2;
+  box-shadow: inset 0 0 0 1px rgba(83, 166, 231, 0.6);
+  animation: tutorialHintBlink 0.88s ease-in-out infinite;
 }
 
-.tutorialMissionTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+@keyframes tutorialHintBlink {
+  0%,
+  100% {
+    background: #ecf2f8;
+    transform: translateY(0);
+  }
+  50% {
+    background: #d8ebff;
+    transform: translateY(-1px);
+  }
 }
 
-.tutorialMissionTop strong {
-  color: #123659;
-  font-size: 1rem;
+.tutorialGuideLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
-.tutorialMissionBadge {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid #8fb3d8;
-  border-radius: 999px;
-  padding: 0.16rem 0.56rem;
-  background: #f2f8ff;
-  color: #315679;
-  font-size: 0.77rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
+.tutorialGuideCell {
+  position: absolute;
+  border: 2px solid #2f87cf;
+  background: rgba(95, 182, 248, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(227, 246, 255, 0.8);
+  animation: tutorialCellBlink 0.78s ease-in-out infinite;
 }
 
-.tutorialMissionBadge.done {
-  border-color: #5ea97f;
-  background: #ebfbf2;
-  color: #1f7948;
-}
-
-.tutorialMissionLead {
-  margin: 0;
-  color: #274666;
-  font-size: 0.9rem;
-}
-
-.tutorialChecklist {
-  display: grid;
-  gap: 0.38rem;
-}
-
-.tutorialChecklistItem {
-  border: 1px solid #a5c2de;
-  border-radius: 10px;
-  background: #f8fcff;
-  padding: 0.36rem 0.48rem;
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  gap: 0.45rem;
-  align-items: start;
-}
-
-.tutorialChecklistItem.active {
-  border-color: #2f79b7;
-  box-shadow: 0 0 0 2px rgba(63, 142, 204, 0.2);
-}
-
-.tutorialChecklistItem.done {
-  border-color: #68a987;
-  background: #f0fbf5;
-}
-
-.tutorialChecklistMark {
-  color: #2b5987;
-  font-size: 1rem;
-  font-weight: 900;
-  line-height: 1.3;
-}
-
-.tutorialChecklistItem.done .tutorialChecklistMark {
-  color: #1e8a53;
-}
-
-.tutorialChecklistItem b {
-  display: block;
-  color: #173d65;
-  font-size: 0.9rem;
-  font-weight: 900;
-}
-
-.tutorialChecklistItem small {
-  display: block;
-  color: #4a6280;
-  font-size: 0.8rem;
-  margin-top: 0.08rem;
+@keyframes tutorialCellBlink {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(0.96);
+  }
 }
 
 @media (max-width: 760px) {
@@ -1512,17 +1517,17 @@ button:disabled {
     font-size: 58px;
   }
 
-  .tutorialStageHead {
+  .tutorialCoachBar {
     padding: 0.62rem 0.64rem;
     border-radius: 10px;
   }
 
-  .tutorialStageHead h2 {
-    font-size: 1.1rem;
+  .tutorialCoachPrompt {
+    font-size: 0.82rem;
   }
 
-  .tutorialStageHead p {
-    font-size: 0.82rem;
+  .tutorialCoachBadge {
+    font-size: 0.72rem;
   }
 
   .tutorialStageActions button {
@@ -1531,20 +1536,8 @@ button:disabled {
     font-size: 0.8rem;
   }
 
-  .tutorialMissionTop strong {
-    font-size: 0.9rem;
-  }
-
-  .tutorialChecklistItem {
-    grid-template-columns: 20px 1fr;
-    padding: 0.28rem 0.34rem;
-  }
-
-  .tutorialChecklistItem b {
-    font-size: 0.84rem;
-  }
-
-  .tutorialChecklistItem small {
-    font-size: 0.76rem;
+  .tutorialCoachDot {
+    width: 8px;
+    height: 8px;
   }
 }

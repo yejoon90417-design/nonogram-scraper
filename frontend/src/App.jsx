@@ -19,31 +19,58 @@ const TUTORIAL_PUZZLE = {
   col_hints: [[3], [3, 1], [4], [3, 1], [3]],
 };
 
-const TUTORIAL_TASKS = [
+const TUTORIAL_GUIDE_STEPS = [
   {
-    key: "leftFill",
-    title: "좌클릭으로 칸 1개 채우기",
-    detail: "퍼즐 칸을 한 번 클릭해서 검정 칸을 만들어보세요.",
+    key: "row2full",
+    title: "2번째 줄 힌트 5",
+    prompt: "힌트 5: 2번째 줄 5칸을 전부 칠하세요.",
+    rowHighlights: [1],
+    fill: [5, 6, 7, 8, 9],
   },
   {
-    key: "rightMark",
-    title: "우클릭으로 X 표시하기",
-    detail: "정답이 아닐 것 같은 칸에 X를 표시해보세요.",
+    key: "row3full",
+    title: "3번째 줄 힌트 5",
+    prompt: "같은 논리: 3번째 줄도 전부 칠하세요.",
+    rowHighlights: [2],
+    fill: [10, 11, 12, 13, 14],
   },
   {
-    key: "dragFill",
-    title: "누른 상태로 드래그하기",
-    detail: "클릭을 유지한 채 이동해서 여러 칸을 한 번에 칠해보세요.",
+    key: "row4gaps",
+    title: "4번째 줄 힌트 1 1 1",
+    prompt: "1칸씩 3묶음이므로 사이칸은 X 표시하세요.",
+    rowHighlights: [3],
+    mark: [16, 18],
+    cellHighlights: [16, 18],
   },
   {
-    key: "undoUsed",
-    title: "UNDO로 되돌리기",
-    detail: "실수했다고 가정하고 한 번 되돌려보세요.",
+    key: "row4fills",
+    title: "4번째 줄 채우기",
+    prompt: "남은 칸(1,3,5번째 칸)을 칠하세요.",
+    rowHighlights: [3],
+    fill: [15, 17, 19],
+    cellHighlights: [15, 17, 19],
   },
   {
-    key: "solved",
-    title: "5x5 퍼즐 완성하기",
-    detail: "힌트를 읽어 전체 퍼즐을 끝까지 맞춰보세요.",
+    key: "row1pair",
+    title: "1번째 줄 힌트 1 1",
+    prompt: "1번째 줄은 떨어진 1칸 2개입니다. 가운데 두 칸을 칠하세요.",
+    rowHighlights: [0],
+    fill: [1, 3],
+    cellHighlights: [1, 3],
+  },
+  {
+    key: "row5three",
+    title: "5번째 줄 힌트 3",
+    prompt: "마지막 줄은 가운데 3칸을 칠하면 됩니다.",
+    rowHighlights: [4],
+    fill: [21, 22, 23],
+    cellHighlights: [21, 22, 23],
+  },
+  {
+    key: "finish",
+    title: "완성",
+    prompt: "잘했어요. 퍼즐 완성!",
+    requireSolved: true,
   },
 ];
 
@@ -162,12 +189,6 @@ function App() {
   const [reactionFlights, setReactionFlights] = useState([]);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
-  const [tutorialFlags, setTutorialFlags] = useState({
-    leftFill: false,
-    rightMark: false,
-    dragFill: false,
-    undoUsed: false,
-  });
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -381,23 +402,24 @@ function App() {
   const isRacePlaying = isInRaceRoom && racePhase === "playing";
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const tutorialSolved = isModeTutorial && isBoardCompleteByHints;
-  const tutorialProgress = useMemo(
-    () => ({
-      ...tutorialFlags,
-      solved: tutorialSolved,
-    }),
-    [tutorialFlags, tutorialSolved]
-  );
+  const tutorialStepDone = (step) => {
+    if (!step) return false;
+    if (step.requireSolved) return tutorialSolved;
+    if (!Array.isArray(cells) || !cells.length) return false;
+    if (Array.isArray(step.fill) && step.fill.some((idx) => cells[idx] !== 1)) return false;
+    if (Array.isArray(step.mark) && step.mark.some((idx) => cells[idx] !== 2)) return false;
+    return true;
+  };
   const tutorialCurrentTaskIndex = useMemo(() => {
-    if (!tutorialProgress.leftFill) return 0;
-    if (!tutorialProgress.rightMark) return 1;
-    if (!tutorialProgress.dragFill) return 2;
-    if (!tutorialProgress.undoUsed) return 3;
-    if (!tutorialProgress.solved) return 4;
-    return TUTORIAL_TASKS.length;
-  }, [tutorialProgress]);
-  const tutorialCurrentTask = TUTORIAL_TASKS[tutorialCurrentTaskIndex] || null;
-  const tutorialAllDone = tutorialCurrentTaskIndex >= TUTORIAL_TASKS.length;
+    if (!isModeTutorial) return 0;
+    const idx = TUTORIAL_GUIDE_STEPS.findIndex((step) => !tutorialStepDone(step));
+    return idx === -1 ? TUTORIAL_GUIDE_STEPS.length : idx;
+  }, [isModeTutorial, cells, tutorialSolved]);
+  const tutorialCurrentTask = TUTORIAL_GUIDE_STEPS[tutorialCurrentTaskIndex] || null;
+  const tutorialAllDone = tutorialCurrentTaskIndex >= TUTORIAL_GUIDE_STEPS.length;
+  const tutorialHighlightRows = isModeTutorial && tutorialCurrentTask?.rowHighlights ? tutorialCurrentTask.rowHighlights : [];
+  const tutorialHighlightCells =
+    isModeTutorial && tutorialCurrentTask?.cellHighlights ? tutorialCurrentTask.cellHighlights : [];
 
   const myRacePlayer = useMemo(() => {
     if (!raceState || !racePlayerId) return null;
@@ -566,20 +588,15 @@ function App() {
       setStatus("방 대전 중에는 튜토리얼을 시작할 수 없습니다.");
       return;
     }
+    setStatus("");
     clearPuzzleViewState();
-    setTutorialFlags({
-      leftFill: false,
-      rightMark: false,
-      dragFill: false,
-      undoUsed: false,
-    });
     tutorialCompleteShownRef.current = false;
     setSelectedSize("5x5");
     setPlayMode("tutorial");
     initializePuzzle(TUTORIAL_PUZZLE, {
       resume: false,
       startTimer: true,
-      message: "튜토리얼 시작: 좌클릭으로 칸을 칠해보세요.",
+      suppressStatus: true,
     });
     playSfx("ui");
   };
@@ -587,12 +604,6 @@ function App() {
   const skipTutorial = async () => {
     markTutorialSeen();
     tutorialCompleteShownRef.current = false;
-    setTutorialFlags({
-      leftFill: false,
-      rightMark: false,
-      dragFill: false,
-      undoUsed: false,
-    });
     await backToMenu();
     playSfx("ui");
   };
@@ -624,9 +635,6 @@ function App() {
     applySnapshot(prev.slice());
     setCanUndo(undoStackRef.current.length > 0);
     setCanRedo(true);
-    if (isModeTutorial) {
-      setTutorialFlags((prevFlags) => ({ ...prevFlags, undoUsed: true }));
-    }
     playSfx("ui");
   };
 
@@ -640,7 +648,10 @@ function App() {
     playSfx("ui");
   };
 
-  const initializePuzzle = (p, { resume = true, message = "", startTimer = true } = {}) => {
+  const initializePuzzle = (
+    p,
+    { resume = true, message = "", startTimer = true, suppressStatus = false } = {}
+  ) => {
     const saveKey = `nonogram-progress-${p.id}`;
     let initial = new Array(p.width * p.height).fill(0);
     if (resume) {
@@ -666,7 +677,7 @@ function App() {
     raceProgressLastSentRef.current = 0;
     setElapsedSec(0);
     setTimerRunning(startTimer);
-    setStatus(message || `Puzzle ${p.id} loaded.`);
+    setStatus(suppressStatus ? "" : message || `Puzzle ${p.id} loaded.`);
   };
 
   const loadRandomBySize = async () => {
@@ -712,12 +723,6 @@ function App() {
     resetHistory();
     setElapsedSec(0);
     setTimerRunning(false);
-    setTutorialFlags({
-      leftFill: false,
-      rightMark: false,
-      dragFill: false,
-      undoUsed: false,
-    });
     tutorialCompleteShownRef.current = false;
   };
 
@@ -1228,9 +1233,6 @@ function App() {
 
   const paintLine = (fromIndex, toIndex, value) => {
     if (!puzzle) return;
-    if (isModeTutorial && value === 1 && fromIndex !== toIndex) {
-      setTutorialFlags((prevFlags) => ({ ...prevFlags, dragFill: true }));
-    }
     const width = puzzle.width;
     const x0 = fromIndex % width;
     const y0 = Math.floor(fromIndex / width);
@@ -1286,14 +1288,6 @@ function App() {
     if (!dragRef.current) {
       strokeBaseRef.current = cellValuesRef.current.slice();
       strokeChangedRef.current = false;
-    }
-    if (isModeTutorial) {
-      if (buttonType === "left" && paintValue === 1) {
-        setTutorialFlags((prevFlags) => ({ ...prevFlags, leftFill: true }));
-      }
-      if (buttonType === "right" && paintValue === 2) {
-        setTutorialFlags((prevFlags) => ({ ...prevFlags, rightMark: true }));
-      }
     }
     dragRef.current = { button: buttonType, paintValue };
     lastPaintIndexRef.current = index;
@@ -1612,15 +1606,10 @@ function App() {
       if (!tutorialCompleteShownRef.current) {
         tutorialCompleteShownRef.current = true;
         markTutorialSeen();
-        setStatus("튜토리얼 완료! 이제 싱글/멀티에서 바로 플레이해보세요.");
         playSfx("win");
       }
-      return;
     }
-    if (tutorialCurrentTask) {
-      setStatus(`튜토리얼 미션: ${tutorialCurrentTask.title}`);
-    }
-  }, [isModeTutorial, tutorialAllDone, tutorialCurrentTask]);
+  }, [isModeTutorial, tutorialAllDone]);
 
   useEffect(() => {
     const el = chatBodyRef.current;
@@ -1967,45 +1956,31 @@ function App() {
 
         {isModeTutorial && (
           <section className="tutorialStage">
-            <div className="tutorialStageHead">
-              <div>
-                <h2>Interactive Tutorial</h2>
-                <p>직접 조작하면서 규칙을 익히는 5x5 연습 모드입니다.</p>
+            <div className="tutorialCoachBar">
+              <div className="tutorialCoachProgress">
+                <span className={`tutorialCoachBadge ${tutorialAllDone ? "done" : ""}`}>
+                  {tutorialAllDone
+                    ? "CLEAR"
+                    : `${Math.min(tutorialCurrentTaskIndex + 1, TUTORIAL_GUIDE_STEPS.length)}/${TUTORIAL_GUIDE_STEPS.length}`}
+                </span>
+                <div className="tutorialCoachDots">
+                  {TUTORIAL_GUIDE_STEPS.map((step, idx) => (
+                    <span
+                      key={step.key}
+                      className={`tutorialCoachDot ${idx < tutorialCurrentTaskIndex ? "done" : ""} ${
+                        idx === tutorialCurrentTaskIndex ? "active" : ""
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className={`tutorialCoachPrompt ${tutorialAllDone ? "done" : ""}`}>
+                {tutorialAllDone ? "완성!" : tutorialCurrentTask?.prompt}
               </div>
               <div className="tutorialStageActions">
                 <button onClick={startTutorialMode}>다시 시작</button>
                 <button onClick={skipTutorial}>건너뛰기</button>
                 <button onClick={backToMenu}>종료</button>
-              </div>
-            </div>
-            <div className="tutorialMissionCard">
-              <div className="tutorialMissionTop">
-                <strong>
-                  {tutorialAllDone
-                    ? "모든 튜토리얼 미션 완료"
-                    : `현재 미션 ${tutorialCurrentTaskIndex + 1}/${TUTORIAL_TASKS.length}`}
-                </strong>
-                <span className={`tutorialMissionBadge ${tutorialAllDone ? "done" : ""}`}>
-                  {tutorialAllDone ? "CLEAR" : "IN PROGRESS"}
-                </span>
-              </div>
-              {!tutorialAllDone && tutorialCurrentTask && (
-                <p className="tutorialMissionLead">{tutorialCurrentTask.detail}</p>
-              )}
-              <div className="tutorialChecklist">
-                {TUTORIAL_TASKS.map((task, idx) => {
-                  const done = Boolean(tutorialProgress[task.key]);
-                  const active = !tutorialAllDone && idx === tutorialCurrentTaskIndex;
-                  return (
-                    <div key={task.key} className={`tutorialChecklistItem ${done ? "done" : ""} ${active ? "active" : ""}`}>
-                      <span className="tutorialChecklistMark">{done ? "✓" : "○"}</span>
-                      <div>
-                        <b>{task.title}</b>
-                        <small>{task.detail}</small>
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           </section>
@@ -2207,7 +2182,11 @@ function App() {
                   </div>
                   <div className="rowHints" style={{ gridTemplateRows: `repeat(${puzzle.height}, var(--cell-size))` }}>
                     {rowHints.map((hint, rowIdx) => (
-                      <div key={`row-${rowIdx}`} className="rowHintRow" style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}>
+                      <div
+                        key={`row-${rowIdx}`}
+                        className={`rowHintRow ${tutorialHighlightRows.includes(rowIdx) ? "tutorialHintPulse" : ""}`}
+                        style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}
+                      >
                         {Array.from({ length: maxRowHintDepth }).map((_, depthIdx) => {
                           const value = hint[hint.length - maxRowHintDepth + depthIdx];
                           const hintId = `r-${rowIdx}-${depthIdx}`;
@@ -2575,7 +2554,7 @@ function App() {
                 {rowHints.map((hint, rowIdx) => (
                   <div
                     key={`row-${rowIdx}`}
-                    className="rowHintRow"
+                    className={`rowHintRow ${tutorialHighlightRows.includes(rowIdx) ? "tutorialHintPulse" : ""}`}
                     style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}
                   >
                     {Array.from({ length: maxRowHintDepth }).map((_, depthIdx) => {
@@ -2608,6 +2587,26 @@ function App() {
                 onContextMenu={(e) => e.preventDefault()}
               >
                 <canvas ref={canvasRef} className="boardCanvas" />
+                {isModeTutorial && tutorialHighlightCells.length > 0 && (
+                  <div className="tutorialGuideLayer" aria-hidden="true">
+                    {tutorialHighlightCells.map((index) => {
+                      const x = index % puzzle.width;
+                      const y = Math.floor(index / puzzle.width);
+                      return (
+                        <span
+                          key={`guide-${index}`}
+                          className="tutorialGuideCell"
+                          style={{
+                            left: `${x * cellSize}px`,
+                            top: `${y * cellSize}px`,
+                            width: `${cellSize}px`,
+                            height: `${cellSize}px`,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
                 {isRaceCountdown && (
                   <div className="countdownOverlay">{countdownLeft ?? 0}</div>
                 )}
