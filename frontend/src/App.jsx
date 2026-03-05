@@ -93,6 +93,7 @@ function App() {
   const [joinRoomCode, setJoinRoomCode] = useState("");
   const [joinPassword, setJoinPassword] = useState("");
   const [joinRoomType, setJoinRoomType] = useState("unknown"); // unknown | public | private
+  const [joinModalSource, setJoinModalSource] = useState("manual"); // manual | list
   const [publicRooms, setPublicRooms] = useState([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [isRematchLoading, setIsRematchLoading] = useState(false);
@@ -892,9 +893,9 @@ function App() {
     }
   };
 
-  const joinRaceRoom = async () => {
-    const code = joinRoomCode.trim().toUpperCase();
-    const password = joinPassword.trim();
+  const joinRaceRoomWith = async (roomCodeArg, passwordArg = "") => {
+    const code = String(roomCodeArg || "").trim().toUpperCase();
+    const password = String(passwordArg || "").trim();
     if (!isLoggedIn) {
       setStatus("멀티플레이는 로그인 후 이용 가능해.");
       return;
@@ -929,6 +930,10 @@ function App() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const joinRaceRoom = async () => {
+    await joinRaceRoomWith(joinRoomCode, joinPassword);
   };
 
   const setReady = async (ready) => {
@@ -1847,6 +1852,7 @@ function App() {
                         onClick={() => {
                           setJoinRoomType("unknown");
                           setJoinPassword("");
+                          setJoinModalSource("manual");
                           setShowJoinModal(true);
                         }}
                         disabled={!joinRoomCode.trim()}
@@ -1919,11 +1925,16 @@ function App() {
                       <td>
                         <button
                           className="joinActionBtn"
-                          onClick={() => {
-                            setJoinRoomCode(room.roomCode);
-                            setJoinRoomType(room.isPrivate ? "private" : "public");
-                            setJoinPassword("");
-                            setShowJoinModal(true);
+                          onClick={async () => {
+                            if (room.isPrivate) {
+                              setJoinRoomCode(room.roomCode);
+                              setJoinRoomType("private");
+                              setJoinPassword("");
+                              setJoinModalSource("list");
+                              setShowJoinModal(true);
+                              return;
+                            }
+                            await joinRaceRoomWith(room.roomCode, "");
                           }}
                         >
                           Join
@@ -2245,20 +2256,22 @@ function App() {
           <div className="modalBackdrop" onClick={() => setShowJoinModal(false)}>
             <div className="modalCard" onClick={(e) => e.stopPropagation()}>
               <h2>방 참가</h2>
-              <label>
-                방 코드
-                <input
-                  type="text"
-                  value={joinRoomCode}
-                  onChange={(e) => {
-                    const code = e.target.value.toUpperCase();
-                    setJoinRoomCode(code);
-                    const matched = publicRooms.find((r) => r.roomCode === code);
-                    setJoinRoomType(matched ? (matched.isPrivate ? "private" : "public") : "unknown");
-                  }}
-                  placeholder="예: AB12CD"
-                />
-              </label>
+              {joinModalSource === "manual" && (
+                <label>
+                  방 코드
+                  <input
+                    type="text"
+                    value={joinRoomCode}
+                    onChange={(e) => {
+                      const code = e.target.value.toUpperCase();
+                      setJoinRoomCode(code);
+                      const matched = publicRooms.find((r) => r.roomCode === code);
+                      setJoinRoomType(matched ? (matched.isPrivate ? "private" : "public") : "unknown");
+                    }}
+                    placeholder="예: AB12CD"
+                  />
+                </label>
+              )}
               {joinRoomType !== "public" && (
                 <label>
                   비밀번호(비밀방만)
@@ -2272,7 +2285,14 @@ function App() {
               )}
               <div className="modalActions">
                 <button onClick={() => setShowJoinModal(false)}>취소</button>
-                <button onClick={joinRaceRoom} disabled={isLoading || !joinRoomCode.trim()}>
+                <button
+                  onClick={joinRaceRoom}
+                  disabled={
+                    isLoading ||
+                    (joinModalSource === "manual" && !joinRoomCode.trim()) ||
+                    (joinRoomType !== "public" && !joinPassword.trim())
+                  }
+                >
                   {isLoading ? "참가중..." : "참가"}
                 </button>
               </div>
