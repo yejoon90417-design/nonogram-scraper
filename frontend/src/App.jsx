@@ -11,6 +11,7 @@ const AUTH_USER_KEY = "nonogram-auth-user";
 const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
 const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
 const PVP_SIZE_KEYS = ["5x5", "10x10", "15x15", "20x20", "25x25"];
+const PVP_REVEAL_RESULT_HOLD_MS = 1600;
 
 const TUTORIAL_PUZZLE = {
   id: "tutorial-5x5",
@@ -223,6 +224,7 @@ function App() {
   const racePlayerIdRef = useRef("");
   const pvpTicketRef = useRef("");
   const pvpMatchPhaseRef = useRef("");
+  const pvpRevealSpinPrevRef = useRef(false);
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -503,6 +505,14 @@ function App() {
   }, [pvpMatchState, pvpMatch, nowMs]);
   const pvpAcceptPercent = pvpMatchState === "accept" ? Math.max(0, Math.min(100, (pvpAcceptLeftMs / 12000) * 100)) : 0;
   const pvpBanPercent = pvpMatchState === "ban" ? Math.max(0, Math.min(100, (pvpBanLeftMs / 10000) * 100)) : 0;
+  const pvpRevealLeftMs = useMemo(() => {
+    if (pvpMatchState !== "reveal") return 0;
+    const endAt = Number(pvpMatch?.revealEndAt || 0);
+    if (!endAt) return 0;
+    return Math.max(0, endAt - nowMs);
+  }, [pvpMatchState, pvpMatch, nowMs]);
+  const isPvpRevealSpinning =
+    pvpMatchState === "reveal" && pvpRevealLeftMs > PVP_REVEAL_RESULT_HOLD_MS;
 
   const ensureAudio = () => {
     if (audioCtxRef.current && audioCtxRef.current.state !== "closed") return audioCtxRef.current;
@@ -1910,9 +1920,16 @@ function App() {
       stopPvpRevealAnimation();
       return;
     }
+    if (!isPvpRevealSpinning) {
+      stopPvpRevealAnimation();
+      const chosenIdx = pvpOptions.findIndex((o) => o.sizeKey === pvpMatch?.chosenSizeKey);
+      if (chosenIdx >= 0) setPvpRevealIndex(chosenIdx);
+      return;
+    }
+
     stopPvpRevealAnimation();
-    setPvpRevealIndex(0);
-    let idx = 0;
+    let idx = Math.floor(Math.random() * pvpOptions.length);
+    setPvpRevealIndex(idx);
     pvpRevealAnimRef.current = window.setInterval(() => {
       idx = (idx + 1) % pvpOptions.length;
       setPvpRevealIndex(idx);
@@ -1921,12 +1938,18 @@ function App() {
     return () => {
       stopPvpRevealAnimation();
     };
-  }, [isModePvp, pvpSearching, isInRaceRoom, pvpMatchState, pvpOptions.length]);
+  }, [isModePvp, pvpSearching, isInRaceRoom, pvpMatchState, pvpOptions, pvpMatch?.chosenSizeKey, isPvpRevealSpinning]);
 
   useEffect(() => {
-    if (pvpMatchState !== "reveal" || !pvpMatch?.chosenSizeKey) return;
-    playSfx("roulette-stop");
-  }, [pvpMatchState, pvpMatch?.chosenSizeKey]);
+    if (pvpMatchState !== "reveal") {
+      pvpRevealSpinPrevRef.current = false;
+      return;
+    }
+    if (pvpRevealSpinPrevRef.current && !isPvpRevealSpinning) {
+      playSfx("roulette-stop");
+    }
+    pvpRevealSpinPrevRef.current = isPvpRevealSpinning;
+  }, [pvpMatchState, isPvpRevealSpinning]);
 
   useEffect(() => {
     if (!isInRaceRoom || !raceState?.puzzleId) return;
@@ -2462,7 +2485,7 @@ function App() {
                         const bannedBy = Array.isArray(option.bannedByNicknames) ? option.bannedByNicknames : [];
                         const isBanned = bannedBy.length > 0 || option.banned;
                         const isActive = idx === pvpRevealIndex;
-                        const isChosen = pvpMatch?.chosenSizeKey === sizeKey;
+                        const isChosen = !isPvpRevealSpinning && pvpMatch?.chosenSizeKey === sizeKey;
                         return (
                           <div
                             key={`reveal-${sizeKey}`}
@@ -2477,7 +2500,9 @@ function App() {
                       })}
                     </div>
                     <div className="pvpRevealResult">
-                      {pvpMatch?.chosenSizeKey ? `선택됨: ${pvpMatch.chosenSizeKey}` : "결정 중..."}
+                      {!isPvpRevealSpinning && pvpMatch?.chosenSizeKey
+                        ? `선택됨: ${pvpMatch.chosenSizeKey}`
+                        : "결정 중..."}
                     </div>
                   </div>
                 )}
