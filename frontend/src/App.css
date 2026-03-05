@@ -126,6 +126,20 @@
   color: #fff;
 }
 
+.topAuth .tutorialTriggerBtn {
+  min-width: 122px;
+  min-height: 48px;
+  border: 2px solid #244f88;
+  background: linear-gradient(180deg, #edf7ff 0%, #d8ecff 100%);
+  color: #1e4370;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
+  font-size: 0.94rem;
+  font-weight: 900;
+}
+
 .userChip {
   border: 1px solid #b7c8dd;
   background: #eef5ff;
@@ -1157,6 +1171,154 @@ button:disabled {
   }
 }
 
+.tutorialOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.tutorialBackdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(105, 183, 255, 0.14), rgba(105, 183, 255, 0) 56%),
+    rgba(7, 14, 25, 0.66);
+}
+
+.tutorialPixelField {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.tutorialPixel {
+  position: absolute;
+  display: block;
+  background: linear-gradient(180deg, #7bcfff 0%, #368ed3 100%);
+  box-shadow: 0 0 0 1px rgba(22, 47, 83, 0.55), 0 8px 14px rgba(7, 18, 34, 0.36);
+  opacity: 0.72;
+  animation-name: tutorialPixelFloat;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes tutorialPixelFloat {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate3d(0, -13px, 0) scale(1.08);
+    opacity: 0.95;
+  }
+}
+
+.tutorialSpotlight {
+  position: fixed;
+  border-radius: 12px;
+  border: 2px solid #9fdfff;
+  box-shadow:
+    0 0 0 200vmax rgba(7, 14, 25, 0.64),
+    0 0 0 4px rgba(82, 177, 242, 0.34),
+    0 18px 44px rgba(8, 20, 38, 0.56);
+}
+
+.tutorialCard {
+  pointer-events: auto;
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  width: min(540px, calc(100vw - 24px));
+  border: 2px solid #235589;
+  border-radius: 16px;
+  background:
+    linear-gradient(135deg, rgba(249, 253, 255, 0.98), rgba(230, 243, 255, 0.98)),
+    #f5fbff;
+  box-shadow: 0 20px 46px rgba(8, 24, 43, 0.35);
+  padding: 0.92rem 1rem;
+  display: grid;
+  gap: 0.52rem;
+}
+
+.tutorialCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tutorialBadge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #7db2de;
+  border-radius: 999px;
+  padding: 0.14rem 0.56rem;
+  background: #e6f2ff;
+  color: #114275;
+  font-size: 0.79rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.tutorialSkipBtn {
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #9eb8d4;
+  background: #f5f9ff;
+  color: #305073;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.tutorialCard h3 {
+  margin: 0;
+  color: #102544;
+  font-size: clamp(1.02rem, 2.2vw, 1.32rem);
+}
+
+.tutorialCard p {
+  margin: 0;
+  color: #2d435f;
+  font-size: 0.96rem;
+  line-height: 1.45;
+}
+
+.tutorialHint {
+  border: 1px dashed #93b5d6;
+  border-radius: 10px;
+  background: rgba(224, 239, 255, 0.78);
+  color: #23466d;
+  font-size: 0.84rem;
+  font-weight: 700;
+  padding: 0.4rem 0.52rem;
+}
+
+.tutorialActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.48rem;
+}
+
+.tutorialActions button {
+  min-height: 40px;
+  min-width: 108px;
+  border-radius: 10px;
+  border: 1px solid #9ab8d8;
+  background: #f5f9ff;
+  color: #28486c;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.tutorialActions .tutorialNextBtn {
+  border-color: #1b5d8d;
+  background: linear-gradient(130deg, #1b8bd2 0%, #5ac2ff 100%);
+  color: #fff;
+}
+
 @media (max-width: 760px) {
   .panel {
     padding: 0 0 0.7rem;
@@ -1202,6 +1364,13 @@ button:disabled {
     min-height: 44px;
     font-size: 0.95rem;
     border-width: 2px;
+  }
+
+  .topAuth .tutorialTriggerBtn {
+    min-width: 98px;
+    min-height: 40px;
+    font-size: 0.82rem;
+    padding: 0.25rem 0.44rem;
   }
 
   .lobbyActions {
@@ -1324,5 +1493,18 @@ button:disabled {
 
   .countdownOverlay {
     font-size: 58px;
+  }
+
+  .tutorialCard {
+    bottom: 10px;
+    width: calc(100vw - 14px);
+    padding: 0.78rem 0.8rem;
+    border-radius: 12px;
+  }
+
+  .tutorialActions button {
+    min-width: 86px;
+    min-height: 36px;
+    font-size: 0.84rem;
   }
 }

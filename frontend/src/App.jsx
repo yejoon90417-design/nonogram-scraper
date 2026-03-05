@@ -1,14 +1,82 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
-import { motion } from "framer-motion";
-import { ChevronDown, Eraser, Home, Lock, LogIn, Redo2, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, Eraser, Home, Lock, LogIn, Redo2, Sparkles, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://nonogram-api.onrender.com").replace(/\/$/, "");
 const MAX_HISTORY = 200;
 const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
+const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
 const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
+
+const TUTORIAL_STEPS = [
+  {
+    title: "Welcome, Nonogram Arena",
+    body: "이 튜토리얼은 게임 핵심 흐름을 빠르게 익히게 해줍니다.",
+    ensureMode: "menu",
+  },
+  {
+    title: "싱글 플레이 시작",
+    body: "먼저 SINGLE PLAYER 버튼으로 퍼즐 기본 조작을 배웁니다.",
+    ensureMode: "menu",
+    target: '[data-tutorial="menu-single"]',
+  },
+  {
+    title: "랜덤 퍼즐 로드",
+    body: "사이즈를 고르고 RANDOM LOAD를 누르면 새 퍼즐이 열립니다.",
+    ensureMode: "single",
+    target: '[data-tutorial="single-controls"]',
+  },
+  {
+    title: "핵심 조작",
+    body: "좌클릭=검정 칠하기, 우클릭=X, 클릭 드래그로 연속 입력이 됩니다.",
+    ensureMode: "single",
+    target: '[data-tutorial="single-board"]',
+  },
+  {
+    title: "복구 도구",
+    body: "하단 UNDO / REDO / CLEAR로 실수 복구가 가능합니다.",
+    ensureMode: "single",
+    target: '[data-tutorial="single-tools"]',
+  },
+  {
+    title: "멀티 진입",
+    body: "이제 MULTI PLAYER로 방 대전 모드로 이동합니다.",
+    ensureMode: "menu",
+    target: '[data-tutorial="menu-multi"]',
+  },
+  {
+    title: "로비 액션",
+    body: "방 만들기, 코드 참가, 목록 갱신으로 상대를 찾습니다.",
+    ensureMode: "multi",
+    target: '[data-tutorial="lobby-actions"]',
+  },
+  {
+    title: "방 리스트 규칙",
+    body: "오픈방은 즉시 입장, 비밀방은 비밀번호만 입력해서 입장합니다.",
+    ensureMode: "multi",
+    target: '[data-tutorial="lobby-table"]',
+  },
+  {
+    title: "튜토리얼 완료",
+    body: "준비 완료. 즐거운 기록 경쟁을 시작하세요!",
+    ensureMode: "menu",
+  },
+];
+
+const TUTORIAL_PIXELS = [
+  { left: "8%", top: "18%", size: 8, delay: 0.1, duration: 3.6 },
+  { left: "16%", top: "68%", size: 12, delay: 0.4, duration: 4.1 },
+  { left: "28%", top: "32%", size: 10, delay: 0.9, duration: 3.5 },
+  { left: "37%", top: "78%", size: 7, delay: 0.2, duration: 3.9 },
+  { left: "52%", top: "22%", size: 11, delay: 0.6, duration: 4.4 },
+  { left: "66%", top: "62%", size: 9, delay: 0.5, duration: 3.8 },
+  { left: "74%", top: "28%", size: 12, delay: 0.8, duration: 4.2 },
+  { left: "81%", top: "74%", size: 8, delay: 0.3, duration: 3.7 },
+  { left: "88%", top: "14%", size: 9, delay: 0.7, duration: 4.3 },
+];
 
 function toBase64Bits(cells, width, height) {
   const byteLength = Math.ceil((width * height) / 8);
@@ -125,6 +193,9 @@ function App() {
   const [reactionFlights, setReactionFlights] = useState([]);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [tutorialRect, setTutorialRect] = useState(null);
   const boardRef = useRef(null);
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
@@ -157,6 +228,9 @@ function App() {
   const poopBufferRef = useRef(null);
   const poopLoadingRef = useRef(false);
   const poopAudioFallbackRef = useRef(null);
+  const tutorialBootedRef = useRef(false);
+  const tutorialPromptedLoginRef = useRef(false);
+  const tutorialAutoLoadStepRef = useRef(-1);
   const deferredCells = useDeferredValue(cells);
 
   useEffect(() => {
@@ -335,6 +409,9 @@ function App() {
   const isRaceCountdown = isInRaceRoom && racePhase === "countdown";
   const isRacePlaying = isInRaceRoom && racePhase === "playing";
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
+  const tutorialCurrentStep = TUTORIAL_STEPS[tutorialStep] || TUTORIAL_STEPS[0];
+  const tutorialIsLastStep = tutorialStep >= TUTORIAL_STEPS.length - 1;
+  const tutorialMissingTarget = Boolean(tutorialOpen && tutorialCurrentStep?.target && !tutorialRect);
 
   const myRacePlayer = useMemo(() => {
     if (!raceState || !racePlayerId) return null;
@@ -488,6 +565,49 @@ function App() {
       }
       return next;
     });
+  };
+
+  const closeTutorial = (markAsSeen = true) => {
+    if (markAsSeen) {
+      try {
+        localStorage.setItem(TUTORIAL_SEEN_KEY, "1");
+      } catch {
+        // ignore localStorage errors
+      }
+    }
+    setTutorialOpen(false);
+    setTutorialRect(null);
+    tutorialPromptedLoginRef.current = false;
+    tutorialAutoLoadStepRef.current = -1;
+  };
+
+  const openTutorial = () => {
+    if (isInRaceRoom) {
+      setStatus("방 대전 중에는 튜토리얼을 시작할 수 없습니다.");
+      return;
+    }
+    setTutorialStep(0);
+    setTutorialRect(null);
+    setTutorialOpen(true);
+    tutorialPromptedLoginRef.current = false;
+    tutorialAutoLoadStepRef.current = -1;
+    playSfx("ui");
+  };
+
+  const prevTutorialStep = () => {
+    setTutorialStep((prev) => Math.max(0, prev - 1));
+    playSfx("ui");
+  };
+
+  const nextTutorialStep = () => {
+    if (tutorialIsLastStep) {
+      closeTutorial(true);
+      setStatus("튜토리얼 완료! 이제 바로 플레이해보세요.");
+      playSfx("ui");
+      return;
+    }
+    setTutorialStep((prev) => Math.min(TUTORIAL_STEPS.length - 1, prev + 1));
+    playSfx("ui");
   };
 
   const resetHistory = () => {
@@ -1477,6 +1597,133 @@ function App() {
   }, [isInRaceRoom, status]);
 
   useEffect(() => {
+    if (tutorialBootedRef.current) return;
+    tutorialBootedRef.current = true;
+    try {
+      if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return;
+    } catch {
+      // ignore localStorage errors
+    }
+    const timer = window.setTimeout(() => {
+      if (!raceRoomCodeRef.current) {
+        setTutorialStep(0);
+        setTutorialOpen(true);
+      }
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    const step = TUTORIAL_STEPS[tutorialStep];
+    if (!step) return;
+    if (playMode === "auth") {
+      setPlayMode("menu");
+      return;
+    }
+    if (isInRaceRoom) return;
+
+    if (step.ensureMode === "multi" && !isLoggedIn) {
+      if (!tutorialPromptedLoginRef.current) {
+        tutorialPromptedLoginRef.current = true;
+        setShowNeedLoginPopup(true);
+      }
+      setPlayMode("menu");
+      return;
+    }
+
+    if (step.ensureMode === "menu" && playMode !== "menu") {
+      setPlayMode("menu");
+      return;
+    }
+    if (step.ensureMode === "single" && playMode !== "single") {
+      setPlayMode("single");
+      return;
+    }
+    if (step.ensureMode === "multi" && playMode !== "multi") {
+      setPlayMode("multi");
+    }
+  }, [tutorialOpen, tutorialStep, playMode, isInRaceRoom, isLoggedIn]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    if (!tutorialCurrentStep || tutorialCurrentStep.ensureMode !== "single") return;
+    if (playMode !== "single" || isInRaceRoom || puzzle || isLoading) return;
+    if (tutorialAutoLoadStepRef.current === tutorialStep) return;
+    tutorialAutoLoadStepRef.current = tutorialStep;
+    loadRandomBySize();
+  }, [tutorialOpen, tutorialCurrentStep, tutorialStep, playMode, isInRaceRoom, puzzle, isLoading, selectedSize]);
+
+  useEffect(() => {
+    if (!tutorialOpen) {
+      setTutorialRect(null);
+      return;
+    }
+    const targetSelector = tutorialCurrentStep?.target;
+    if (!targetSelector) {
+      setTutorialRect(null);
+      return;
+    }
+
+    let rafId = 0;
+    const updateRect = () => {
+      const target = document.querySelector(targetSelector);
+      if (!target) {
+        setTutorialRect(null);
+        return;
+      }
+      const rect = target.getBoundingClientRect();
+      const pad = 10;
+      setTutorialRect({
+        left: Math.max(8, rect.left - pad),
+        top: Math.max(8, rect.top - pad),
+        width: rect.width + pad * 2,
+        height: rect.height + pad * 2,
+      });
+    };
+    const schedule = () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(updateRect);
+    };
+
+    schedule();
+    const intervalId = window.setInterval(schedule, 180);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    return () => {
+      window.clearInterval(intervalId);
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
+    };
+  }, [
+    tutorialOpen,
+    tutorialCurrentStep,
+    playMode,
+    isLoggedIn,
+    puzzle?.id,
+    publicRooms.length,
+    showCreateModal,
+    showJoinModal,
+    showNeedLoginPopup,
+  ]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeTutorial(true);
+      } else if (event.key === "ArrowRight" || event.key === "Enter") {
+        nextTutorialStep();
+      } else if (event.key === "ArrowLeft") {
+        prevTutorialStep();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [tutorialOpen, tutorialStep, tutorialIsLastStep, nextTutorialStep]);
+
+  useEffect(() => {
     const el = chatBodyRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
@@ -1598,6 +1845,9 @@ function App() {
           </div>
           {!isModeAuth && (
             <div className="topAuth">
+              <button className="ghostBtn tutorialTriggerBtn" onClick={openTutorial}>
+                <Sparkles size={15} /> Tutorial
+              </button>
               {isLoggedIn ? (
                 <>
                   <span className="userChip">
@@ -1631,6 +1881,7 @@ function App() {
                 whileTap={{ scale: 0.98 }}
                 className="modeBtn modeSingle"
                 onClick={goSingleMode}
+                data-tutorial="menu-single"
               >
                 <span className="modeName">SINGLE PLAYER</span>
               </motion.button>
@@ -1639,6 +1890,7 @@ function App() {
                 whileTap={{ scale: 0.98 }}
                 className="modeBtn modeMulti"
                 onClick={goMultiMode}
+                data-tutorial="menu-multi"
               >
                 {!isLoggedIn && <span className="modeTag">Login Required</span>}
                 <span className="modeName">MULTI PLAYER</span>
@@ -1787,7 +2039,7 @@ function App() {
         )}
 
         {isModeSingle && (
-          <div className="controls singleTopControls">
+          <div className="controls singleTopControls" data-tutorial="single-controls">
             {!isInRaceRoom && (
               <>
                 <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
@@ -1823,7 +2075,7 @@ function App() {
                     <Home size={18} /> HOME
                   </button>
                 </div>
-                <div className="lobbyActions">
+                <div className="lobbyActions" data-tutorial="lobby-actions">
                   <button
                     className="lobbyCardBtn create"
                     onClick={() => {
@@ -1886,7 +2138,7 @@ function App() {
         )}
 
         {isModeMulti && isLoggedIn && !isInRaceRoom && (
-          <div className="lobbyTableWrap">
+          <div className="lobbyTableWrap" data-tutorial="lobby-table">
             <div className="lobbyTableTitle">ROOM LIST</div>
             {publicRooms.length === 0 ? (
               <div className="lobbyEmpty">입장 가능한 방이 없습니다.</div>
@@ -2177,7 +2429,7 @@ function App() {
         {shouldShowPuzzleBoard && isSingleSoloMode && (
           <div className="singleBottomBar">
             <div className="singleTimer">TIMER: {formattedTime}</div>
-            <div className="singleTools">
+            <div className="singleTools" data-tutorial="single-tools">
               <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
                 UNDO
               </button>
@@ -2321,7 +2573,11 @@ function App() {
         )}
 
         {shouldShowPuzzleBoard && !isInRaceRoom && (
-          <div className="boardWrap" onContextMenu={(e) => e.preventDefault()}>
+          <div
+            className="boardWrap"
+            onContextMenu={(e) => e.preventDefault()}
+            data-tutorial={isSingleSoloMode ? "single-board" : undefined}
+          >
             <div
               className="nonogram"
               style={{
@@ -2413,6 +2669,80 @@ function App() {
             </div>
           </div>
         )}
+
+        <AnimatePresence>
+          {tutorialOpen && !isModeAuth && (
+            <motion.div
+              className="tutorialOverlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              {!tutorialRect && <div className="tutorialBackdrop" />}
+              <div className="tutorialPixelField" aria-hidden="true">
+                {TUTORIAL_PIXELS.map((pixel, idx) => (
+                  <span
+                    key={`tutorial-pixel-${idx}`}
+                    className="tutorialPixel"
+                    style={{
+                      left: pixel.left,
+                      top: pixel.top,
+                      width: `${pixel.size}px`,
+                      height: `${pixel.size}px`,
+                      animationDelay: `${pixel.delay}s`,
+                      animationDuration: `${pixel.duration}s`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              {tutorialRect && (
+                <motion.div
+                  className="tutorialSpotlight"
+                  initial={false}
+                  animate={{
+                    left: tutorialRect.left,
+                    top: tutorialRect.top,
+                    width: tutorialRect.width,
+                    height: tutorialRect.height,
+                  }}
+                  transition={{ type: "spring", stiffness: 260, damping: 28, mass: 0.5 }}
+                />
+              )}
+
+              <motion.aside
+                className="tutorialCard"
+                initial={{ y: 26, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 16, opacity: 0 }}
+                transition={{ duration: 0.22, ease: "easeOut" }}
+              >
+                <div className="tutorialCardHead">
+                  <span className="tutorialBadge">
+                    STEP {tutorialStep + 1}/{TUTORIAL_STEPS.length}
+                  </span>
+                  <button className="tutorialSkipBtn" onClick={() => closeTutorial(true)}>
+                    Skip
+                  </button>
+                </div>
+                <h3>{tutorialCurrentStep.title}</h3>
+                <p>{tutorialCurrentStep.body}</p>
+                {tutorialMissingTarget && (
+                  <div className="tutorialHint">해당 화면 요소를 준비중입니다. Next로 계속 진행할 수 있습니다.</div>
+                )}
+                <div className="tutorialActions">
+                  <button onClick={prevTutorialStep} disabled={tutorialStep === 0}>
+                    Back
+                  </button>
+                  <button className="tutorialNextBtn" onClick={nextTutorialStep}>
+                    {tutorialIsLastStep ? "Finish" : "Next"}
+                  </button>
+                </div>
+              </motion.aside>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.section>
     </main>
   );
