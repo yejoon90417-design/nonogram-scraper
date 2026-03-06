@@ -32,7 +32,7 @@ const PVP_MATCH_TICKET_TTL_MS = 1000 * 60 * 5;
 const PVP_ACCEPT_MS = 12000;
 const PVP_BAN_MS = 10000;
 const PVP_REVEAL_MS = 4200;
-const RACE_INACTIVITY_TIMEOUT_MS = Math.max(5000, Number(process.env.RACE_INACTIVITY_TIMEOUT_MS || 30000));
+const RACE_INACTIVITY_TIMEOUT_MS = Math.max(5000, Number(process.env.RACE_INACTIVITY_TIMEOUT_MS || 60000));
 const PVP_BOT_ENABLED_DEFAULT = process.env.PVP_BOT_ENABLED !== "false";
 let pvpBotEnabledRuntime = PVP_BOT_ENABLED_DEFAULT;
 const ADMIN_API_KEY = String(process.env.ADMIN_API_KEY || "").trim();
@@ -1804,6 +1804,7 @@ function roomPublicState(room) {
       isReady: p.isReady,
       disconnectedAt: p.disconnectedAt || null,
       loseReason: p.loseReason || null,
+      lastMoveAt: Number.isFinite(Number(p.lastMoveAt)) ? Number(p.lastMoveAt) : null,
       correctAnswerCells: p.correctAnswerCells ?? 0,
       remainingAnswerCells: Math.max(0, (room.totalAnswerCells || 0) - (p.correctAnswerCells || 0)),
     }))
@@ -1835,6 +1836,7 @@ function roomPublicState(room) {
     reactionEvents: room.reactionEvents,
     winner,
     isFinished: room.state === "finished",
+    inactivityTimeoutMs: RACE_INACTIVITY_TIMEOUT_MS,
     serverNow: Date.now(),
   };
 }

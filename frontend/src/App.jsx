@@ -291,6 +291,7 @@ function App() {
   const audioCtxRef = useRef(null);
   const masterGainRef = useRef(null);
   const countdownCueRef = useRef(-1);
+  const inactivityWarnCueRef = useRef(-1);
   const prevRacePhaseRef = useRef("idle");
   const lastPaintSfxAtRef = useRef(0);
   const poopBufferRef = useRef(null);
@@ -662,6 +663,30 @@ function App() {
     const ms = new Date(raceState.gameStartAt).getTime() - nowMs;
     return Math.max(0, Math.ceil(ms / 1000));
   }, [isRaceCountdown, raceState, nowMs]);
+  const inactivityTimeoutMs = useMemo(() => {
+    const raw = Number(raceState?.inactivityTimeoutMs || 60000);
+    if (!Number.isFinite(raw)) return 60000;
+    return Math.max(5000, raw);
+  }, [raceState?.inactivityTimeoutMs]);
+  const inactivityWarnLeadMs = useMemo(() => {
+    return 5000;
+  }, []);
+  const myLastMoveAtMs = useMemo(() => {
+    const fromPlayer = Number(myRacePlayer?.lastMoveAt || 0);
+    if (Number.isFinite(fromPlayer) && fromPlayer > 0) return fromPlayer;
+    const gameStart = Number(new Date(raceState?.gameStartAt || 0).getTime() || 0);
+    return gameStart > 0 ? gameStart : 0;
+  }, [myRacePlayer?.lastMoveAt, raceState?.gameStartAt]);
+  const inactivityLeftMs = useMemo(() => {
+    if (!isModePvp || !isRacePlaying || !myRacePlayer || isMyRaceFinished) return 0;
+    if (myRacePlayer.disconnectedAt) return 0;
+    if (myRacePlayer.loseReason === "inactive_timeout") return 0;
+    if (!myLastMoveAtMs) return inactivityTimeoutMs;
+    return Math.max(0, inactivityTimeoutMs - (nowMs - myLastMoveAtMs));
+  }, [isModePvp, isRacePlaying, myRacePlayer, isMyRaceFinished, myLastMoveAtMs, inactivityTimeoutMs, nowMs]);
+  const showInactivityWarning = inactivityLeftMs > 0 && inactivityLeftMs <= inactivityWarnLeadMs;
+  const inactivityLeftSec = Math.max(0, Math.ceil(inactivityLeftMs / 1000));
+  const inactivityWarnPercent = Math.max(0, Math.min(100, (inactivityLeftMs / inactivityWarnLeadMs) * 100));
   const pvpMatchState = pvpMatch?.state || "";
   const pvpOptions = Array.isArray(pvpMatch?.options) ? pvpMatch.options : [];
   const pvpAcceptLeftMs = useMemo(() => {
@@ -2273,8 +2298,8 @@ function App() {
       if (myRacePlayer?.loseReason === "inactive_timeout") {
         setStatus(
           L(
-            "경고: 30초 동안 움직임이 없어 자동 패배 처리되었습니다.",
-            "Warning: You were inactive for 30 seconds and lost automatically."
+            "경고: 1분 동안 움직임이 없어 자동 패배 처리되었습니다.",
+            "Warning: You were inactive for 60 seconds and lost automatically."
           )
         );
       } else {
@@ -2343,6 +2368,17 @@ function App() {
       playSfx("countdown");
     }
   }, [isRaceCountdown, countdownLeft]);
+
+  useEffect(() => {
+    if (!showInactivityWarning) {
+      inactivityWarnCueRef.current = -1;
+      return;
+    }
+    if (inactivityLeftSec === inactivityWarnCueRef.current) return;
+    inactivityWarnCueRef.current = inactivityLeftSec;
+    if (inactivityLeftSec <= 3) playSfx("ready");
+    else playSfx("countdown");
+  }, [showInactivityWarning, inactivityLeftSec]);
 
   useEffect(() => {
     const prev = prevRacePhaseRef.current;
@@ -3558,6 +3594,20 @@ function App() {
                     {isRaceCountdown && <div className="countdownOverlay">{countdownLeft ?? 0}</div>}
                     {isRaceLobby && <div className="countdownOverlay wait">{L("READY 대기", "Waiting for READY")}</div>}
                     {isRaceFinished && <div className="countdownOverlay result">{raceResultText}</div>}
+                    {showInactivityWarning && (
+                      <div className={`idleDangerOverlay ${inactivityLeftSec <= 3 ? "critical" : inactivityLeftSec <= 6 ? "hot" : ""}`}>
+                        <div className="idleDangerHead">
+                          <span>{L("위험", "DANGER")}</span>
+                          <b>{inactivityLeftSec}s</b>
+                        </div>
+                        <div className="idleDangerText">
+                          {L("입력이 없으면 자동 패배", "No input will cause auto-defeat")}
+                        </div>
+                        <div className="idleDangerBar">
+                          <span style={{ width: `${inactivityWarnPercent}%` }} />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
