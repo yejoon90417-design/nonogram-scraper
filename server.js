@@ -398,8 +398,7 @@ function normalizeBotDifficulty(raw) {
 
 function buildBotIdentity() {
   const name = randomFrom(PVP_BOT_NAME_POOL) || "Player";
-  const suffix = randomInt(100, 999);
-  const nickname = `${name}${suffix}`;
+  const nickname = name;
   const username = `bot_${crypto.randomBytes(6).toString("hex").slice(0, 10)}`;
   const botSkill = pickRandomBotDifficulty();
   return { username, nickname, botSkill };
@@ -408,8 +407,41 @@ function buildBotIdentity() {
 async function ensureBotUsers() {
   if (!PVP_BOT_ENABLED) return;
   const { rows: botRows } = await pool.query(
-    `SELECT id FROM users WHERE is_bot = true ORDER BY id ASC`
+    `SELECT id, nickname FROM users WHERE is_bot = true ORDER BY id ASC`
   );
+  for (const row of botRows) {
+    const currentNickname = String(row?.nickname || "").trim();
+    if (!/\d{3}$/.test(currentNickname)) continue;
+    const botId = Number(row?.id);
+    if (!Number.isInteger(botId)) continue;
+    const candidates = [];
+    const cleaned = currentNickname.replace(/\d{3}$/, "").trim();
+    if (cleaned) candidates.push(cleaned);
+    for (let i = 0; i < 40; i += 1) {
+      candidates.push(buildBotIdentity().nickname);
+    }
+    let renamed = false;
+    for (const nextNickname of candidates) {
+      if (!nextNickname) continue;
+      try {
+        await pool.query(
+          `UPDATE users
+           SET nickname = $2
+           WHERE id = $1 AND is_bot = true`,
+          [botId, nextNickname]
+        );
+        renamed = true;
+        break;
+      } catch (err) {
+        const msg = String(err.message || "");
+        if (msg.includes("users_nickname_key")) continue;
+        throw err;
+      }
+    }
+    if (!renamed) {
+      // keep existing nickname if no unique replacement was found
+    }
+  }
   const existingIds = botRows.map((r) => Number(r.id)).filter((v) => Number.isInteger(v));
   if (existingIds.length > PVP_BOT_POOL_MIN) {
     const deleteIds = existingIds.slice(PVP_BOT_POOL_MIN);
@@ -422,23 +454,16 @@ async function ensureBotUsers() {
     const identity = buildBotIdentity();
     const passwordHash = hashUserPassword(crypto.randomBytes(24).toString("hex"));
     const skill = normalizeBotDifficulty(identity.botSkill);
-    const ratingBySkill = {
-      easy: randomInt(950, 1180),
-      normal: randomInt(1180, 1360),
-      hard: randomInt(1360, 1500),
-      pro: randomInt(1500, 1620),
-    };
     try {
       await pool.query(
         `INSERT INTO users (
-          username, nickname, password_hash, is_bot, bot_skill, rating
-        ) VALUES ($1, $2, $3, true, $4, $5)`,
+          username, nickname, password_hash, is_bot, bot_skill
+        ) VALUES ($1, $2, $3, true, $4)`,
         [
           identity.username,
           identity.nickname,
           passwordHash,
           skill,
-          ratingBySkill[skill] || ELO_DEFAULT_RATING,
         ]
       );
       needed -= 1;
@@ -450,6 +475,12 @@ async function ensureBotUsers() {
       throw err;
     }
   }
+  await pool.query(
+    `UPDATE users
+     SET rating = $1
+     WHERE is_bot = true AND COALESCE(rating_games, 0) = 0`,
+    [ELO_DEFAULT_RATING]
+  );
 }
 
 function normalizeMaxPlayers(raw) {

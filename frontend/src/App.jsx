@@ -2712,7 +2712,7 @@ function App() {
                       return (
                         <tr key={u.id}>
                           <td>{idx + 1}</td>
-                          <td>{u.is_bot ? `${u.nickname} [BOT]` : u.nickname}</td>
+                          <td>{u.nickname}</td>
                           <td className="ratingScore">{Number(u.rating || 1500)}</td>
                           <td>
                             {wins}W {losses}L ({games})
