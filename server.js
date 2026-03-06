@@ -34,7 +34,28 @@ const PVP_BAN_MS = 10000;
 const PVP_REVEAL_MS = 4200;
 const PVP_BOT_ENABLED = process.env.PVP_BOT_ENABLED !== "false";
 const PVP_BOT_WAIT_MS = Math.max(3000, Number(process.env.PVP_BOT_WAIT_MS || 12000));
-const PVP_BOT_POOL_MIN = 8;
+const PVP_BOT_WAIT_MIN_MS = Math.max(
+  3000,
+  Number(process.env.PVP_BOT_WAIT_MIN_MS || Math.floor(PVP_BOT_WAIT_MS * 0.7))
+);
+const PVP_BOT_WAIT_MAX_MS = Math.max(
+  PVP_BOT_WAIT_MIN_MS + 1500,
+  Number(process.env.PVP_BOT_WAIT_MAX_MS || Math.floor(PVP_BOT_WAIT_MS * 1.9))
+);
+const PVP_BOT_MATCH_BASE_CHANCE = Math.max(
+  0.1,
+  Math.min(0.95, Number(process.env.PVP_BOT_MATCH_BASE_CHANCE || 0.33))
+);
+const PVP_BOT_MATCH_MAX_CHANCE = Math.max(
+  PVP_BOT_MATCH_BASE_CHANCE,
+  Math.min(0.99, Number(process.env.PVP_BOT_MATCH_MAX_CHANCE || 0.9))
+);
+const PVP_BOT_RETRY_MIN_MS = Math.max(1000, Number(process.env.PVP_BOT_RETRY_MIN_MS || 1400));
+const PVP_BOT_RETRY_MAX_MS = Math.max(
+  PVP_BOT_RETRY_MIN_MS,
+  Number(process.env.PVP_BOT_RETRY_MAX_MS || 4200)
+);
+const PVP_BOT_POOL_MIN = 15;
 const PVP_FAKE_QUEUE_ENABLED = process.env.PVP_FAKE_QUEUE_ENABLED !== "false";
 const PVP_FAKE_QUEUE_MIN = Math.max(0, Number(process.env.PVP_FAKE_QUEUE_MIN || 0));
 const PVP_FAKE_QUEUE_MAX = Math.max(PVP_FAKE_QUEUE_MIN, Number(process.env.PVP_FAKE_QUEUE_MAX || 6));
@@ -1888,13 +1909,28 @@ async function maybeMatchWaitingTicketsWithBot(now = Date.now()) {
       removePvpTicket(ticketId);
       continue;
     }
-    const waitedMs = now - Number(ticket.createdAt || now);
-    if (waitedMs < PVP_BOT_WAIT_MS) continue;
+    if (!Number.isFinite(Number(ticket.botEligibleAt))) {
+      ticket.botEligibleAt = Number(ticket.createdAt || now) + randomInt(PVP_BOT_WAIT_MIN_MS, PVP_BOT_WAIT_MAX_MS);
+    }
+    if (!Number.isFinite(Number(ticket.botNextAttemptAt))) {
+      ticket.botNextAttemptAt = ticket.botEligibleAt;
+    }
+    if (now < Number(ticket.botNextAttemptAt)) continue;
+    if (now < Number(ticket.botEligibleAt)) continue;
+
+    const waitedMs = Math.max(0, now - Number(ticket.botEligibleAt));
+    const chanceBoost = Math.min(0.45, waitedMs / 60000);
+    const spawnChance = Math.min(PVP_BOT_MATCH_MAX_CHANCE, PVP_BOT_MATCH_BASE_CHANCE + chanceBoost);
+    if (Math.random() > spawnChance) {
+      ticket.botNextAttemptAt = now + randomInt(PVP_BOT_RETRY_MIN_MS, PVP_BOT_RETRY_MAX_MS);
+      continue;
+    }
     const idx = pvpWaitingOrder.indexOf(ticketId);
     if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
     const botTicket = await fetchAvailablePvpBotTicket(now);
     if (!botTicket) {
       pvpWaitingOrder.push(ticketId);
+      ticket.botNextAttemptAt = now + randomInt(PVP_BOT_RETRY_MIN_MS, PVP_BOT_RETRY_MAX_MS);
       continue;
     }
     createPvpMatch(ticket, botTicket);
@@ -1939,6 +1975,8 @@ app.post("/pvp/queue/join", requireAuth, async (req, res) => {
     roomCode: null,
     playerId: null,
     cancelReason: null,
+    botEligibleAt: now + randomInt(PVP_BOT_WAIT_MIN_MS, PVP_BOT_WAIT_MAX_MS),
+    botNextAttemptAt: null,
   };
   pvpQueueTickets.set(myTicketId, myTicket);
   pvpUserTicket.set(req.authUser.id, myTicketId);
