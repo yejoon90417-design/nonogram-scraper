@@ -52,10 +52,9 @@ const PVP_BOT_NAME_POOL = [
   "Leo", "Nico", "Jude", "Evan", "Kira", "Ryu", "Dami", "Suji",
 ];
 const BOT_DIFFICULTY_WEIGHTS = [
-  ["easy", 80],
-  ["normal", 20],
-  ["hard", 0],
-  ["pro", 0],
+  ["easy", 40],
+  ["normal", 40],
+  ["hard", 20],
 ];
 const BOT_DIFFICULTY_CONFIG = {
   easy: {
@@ -85,14 +84,32 @@ const BOT_DIFFICULTY_CONFIG = {
     targetMinMul: 1.45,
     targetMaxMul: 2.0,
   },
-  pro: {
-    acceptMin: 1800,
-    acceptMax: 4200,
-    banMin: 2000,
-    banMax: 4500,
-    skipBanRate: 0.28,
-    targetMinMul: 1.2,
-    targetMaxMul: 1.7,
+};
+const BOT_SOLVE_TIME_RANGE_SEC = {
+  "5x5": {
+    easy: [120, 180],
+    normal: [50, 120],
+    hard: [15, 30],
+  },
+  "10x10": {
+    easy: [300, 360],
+    normal: [120, 240],
+    hard: [60, 90],
+  },
+  "15x15": {
+    easy: [960, 1500],
+    normal: [600, 900],
+    hard: [300, 420],
+  },
+  "20x20": {
+    easy: [1500, 1800],
+    normal: [900, 1200],
+    hard: [420, 600],
+  },
+  "25x25": {
+    easy: [2700, 3000],
+    normal: [1260, 2100],
+    hard: [900, 1200],
   },
 };
 const ELO_DEFAULT_RATING = 1500;
@@ -428,6 +445,7 @@ function pickRandomBotDifficulty() {
 
 function normalizeBotDifficulty(raw) {
   const v = String(raw || "").trim().toLowerCase();
+  if (v === "pro") return "hard";
   return BOT_DIFFICULTY_CONFIG[v] ? v : "normal";
 }
 
@@ -442,13 +460,24 @@ function buildBotIdentity() {
 async function ensureBotUsers() {
   if (!PVP_BOT_ENABLED) return;
   const { rows: botRows } = await pool.query(
-    `SELECT id, nickname FROM users WHERE is_bot = true ORDER BY id ASC`
+    `SELECT id, nickname, bot_skill FROM users WHERE is_bot = true ORDER BY id ASC`
   );
   for (const row of botRows) {
-    const currentNickname = String(row?.nickname || "").trim();
-    if (!/\d{3}$/.test(currentNickname)) continue;
     const botId = Number(row?.id);
     if (!Number.isInteger(botId)) continue;
+    const rawSkill = String(row?.bot_skill || "").trim().toLowerCase();
+    const hasValidSkill = rawSkill === "easy" || rawSkill === "normal" || rawSkill === "hard";
+    const fixedSkill = hasValidSkill ? rawSkill : pickRandomBotDifficulty();
+    if (rawSkill !== fixedSkill) {
+      await pool.query(
+        `UPDATE users
+         SET bot_skill = $2
+         WHERE id = $1 AND is_bot = true`,
+        [botId, fixedSkill]
+      );
+    }
+    const currentNickname = String(row?.nickname || "").trim();
+    if (!/\d{3}$/.test(currentNickname)) continue;
     const candidates = [];
     const cleaned = currentNickname.replace(/\d{3}$/, "").trim();
     if (cleaned) candidates.push(cleaned);
@@ -540,8 +569,7 @@ function createPvpBotTicket(botUser, now = Date.now()) {
   const userId = Number(botUser?.id);
   if (!Number.isInteger(userId)) return null;
   const nickname = String(botUser?.nickname || "").trim() || `Player${randomInt(100, 999)}`;
-  const rawSkill = normalizeBotDifficulty(botUser?.bot_skill);
-  const botSkill = rawSkill === "hard" || rawSkill === "pro" ? "normal" : rawSkill;
+  const botSkill = normalizeBotDifficulty(botUser?.bot_skill);
   return {
     ticketId: `bot-ticket-${shortId}`,
     userId,
@@ -594,19 +622,17 @@ async function fetchAvailablePvpBotTicket(now = Date.now()) {
 
 function pickBotTargetSec(width, height, rawDifficulty = "normal") {
   const difficulty = normalizeBotDifficulty(rawDifficulty);
-  const conf = BOT_DIFFICULTY_CONFIG[difficulty] || BOT_DIFFICULTY_CONFIG.normal;
   const key = `${width}x${height}`;
-  const baseMap = {
-    "5x5": 12,
-    "10x10": 26,
-    "15x15": 46,
-    "20x20": 72,
-    "25x25": 102,
-  };
-  const base = baseMap[key] || Math.max(18, Math.round((width * height) * 0.18));
-  const mul = conf.targetMinMul + Math.random() * (conf.targetMaxMul - conf.targetMinMul);
-  const jitter = 0.96 + Math.random() * 0.1;
-  return Math.max(6, Math.round(base * mul * jitter));
+  const bySize = BOT_SOLVE_TIME_RANGE_SEC[key];
+  if (bySize && Array.isArray(bySize[difficulty]) && bySize[difficulty].length === 2) {
+    const [minSec, maxSec] = bySize[difficulty];
+    return randomInt(Number(minSec), Number(maxSec));
+  }
+  if (bySize && Array.isArray(bySize.normal) && bySize.normal.length === 2) {
+    const [minSec, maxSec] = bySize.normal;
+    return randomInt(Number(minSec), Number(maxSec));
+  }
+  return randomInt(120, 420);
 }
 
 function eloExpected(myRating, opponentRating) {
@@ -1649,7 +1675,7 @@ function createPvpMatch(ticketA, ticketB) {
   const matchId = randomPlayerId();
   const players = [ticketA, ticketB].map((ticket) => {
     const isBot = ticket?.isBot === true;
-    const botDifficulty = isBot ? pickRandomBotDifficulty() : null;
+    const botDifficulty = isBot ? normalizeBotDifficulty(ticket?.botSkill) : null;
     const botConf = isBot
       ? BOT_DIFFICULTY_CONFIG[normalizeBotDifficulty(botDifficulty)] || BOT_DIFFICULTY_CONFIG.normal
       : null;
