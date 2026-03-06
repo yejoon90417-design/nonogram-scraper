@@ -477,8 +477,11 @@ async function ensureBotUsers() {
   }
   await pool.query(
     `UPDATE users
-     SET rating = $1
-     WHERE is_bot = true AND COALESCE(rating_games, 0) = 0`,
+     SET rating = $1,
+         rating_games = 0,
+         rating_wins = 0,
+         rating_losses = 0
+     WHERE is_bot = true`,
     [ELO_DEFAULT_RATING]
   );
 }
