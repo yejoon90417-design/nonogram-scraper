@@ -1076,6 +1076,7 @@ function maybeFinalizeRoom(room) {
 
 function applyInactiveAutoLoss(room, now = Date.now()) {
   if (!room || room.state !== "playing") return false;
+  if (room.mode !== "pvp_ranked" && room.mode !== "pvp_bot") return false;
   const gameStartAt = Number(room.gameStartAt || now);
   let changed = false;
 

@@ -219,6 +219,8 @@ function App() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [reactionMenuForPlayerId, setReactionMenuForPlayerId] = useState("");
   const [reactionFlights, setReactionFlights] = useState([]);
+  const [mobilePaintMode, setMobilePaintMode] = useState("fill"); // fill | mark
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [showMultiResultModal, setShowMultiResultModal] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundOn, setSoundOn] = useState(true);
@@ -238,7 +240,7 @@ function App() {
   const playerBadgeRefs = useRef(new Map());
   const seenReactionIdsRef = useRef(new Set());
   const reactionFlightsRef = useRef([]);
-  const dragRef = useRef(null); // { button: 'left'|'right', paintValue }
+  const dragRef = useRef(null); // { button: 'left'|'right', paintValue, ignoreButtons }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
   const strokeChangedRef = useRef(false);
@@ -280,6 +282,21 @@ function App() {
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
   }, [lang]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const apply = () => setIsCoarsePointer(Boolean(mq.matches));
+    apply();
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+    if (typeof mq.addListener === "function") {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+  }, []);
 
   useEffect(() => {
     cellValuesRef.current = cells;
@@ -1861,7 +1878,7 @@ function App() {
     lastPaintIndexRef.current = index;
   };
 
-  const startPaint = (index, buttonType) => {
+  const startPaint = (index, buttonType, options = {}) => {
     const current = cellValuesRef.current[index] ?? 0;
     const paintValue =
       buttonType === "left"
@@ -1876,7 +1893,7 @@ function App() {
       strokeBaseRef.current = cellValuesRef.current.slice();
       strokeChangedRef.current = false;
     }
-    dragRef.current = { button: buttonType, paintValue };
+    dragRef.current = { button: buttonType, paintValue, ignoreButtons: options.ignoreButtons === true };
     lastPaintIndexRef.current = index;
     queueCellPaint(index, paintValue);
     const now = Date.now();
@@ -1889,6 +1906,16 @@ function App() {
   const onCellPointerDown = (event, index) => {
     event.preventDefault();
     boardRef.current?.setPointerCapture?.(event.pointerId);
+    const pointerType = String(event.pointerType || "").toLowerCase();
+    const isTouchLike =
+      pointerType === "touch" ||
+      pointerType === "pen" ||
+      (isCoarsePointer && pointerType !== "mouse");
+    if (isTouchLike && event.button !== 2) {
+      const modeButton = mobilePaintMode === "mark" ? "right" : "left";
+      startPaint(index, modeButton, { ignoreButtons: true });
+      return;
+    }
     if (event.button === 0) startPaint(index, "left");
     if (event.button === 2) startPaint(index, "right");
   };
@@ -2002,10 +2029,12 @@ function App() {
       const dragState = dragRef.current;
       if (!dragState) return;
 
-      const leftPressed = (event.buttons & 1) === 1;
-      const rightPressed = (event.buttons & 2) === 2;
-      if (dragState.button === "left" && !leftPressed) return;
-      if (dragState.button === "right" && !rightPressed) return;
+      if (!dragState.ignoreButtons) {
+        const leftPressed = (event.buttons & 1) === 1;
+        const rightPressed = (event.buttons & 2) === 2;
+        if (dragState.button === "left" && !leftPressed) return;
+        if (dragState.button === "right" && !rightPressed) return;
+      }
 
       const events = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [event];
       for (const e of events) {
@@ -3488,6 +3517,25 @@ function App() {
         )}
 
         {status && !isModeAuth && <div className="status">{status}</div>}
+
+        {shouldShowPuzzleBoard && isCoarsePointer && (
+          <div className="mobilePaintToggle" role="group" aria-label={L("모바일 그리기 모드", "Mobile Paint Mode")}>
+            <button
+              type="button"
+              className={`paintModeBtn ${mobilePaintMode === "fill" ? "active" : ""}`}
+              onClick={() => setMobilePaintMode("fill")}
+            >
+              {L("채우기", "Fill")}
+            </button>
+            <button
+              type="button"
+              className={`paintModeBtn ${mobilePaintMode === "mark" ? "active" : ""}`}
+              onClick={() => setMobilePaintMode("mark")}
+            >
+              {L("X 표시", "Mark X")}
+            </button>
+          </div>
+        )}
 
         {showMultiResultModal && isModeMulti && isInRaceRoom && isRaceFinished && (
           <div className="modalBackdrop" onClick={() => setShowMultiResultModal(false)}>

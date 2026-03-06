@@ -1652,6 +1652,34 @@ button:disabled {
   font-weight: 700;
 }
 
+.mobilePaintToggle {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.24rem;
+  border: 1px solid #bed0e3;
+  border-radius: 999px;
+  background: #f4f8fd;
+}
+
+.paintModeBtn {
+  border-radius: 999px;
+  border: 1px solid #aebfd4;
+  background: #ffffff;
+  color: #20364f;
+  min-height: 34px;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.paintModeBtn.active {
+  background: linear-gradient(180deg, #11a5af 0%, #0f7b83 100%);
+  border-color: #0b6168;
+  color: #ffffff;
+}
+
 .boardWrap {
   --board-cursor: crosshair;
   margin-top: 0.72rem;
