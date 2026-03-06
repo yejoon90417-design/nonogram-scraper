@@ -99,6 +99,24 @@ function toBase64Bits(cells, width, height) {
   return btoa(binary);
 }
 
+function fromBase64Bits(bitsBase64, width, height) {
+  const total = width * height;
+  const cells = new Array(total).fill(0);
+  if (!bitsBase64 || typeof bitsBase64 !== "string") return cells;
+  let binary = "";
+  try {
+    binary = atob(bitsBase64);
+  } catch {
+    return cells;
+  }
+  const byteLen = Math.ceil(total / 8);
+  for (let i = 0; i < total; i += 1) {
+    const b = i < byteLen ? (binary.charCodeAt(Math.floor(i / 8)) || 0) : 0;
+    cells[i] = ((b >> (i % 8)) & 1) === 1 ? 1 : 0;
+  }
+  return cells;
+}
+
 function getRuns(line) {
   const runs = [];
   let count = 0;
@@ -146,7 +164,7 @@ function isRaceOnlyStatusMessage(message) {
 }
 
 function App() {
-  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi | pvp | tutorial | auth | ranking
+  const [playMode, setPlayMode] = useState("menu"); // menu | single | multi | pvp | tutorial | auth | ranking | replay_hall
   const [selectedSize, setSelectedSize] = useState("25x25");
   const [puzzle, setPuzzle] = useState(null);
   const [cells, setCells] = useState([]); // 0 empty, 1 filled, 2 marked(X)
@@ -178,6 +196,10 @@ function App() {
   const [ratingLoading, setRatingLoading] = useState(false);
   const [myRatingRank, setMyRatingRank] = useState(null);
   const [ratingTotalUsers, setRatingTotalUsers] = useState(0);
+  const [hallDataBySize, setHallDataBySize] = useState({});
+  const [hallActiveSizeKey, setHallActiveSizeKey] = useState("10x10");
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState("");
   const [isRematchLoading, setIsRematchLoading] = useState(false);
   const [lang, setLang] = useState(() => {
     const saved = localStorage.getItem(LANG_KEY);
@@ -483,6 +505,14 @@ function App() {
     const ss = String(elapsedSec % 60).padStart(2, "0");
     return `${mm}:${ss}`;
   }, [elapsedSec]);
+  const hallSizes = useMemo(
+    () => PVP_SIZE_KEYS.map((sizeKey) => ({ sizeKey, records: Array.isArray(hallDataBySize[sizeKey]) ? hallDataBySize[sizeKey] : [] })),
+    [hallDataBySize]
+  );
+  const hallActiveRecords = useMemo(() => {
+    const list = hallDataBySize[hallActiveSizeKey];
+    return Array.isArray(list) ? list : [];
+  }, [hallDataBySize, hallActiveSizeKey]);
 
   const isBoardCompleteByHints = useMemo(() => {
     if (!puzzle) return false;
@@ -495,6 +525,7 @@ function App() {
   const isModeAuth = playMode === "auth";
   const isModeTutorial = playMode === "tutorial";
   const isModeRanking = playMode === "ranking";
+  const isModeReplayHall = playMode === "replay_hall";
   const isLoggedIn = Boolean(authToken && authUser);
   const isInRaceRoom = Boolean(raceRoomCode);
   const isSingleSoloMode = (isModeSingle || isModeTutorial) && !isInRaceRoom;
@@ -604,6 +635,26 @@ function App() {
     if (status === "left") return L("중도 이탈", "Left");
     if (status === "dnf") return L("미완주", "DNF");
     return status || "-";
+  };
+
+  const formatKstDate = (ms) => {
+    const t = Number(ms || 0);
+    if (!Number.isFinite(t) || t <= 0) return "-";
+    const kst = new Date(t + 9 * 60 * 60 * 1000);
+    const y = String(kst.getUTCFullYear());
+    const m = String(kst.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(kst.getUTCDate()).padStart(2, "0");
+    return `${y}.${m}.${d}`;
+  };
+
+  const formatRankLabel = (rank) => {
+    const n = Number(rank || 0);
+    if (!Number.isInteger(n) || n <= 0) return "-";
+    if (lang === "ko") return `${n}위`;
+    if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
+    if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
+    if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
+    return `${n}th`;
   };
 
   const countdownLeft = useMemo(() => {
@@ -1003,6 +1054,16 @@ function App() {
     setStatus("");
   };
 
+  const goReplayHallMode = () => {
+    if (pvpSearching && !isInRaceRoom) {
+      void cancelPvpQueue({ silent: true });
+    }
+    if (!isInRaceRoom) clearPuzzleViewState();
+    setHallActiveSizeKey("10x10");
+    setPlayMode("replay_hall");
+    setStatus("");
+  };
+
   const backToMenu = async () => {
     if (isInRaceRoom) {
       setStatus(L("진행 중인 경기에서는 먼저 Leave를 눌러줘.", "Leave the current match first."));
@@ -1177,6 +1238,45 @@ function App() {
       setStatus(err.message);
     } finally {
       setRatingLoading(false);
+    }
+  };
+
+  const fetchBestReplayRecords = async () => {
+    setReplayLoading(true);
+    setReplayError("");
+    try {
+      const res = await fetch(`${API_BASE}/replays/hall`);
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) throw new Error(data.error || L("명예의 전당 조회 실패", "Failed to load Hall of Fame records"));
+      const sizes = Array.isArray(data.sizes) ? data.sizes : [];
+      const mapped = {};
+      for (const key of PVP_SIZE_KEYS) mapped[key] = [];
+      for (const bucket of sizes) {
+        const sizeKey = String(bucket?.sizeKey || "");
+        if (!sizeKey || !mapped[sizeKey]) continue;
+        const top = Array.isArray(bucket?.top) ? bucket.top : [];
+        mapped[sizeKey] = top.slice(0, 3).map((r, idx) => ({
+          recordId: Number(r.recordId),
+          rank: Number(r.rank || idx + 1),
+          userId: Number(r.userId),
+          nickname: String(r.nickname || ""),
+          elapsedSec: Number(r.elapsedSec || 0),
+          puzzleId: Number(r.puzzleId),
+          finishedAtMs: Number(r.finishedAtMs || 0),
+          sizeKey,
+        }));
+      }
+      setHallDataBySize(mapped);
+      const fallbackSize = PVP_SIZE_KEYS.includes(hallActiveSizeKey)
+        ? hallActiveSizeKey
+        : PVP_SIZE_KEYS[0];
+      setHallActiveSizeKey(fallbackSize);
+    } catch (err) {
+      setReplayError(err.message);
+      setStatus(err.message);
+      setHallDataBySize({});
+    } finally {
+      setReplayLoading(false);
     }
   };
 
@@ -2114,7 +2214,7 @@ function App() {
   useEffect(() => {
     if (!isRacePlaying || !raceRoomCode || !racePlayerId) return;
     const now = Date.now();
-    if (now - raceProgressLastSentRef.current < 600) return;
+    if (now - raceProgressLastSentRef.current < 220) return;
     raceProgressLastSentRef.current = now;
     submitRaceProgress();
   }, [isRacePlaying, raceRoomCode, racePlayerId, cells, puzzle]);
@@ -2332,6 +2432,11 @@ function App() {
     if (!isModeRanking || isInRaceRoom) return;
     fetchRatingUsers();
   }, [isModeRanking, isInRaceRoom]);
+
+  useEffect(() => {
+    if (!isModeReplayHall || isInRaceRoom) return;
+    fetchBestReplayRecords();
+  }, [isModeReplayHall, isInRaceRoom]);
 
   useEffect(() => {
     if (isLoggedIn) return;
@@ -2837,6 +2942,9 @@ function App() {
                 <button className="singleActionBtn" onClick={fetchRatingUsers} disabled={ratingLoading}>
                   {ratingLoading ? "LOADING..." : "REFRESH"}
                 </button>
+                <button className="singleSfxBtn replayOpenBtn" onClick={goReplayHallMode} disabled={replayLoading}>
+                  {replayLoading ? L("로딩 중...", "Loading...") : L("명예의 전당", "HALL OF FAME")}
+                </button>
                 <button className="singleHomeBtn" onClick={backToMenu}>
                   HOME
                 </button>
@@ -2875,6 +2983,90 @@ function App() {
                             {wins}W {losses}L ({games})
                           </td>
                           <td>{winRate}%</td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {isModeReplayHall && (
+          <section className="hallScreen">
+            <div className="hallHero">
+              <div className="hallHeroGlint" />
+              <div className="hallHeroTag">HALL OF FAME</div>
+              <h2>{L("사이즈별 최고 기록", "Best Records By Size")}</h2>
+              <p>
+                {L(
+                  "각 퍼즐 유형의 TOP 3 기록만 집계됩니다.",
+                  "Only Top 3 records are tracked for each puzzle size."
+                )}
+              </p>
+            </div>
+
+            {replayError && <div className="replayError hallError">{replayError}</div>}
+
+            <div className="hallActions">
+              <button className="singleActionBtn" onClick={fetchBestReplayRecords} disabled={replayLoading}>
+                {replayLoading ? L("새로고침 중...", "Refreshing...") : L("기록 새로고침", "Refresh Records")}
+              </button>
+              <button className="singleSfxBtn" onClick={goRankingMode}>
+                {L("랭킹으로", "Go Ranking")}
+              </button>
+              <button className="singleHomeBtn" onClick={backToMenu}>
+                HOME
+              </button>
+            </div>
+
+            <div className="hallTabs" role="tablist" aria-label={L("퍼즐 유형 탭", "Puzzle size tabs")}>
+              {hallSizes.map((size) => (
+                <button
+                  key={`hall-tab-${size.sizeKey}`}
+                  className={`hallTab ${hallActiveSizeKey === size.sizeKey ? "active" : ""}`}
+                  onClick={() => setHallActiveSizeKey(size.sizeKey)}
+                  role="tab"
+                  aria-selected={hallActiveSizeKey === size.sizeKey}
+                >
+                  <span>{size.sizeKey}</span>
+                  <small>TOP {Math.min(3, size.records.length)}</small>
+                </button>
+              ))}
+            </div>
+
+            <div className="hallTableWrap">
+              <table className="hallTable">
+                <thead>
+                  <tr>
+                    <th>{L("순위", "Rank")}</th>
+                    <th>{L("플레이어 이름", "Player")}</th>
+                    <th>{L("풀이 시간", "Solve Time")}</th>
+                    <th>{L("해결 날짜", "Date")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {hallActiveRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="hallTableEmpty">
+                        {replayLoading
+                          ? L("불러오는 중...", "Loading...")
+                          : L("이 유형에는 아직 기록이 없습니다.", "No records for this size yet.")}
+                      </td>
+                    </tr>
+                ) : (
+                  hallActiveRecords.map((record, idx) => {
+                    const rank = Number(record.rank || idx + 1);
+                    const medalClass = rank === 1 ? "gold" : rank === 2 ? "silver" : rank === 3 ? "bronze" : "plain";
+                    return (
+                        <tr key={`hall-row-${record.recordId}`} className="hallTableRow">
+                          <td className="hallRankCell">
+                            <span className={`hallMedal ${medalClass}`}>{formatRankLabel(rank)}</span>
+                          </td>
+                          <td>{record.nickname || "-"}</td>
+                          <td>{formatRaceElapsedSec(record.elapsedSec)}</td>
+                          <td>{formatKstDate(record.finishedAtMs)}</td>
                         </tr>
                       );
                     })

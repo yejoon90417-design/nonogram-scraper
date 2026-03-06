@@ -59,6 +59,8 @@ const PVP_BOT_RETRY_MAX_MS = Math.max(
   Number(process.env.PVP_BOT_RETRY_MAX_MS || 4200)
 );
 const PVP_BOT_POOL_MIN = 15;
+const REPLAY_FRAME_MIN_INTERVAL_MS = Math.max(80, Number(process.env.REPLAY_FRAME_MIN_INTERVAL_MS || 140));
+const REPLAY_MAX_FRAMES = Math.max(200, Number(process.env.REPLAY_MAX_FRAMES || 2400));
 const PVP_FAKE_QUEUE_ENABLED = process.env.PVP_FAKE_QUEUE_ENABLED !== "false";
 const PVP_FAKE_QUEUE_MIN = Math.max(0, Number(process.env.PVP_FAKE_QUEUE_MIN || 0));
 const PVP_FAKE_QUEUE_MAX = Math.max(PVP_FAKE_QUEUE_MIN, Number(process.env.PVP_FAKE_QUEUE_MAX || 6));
@@ -70,6 +72,7 @@ const PVP_SIZE_OPTIONS = [
   [20, 20],
   [25, 25],
 ];
+const HALL_TOP_LIMIT = 3;
 const PVP_BOT_NAME_POOL = [
   "Mina", "Jisoo", "Hana", "Yuna", "Sora", "Aria", "Noah", "Liam",
   "Ava", "Ella", "Sena", "Haru", "Minji", "Yejin", "Rina", "Nari",
@@ -216,6 +219,81 @@ function countCorrectAnswerCells(solutionBits, userBits) {
   const len = Math.min(solutionBits.length, userBits.length);
   for (let i = 0; i < len; i += 1) total += POPCOUNT[solutionBits[i] & userBits[i]];
   return total;
+}
+
+function emptyBitsBase64(width, height) {
+  return Buffer.alloc(expectedByteLength(width, height)).toString("base64");
+}
+
+function sanitizeReplayFrames(rawFrames) {
+  if (!Array.isArray(rawFrames)) return [];
+  const frames = [];
+  for (const f of rawFrames) {
+    if (!f || typeof f.bits !== "string") continue;
+    const atMs = Number(f.atMs);
+    if (!Number.isFinite(atMs)) continue;
+    frames.push({
+      atMs: Math.max(0, Math.floor(atMs)),
+      bits: f.bits,
+    });
+  }
+  frames.sort((a, b) => a.atMs - b.atMs);
+  if (!frames.length) return [];
+  const deduped = [frames[0]];
+  for (let i = 1; i < frames.length; i += 1) {
+    const prev = deduped[deduped.length - 1];
+    const cur = frames[i];
+    if (cur.atMs === prev.atMs) {
+      deduped[deduped.length - 1] = cur;
+    } else {
+      deduped.push(cur);
+    }
+  }
+  return deduped;
+}
+
+function downsampleReplayFrames(frames, maxFrames = REPLAY_MAX_FRAMES) {
+  const safe = sanitizeReplayFrames(frames);
+  if (safe.length <= maxFrames) return safe;
+  if (maxFrames <= 1) return [safe[safe.length - 1]];
+  const out = [];
+  const step = (safe.length - 1) / (maxFrames - 1);
+  for (let i = 0; i < maxFrames; i += 1) {
+    const idx = Math.round(i * step);
+    out.push(safe[idx]);
+  }
+  return sanitizeReplayFrames(out);
+}
+
+function captureReplayFrame(room, player, userBits, now = Date.now()) {
+  if (!room || !player || !Buffer.isBuffer(userBits)) return;
+  if (player.isBot === true) return;
+  if (!room.gameStartAt) return;
+  const gameStartAt = Number(room.gameStartAt || now);
+  const atMs = Math.max(0, Math.floor(now - gameStartAt));
+  const bits = userBits.toString("base64");
+  if (!Array.isArray(player.progressFrames)) {
+    player.progressFrames = [];
+  }
+  if (!player.progressFrames.length) {
+    player.progressFrames.push({ atMs: 0, bits: emptyBitsBase64(room.width, room.height) });
+  }
+  const last = player.progressFrames[player.progressFrames.length - 1] || null;
+  if (last && last.bits === bits) {
+    player.lastReplayFrameAt = atMs;
+    player.lastReplayBits = bits;
+    return;
+  }
+  if (last && atMs - Number(last.atMs || 0) < REPLAY_FRAME_MIN_INTERVAL_MS && player.progressFrames.length > 1) {
+    player.progressFrames[player.progressFrames.length - 1] = { atMs, bits };
+  } else {
+    player.progressFrames.push({ atMs, bits });
+  }
+  if (player.progressFrames.length > REPLAY_MAX_FRAMES) {
+    player.progressFrames = downsampleReplayFrames(player.progressFrames, REPLAY_MAX_FRAMES);
+  }
+  player.lastReplayFrameAt = atMs;
+  player.lastReplayBits = bits;
 }
 
 async function loadSolutionBitsHexById(puzzleId) {
@@ -444,6 +522,68 @@ async function ensureAuthTables() {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_race_match_logs_mode ON race_match_logs (mode);`
   );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS best_replay_records (
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      nickname VARCHAR(64) NOT NULL,
+      elapsed_sec INTEGER NOT NULL,
+      puzzle_id BIGINT NOT NULL,
+      game_start_at_ms BIGINT NOT NULL,
+      frames_json JSONB NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (width, height)
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_best_replay_records_elapsed ON best_replay_records (elapsed_sec ASC);`
+  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS hall_replay_records (
+      id BIGSERIAL PRIMARY KEY,
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      nickname VARCHAR(64) NOT NULL,
+      elapsed_sec INTEGER NOT NULL,
+      puzzle_id BIGINT NOT NULL,
+      game_start_at_ms BIGINT NOT NULL,
+      finished_at_ms BIGINT NOT NULL,
+      frames_json JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (width, height, user_id, puzzle_id, game_start_at_ms)
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_hall_replay_size_elapsed ON hall_replay_records (width, height, elapsed_sec ASC, game_start_at_ms ASC);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_hall_replay_size_finished_desc ON hall_replay_records (width, height, finished_at_ms DESC);`
+  );
+  const { rows: hallCountRows } = await pool.query(`SELECT COUNT(*)::int AS cnt FROM hall_replay_records`);
+  const hallCount = hallCountRows.length ? Number(hallCountRows[0].cnt || 0) : 0;
+  if (hallCount === 0) {
+    await pool.query(
+      `INSERT INTO hall_replay_records (
+        width, height, user_id, nickname, elapsed_sec, puzzle_id, game_start_at_ms, finished_at_ms, frames_json
+      )
+      SELECT
+        b.width,
+        b.height,
+        b.user_id,
+        b.nickname,
+        b.elapsed_sec,
+        b.puzzle_id,
+        b.game_start_at_ms,
+        (b.game_start_at_ms + (b.elapsed_sec::bigint * 1000)) AS finished_at_ms,
+        b.frames_json
+      FROM best_replay_records b
+      JOIN users u ON u.id = b.user_id
+      WHERE u.is_bot = false
+      ON CONFLICT (width, height, user_id, puzzle_id, game_start_at_ms) DO NOTHING`
+    );
+  }
 }
 
 function randomInt(min, max) {
@@ -922,10 +1062,14 @@ async function createPvpRoomForMatch(match) {
     ratedResult: null,
     matchLogSaved: false,
     matchLogSaving: false,
+    bestReplaySaved: false,
+    bestReplaySaving: false,
     chatMessages: [],
     reactionEvents: [],
     players: new Map(),
   };
+
+  const initialBits = emptyBitsBase64(puzzle.width, puzzle.height);
 
   for (const p of match.players) {
     const playerId = randomPlayerId();
@@ -946,6 +1090,9 @@ async function createPvpRoomForMatch(match) {
       lastSeenAt: now,
       lastMoveAt: now + COUNTDOWN_MS,
       loseReason: null,
+      progressFrames: [{ atMs: 0, bits: initialBits }],
+      lastReplayBits: initialBits,
+      lastReplayFrameAt: 0,
     });
   }
 
@@ -1071,6 +1218,7 @@ function maybeFinalizeRoom(room) {
   room.state = "finished";
   void applyRatedResultIfNeeded(room);
   void persistMatchLogIfNeeded(room);
+  void persistBestReplayRecordIfNeeded(room);
   return true;
 }
 
@@ -1432,6 +1580,190 @@ async function persistMatchLogIfNeeded(room) {
   }
 }
 
+async function persistBestReplayRecordIfNeeded(room) {
+  if (!room || room.state !== "finished") return;
+  if (room.bestReplaySaved === true || room.bestReplaySaving === true) return;
+  if (!Number.isInteger(Number(room.width)) || !Number.isInteger(Number(room.height))) return;
+  if (!Number.isInteger(Number(room.puzzleId))) return;
+  if (!Number.isFinite(Number(room.gameStartAt || room.countdownStartAt || room.createdAt))) return;
+
+  room.bestReplaySaving = true;
+  const width = Number(room.width);
+  const height = Number(room.height);
+  const puzzleId = Number(room.puzzleId);
+  const gameStartAtMs = Number(room.gameStartAt || room.countdownStartAt || room.createdAt || Date.now());
+  const sizeLockKey = width * 1000 + height;
+  const client = await pool.connect();
+  try {
+    const finishers = Array.from(room.players.values())
+      .filter((p) => {
+        if (!Number.isInteger(Number(p.userId))) return false;
+        if (p.isBot === true) return false;
+        if (!Number.isInteger(Number(p.elapsedSec))) return false;
+        if (p.loseReason) return false;
+        return true;
+      })
+      .sort((a, b) => Number(a.elapsedSec) - Number(b.elapsedSec));
+    if (!finishers.length) {
+      room.bestReplaySaved = true;
+      return;
+    }
+
+    const userIds = finishers.map((p) => Number(p.userId));
+    await client.query("BEGIN");
+    await client.query(`SELECT pg_advisory_xact_lock($1)`, [sizeLockKey]);
+
+    const { rows: users } = await client.query(
+      `SELECT id, is_bot, nickname FROM users WHERE id = ANY($1::bigint[])`,
+      [userIds]
+    );
+    const userMap = new Map(users.map((u) => [Number(u.id), u]));
+    const solvedBits = room.solutionBits ? Buffer.from(room.solutionBits).toString("base64") : null;
+    let hallTopRows = [];
+    {
+      const { rows } = await client.query(
+        `SELECT id, elapsed_sec, game_start_at_ms
+         FROM hall_replay_records
+         WHERE width = $1 AND height = $2
+         ORDER BY elapsed_sec ASC, game_start_at_ms ASC, id ASC
+         LIMIT $3`,
+        [width, height, HALL_TOP_LIMIT]
+      );
+      hallTopRows = rows.map((r) => ({
+        id: Number(r.id),
+        elapsedSec: Number(r.elapsed_sec),
+        gameStartAtMs: Number(r.game_start_at_ms),
+      }));
+    }
+
+    for (const p of finishers) {
+      const userInfo = userMap.get(Number(p.userId));
+      if (!userInfo || userInfo.is_bot === true) continue;
+      const elapsedSec = Number(p.elapsedSec);
+
+      let frames = sanitizeReplayFrames(p.progressFrames);
+      if (!frames.length) {
+        frames = [{ atMs: 0, bits: emptyBitsBase64(width, height) }];
+      }
+      if (solvedBits) {
+        const finalAtMs = Math.max(0, elapsedSec * 1000);
+        const last = frames[frames.length - 1] || null;
+        if (!last || last.bits !== solvedBits || Number(last.atMs || 0) < finalAtMs) {
+          frames.push({ atMs: finalAtMs, bits: solvedBits });
+        }
+      }
+      frames = downsampleReplayFrames(frames, REPLAY_MAX_FRAMES);
+      if (!frames.length) continue;
+
+      await client.query(
+        `INSERT INTO best_replay_records (
+          width, height, user_id, nickname, elapsed_sec, puzzle_id, game_start_at_ms, frames_json, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8::jsonb, now()
+        )
+        ON CONFLICT (width, height) DO UPDATE
+        SET user_id = EXCLUDED.user_id,
+            nickname = EXCLUDED.nickname,
+            elapsed_sec = EXCLUDED.elapsed_sec,
+            puzzle_id = EXCLUDED.puzzle_id,
+            game_start_at_ms = EXCLUDED.game_start_at_ms,
+            frames_json = EXCLUDED.frames_json,
+            updated_at = now()
+        WHERE (
+          EXCLUDED.elapsed_sec < best_replay_records.elapsed_sec
+          OR (
+            EXCLUDED.elapsed_sec = best_replay_records.elapsed_sec
+            AND EXCLUDED.game_start_at_ms < best_replay_records.game_start_at_ms
+          )
+        )`,
+        [
+          width,
+          height,
+          Number(p.userId),
+          String(p.nickname || userInfo.nickname || ""),
+          elapsedSec,
+          puzzleId,
+          gameStartAtMs,
+          JSON.stringify(frames),
+        ]
+      );
+
+      let shouldInsertHall = false;
+      if (hallTopRows.length < HALL_TOP_LIMIT) {
+        shouldInsertHall = true;
+      } else {
+        const worst = hallTopRows[hallTopRows.length - 1];
+        shouldInsertHall =
+          elapsedSec < worst.elapsedSec ||
+          (elapsedSec === worst.elapsedSec && gameStartAtMs < worst.gameStartAtMs);
+      }
+      if (!shouldInsertHall) continue;
+
+      await client.query(
+        `INSERT INTO hall_replay_records (
+          width, height, user_id, nickname, elapsed_sec, puzzle_id, game_start_at_ms, finished_at_ms, frames_json
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb
+        )
+        ON CONFLICT (width, height, user_id, puzzle_id, game_start_at_ms) DO NOTHING`,
+        [
+          width,
+          height,
+          Number(p.userId),
+          String(p.nickname || userInfo.nickname || ""),
+          elapsedSec,
+          puzzleId,
+          gameStartAtMs,
+          gameStartAtMs + elapsedSec * 1000,
+          JSON.stringify(frames),
+        ]
+      );
+
+      await client.query(
+        `DELETE FROM hall_replay_records h
+         WHERE h.width = $1
+           AND h.height = $2
+           AND h.id NOT IN (
+             SELECT x.id
+             FROM hall_replay_records x
+             WHERE x.width = $1
+               AND x.height = $2
+             ORDER BY x.elapsed_sec ASC, x.game_start_at_ms ASC, x.id ASC
+             LIMIT $3
+           )`,
+        [width, height, HALL_TOP_LIMIT]
+      );
+
+      const { rows: hallRowsNext } = await client.query(
+        `SELECT id, elapsed_sec, game_start_at_ms
+         FROM hall_replay_records
+         WHERE width = $1 AND height = $2
+         ORDER BY elapsed_sec ASC, game_start_at_ms ASC, id ASC
+         LIMIT $3`,
+        [width, height, HALL_TOP_LIMIT]
+      );
+      hallTopRows = hallRowsNext.map((r) => ({
+        id: Number(r.id),
+        elapsedSec: Number(r.elapsed_sec),
+        gameStartAtMs: Number(r.game_start_at_ms),
+      }));
+    }
+
+    await client.query("COMMIT");
+    room.bestReplaySaved = true;
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // ignore rollback errors
+    }
+    console.error("failed to persist best_replay_records:", err.message || err);
+  } finally {
+    client.release();
+    room.bestReplaySaving = false;
+  }
+}
+
 function roomPublicState(room) {
   syncRoomState(room);
   const now = Date.now();
@@ -1440,6 +1772,7 @@ function roomPublicState(room) {
   removeStalePlayers(room, now);
   void applyRatedResultIfNeeded(room);
   void persistMatchLogIfNeeded(room);
+  void persistBestReplayRecordIfNeeded(room);
   if (!Array.isArray(room.reactionEvents)) {
     room.reactionEvents = [];
   } else {
@@ -1756,6 +2089,215 @@ app.get("/ratings/leaderboard", async (req, res) => {
       myRank,
       myUserId: authUser ? Number(authUser.id) : null,
       totalUsers,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/replays/best", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.width, r.height, r.user_id, r.nickname, r.elapsed_sec, r.puzzle_id, r.game_start_at_ms,
+              EXTRACT(EPOCH FROM r.updated_at) * 1000 AS updated_at_ms
+       FROM best_replay_records r
+       JOIN users u ON u.id = r.user_id
+       WHERE u.is_bot = false
+       ORDER BY r.width ASC, r.height ASC`
+    );
+    return res.json({
+      ok: true,
+      records: rows.map((r) => ({
+        width: Number(r.width),
+        height: Number(r.height),
+        sizeKey: `${Number(r.width)}x${Number(r.height)}`,
+        userId: Number(r.user_id),
+        nickname: String(r.nickname || ""),
+        elapsedSec: Number(r.elapsed_sec),
+        puzzleId: Number(r.puzzle_id),
+        gameStartAtMs: Number(r.game_start_at_ms),
+        updatedAtMs: Number(r.updated_at_ms || 0),
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/replays/best/:width/:height", async (req, res) => {
+  const width = Number(req.params.width);
+  const height = Number(req.params.height);
+  if (!Number.isInteger(width) || !Number.isInteger(height)) {
+    return res.status(400).json({ ok: false, error: "Invalid size" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.width, r.height, r.user_id, r.nickname, r.elapsed_sec, r.puzzle_id, r.game_start_at_ms,
+              r.frames_json, EXTRACT(EPOCH FROM r.updated_at) * 1000 AS updated_at_ms,
+              p.id AS puzzle_id2, p.row_hints, p.col_hints, p.is_unique
+       FROM best_replay_records r
+       JOIN users u ON u.id = r.user_id
+       JOIN puzzles p ON p.id = r.puzzle_id
+       WHERE r.width = $1 AND r.height = $2
+         AND u.is_bot = false
+       LIMIT 1`,
+      [width, height]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "Replay not found for this size" });
+    }
+    const row = rows[0];
+    const frames = downsampleReplayFrames(row.frames_json, REPLAY_MAX_FRAMES);
+    return res.json({
+      ok: true,
+      replay: {
+        width: Number(row.width),
+        height: Number(row.height),
+        sizeKey: `${Number(row.width)}x${Number(row.height)}`,
+        userId: Number(row.user_id),
+        nickname: String(row.nickname || ""),
+        elapsedSec: Number(row.elapsed_sec),
+        puzzleId: Number(row.puzzle_id),
+        gameStartAtMs: Number(row.game_start_at_ms),
+        updatedAtMs: Number(row.updated_at_ms || 0),
+        frames,
+      },
+      puzzle: {
+        id: Number(row.puzzle_id2),
+        width: Number(row.width),
+        height: Number(row.height),
+        row_hints: row.row_hints,
+        col_hints: row.col_hints,
+        is_unique: row.is_unique,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/replays/hall", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ranked.id, ranked.width, ranked.height, ranked.user_id, ranked.nickname,
+              ranked.elapsed_sec, ranked.puzzle_id, ranked.finished_at_ms, ranked.rank
+       FROM (
+         SELECT
+           h.id,
+           h.width,
+           h.height,
+           h.user_id,
+           h.nickname,
+           h.elapsed_sec,
+           h.puzzle_id,
+           h.finished_at_ms,
+           ROW_NUMBER() OVER (
+             PARTITION BY h.width, h.height
+             ORDER BY h.elapsed_sec ASC, h.game_start_at_ms ASC, h.id ASC
+           ) AS rank
+         FROM hall_replay_records h
+         JOIN users u ON u.id = h.user_id
+         WHERE u.is_bot = false
+       ) ranked
+       WHERE ranked.rank <= $1
+       ORDER BY ranked.width ASC, ranked.height ASC, ranked.rank ASC`,
+      [HALL_TOP_LIMIT]
+    );
+
+    const bySize = new Map();
+    for (const [w, h] of PVP_SIZE_OPTIONS) {
+      const key = `${w}x${h}`;
+      bySize.set(key, { sizeKey: key, width: w, height: h, top: [] });
+    }
+
+    for (const r of rows) {
+      const width = Number(r.width);
+      const height = Number(r.height);
+      const key = `${width}x${height}`;
+      if (!bySize.has(key)) {
+        bySize.set(key, { sizeKey: key, width, height, top: [] });
+      }
+      bySize.get(key).top.push({
+        recordId: Number(r.id),
+        rank: Number(r.rank),
+        userId: Number(r.user_id),
+        nickname: String(r.nickname || ""),
+        elapsedSec: Number(r.elapsed_sec),
+        puzzleId: Number(r.puzzle_id),
+        finishedAtMs: Number(r.finished_at_ms),
+      });
+    }
+
+    const sizes = [];
+    for (const [w, h] of PVP_SIZE_OPTIONS) {
+      const key = `${w}x${h}`;
+      sizes.push(bySize.get(key) || { sizeKey: key, width: w, height: h, top: [] });
+    }
+
+    return res.json({ ok: true, sizes });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/replays/hall/record/:recordId", async (req, res) => {
+  const recordId = Number(req.params.recordId);
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    return res.status(400).json({ ok: false, error: "Invalid record id" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         h.id,
+         h.width,
+         h.height,
+         h.user_id,
+         h.nickname,
+         h.elapsed_sec,
+         h.puzzle_id,
+         h.game_start_at_ms,
+         h.finished_at_ms,
+         h.frames_json,
+         p.id AS puzzle_id2,
+         p.row_hints,
+         p.col_hints,
+         p.is_unique
+       FROM hall_replay_records h
+       JOIN users u ON u.id = h.user_id
+       JOIN puzzles p ON p.id = h.puzzle_id
+       WHERE h.id = $1
+         AND u.is_bot = false
+       LIMIT 1`,
+      [recordId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "Replay record not found" });
+    }
+    const row = rows[0];
+    const frames = downsampleReplayFrames(row.frames_json, REPLAY_MAX_FRAMES);
+    return res.json({
+      ok: true,
+      record: {
+        recordId: Number(row.id),
+        width: Number(row.width),
+        height: Number(row.height),
+        sizeKey: `${Number(row.width)}x${Number(row.height)}`,
+        userId: Number(row.user_id),
+        nickname: String(row.nickname || ""),
+        elapsedSec: Number(row.elapsed_sec),
+        puzzleId: Number(row.puzzle_id),
+        gameStartAtMs: Number(row.game_start_at_ms),
+        finishedAtMs: Number(row.finished_at_ms),
+        frames,
+      },
+      puzzle: {
+        id: Number(row.puzzle_id2),
+        width: Number(row.width),
+        height: Number(row.height),
+        row_hints: row.row_hints,
+        col_hints: row.col_hints,
+        is_unique: row.is_unique,
+      },
     });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
@@ -2312,6 +2854,8 @@ app.post("/race/create", requireAuth, async (req, res) => {
       winnerPlayerId: null,
       matchLogSaved: false,
       matchLogSaving: false,
+      bestReplaySaved: false,
+      bestReplaySaving: false,
       chatMessages: [],
       reactionEvents: [],
       players: new Map(),
@@ -2329,6 +2873,9 @@ app.post("/race/create", requireAuth, async (req, res) => {
       lastSeenAt: Date.now(),
       lastMoveAt: null,
       loseReason: null,
+      progressFrames: [],
+      lastReplayBits: "",
+      lastReplayFrameAt: 0,
     });
     raceRooms.set(roomCode, room);
 
@@ -2397,6 +2944,9 @@ app.post("/race/join", requireAuth, async (req, res) => {
       lastSeenAt: Date.now(),
       lastMoveAt: null,
       loseReason: null,
+      progressFrames: [],
+      lastReplayBits: "",
+      lastReplayFrameAt: 0,
     });
 
     return res.json({
@@ -2464,7 +3014,10 @@ app.post("/race/start", (req, res) => {
   room.winnerPlayerId = null;
   room.matchLogSaved = false;
   room.matchLogSaving = false;
+  room.bestReplaySaved = false;
+  room.bestReplaySaving = false;
   room.finishTarget = Math.max(1, room.players.size - 1);
+  const initialBits = emptyBitsBase64(room.width, room.height);
   for (const p of room.players.values()) {
     p.finishedAt = null;
     p.elapsedSec = null;
@@ -2473,6 +3026,9 @@ app.post("/race/start", (req, res) => {
     p.lastSeenAt = now;
     p.lastMoveAt = room.gameStartAt;
     p.loseReason = null;
+    p.progressFrames = [{ atMs: 0, bits: initialBits }];
+    p.lastReplayBits = initialBits;
+    p.lastReplayFrameAt = 0;
   }
 
   return res.json({ ok: true, room: roomPublicState(room) });
@@ -2520,6 +3076,7 @@ app.post("/race/progress", async (req, res) => {
     if (player.loseReason === "inactive_timeout") {
       player.loseReason = null;
     }
+    captureReplayFrame(room, player, userBits, actionAt);
   } catch (err) {
     return res.status(400).json({ ok: false, error: err.message });
   }
@@ -2544,6 +3101,7 @@ app.post("/race/rematch", async (req, res) => {
     return res.status(400).json({ ok: false, error: "Rematch is available only after finish" });
   }
   await persistMatchLogIfNeeded(room);
+  await persistBestReplayRecordIfNeeded(room);
 
   try {
     const { rows } = await pool.query(
@@ -2582,6 +3140,8 @@ app.post("/race/rematch", async (req, res) => {
     room.winnerPlayerId = null;
     room.matchLogSaved = false;
     room.matchLogSaving = false;
+    room.bestReplaySaved = false;
+    room.bestReplaySaving = false;
     room.reactionEvents = [];
     room.finishTarget = Math.max(1, room.players.size - 1);
     for (const p of room.players.values()) {
@@ -2593,6 +3153,9 @@ app.post("/race/rematch", async (req, res) => {
       p.lastSeenAt = Date.now();
       p.lastMoveAt = null;
       p.loseReason = null;
+      p.progressFrames = [];
+      p.lastReplayBits = "";
+      p.lastReplayFrameAt = 0;
     }
     return res.json({ ok: true, puzzle: puzzleForClient, room: roomPublicState(room) });
   } catch (err) {
@@ -2737,6 +3300,7 @@ app.post("/race/finish", async (req, res) => {
   maybeFinalizeRoom(room);
   await applyRatedResultIfNeeded(room);
   await persistMatchLogIfNeeded(room);
+  await persistBestReplayRecordIfNeeded(room);
 
   return res.json({ ok: true, room: roomPublicState(room) });
 });
@@ -2818,6 +3382,7 @@ app.post("/race/leave", async (req, res) => {
   maybeFinalizeRoom(room);
   await applyRatedResultIfNeeded(room);
   await persistMatchLogIfNeeded(room);
+  await persistBestReplayRecordIfNeeded(room);
 
   return res.json({ ok: true, leavePenalty, room: roomPublicState(room) });
 });
