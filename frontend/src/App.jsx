@@ -635,6 +635,14 @@ function App() {
   }, [pvpMatchState, pvpMatch, nowMs]);
   const isPvpRevealSpinning =
     pvpMatchState === "reveal" && pvpRevealLeftMs > PVP_REVEAL_RESULT_HOLD_MS;
+  const isPvpCancelHomeLocked =
+    isModePvp &&
+    pvpSearching &&
+    (
+      pvpMatchState === "ban" ||
+      pvpMatchState === "reveal" ||
+      (pvpMatchState === "accept" && pvpMatch?.me?.accepted === true)
+    );
 
   const ensureAudio = () => {
     if (audioCtxRef.current && audioCtxRef.current.state !== "closed") return audioCtxRef.current;
@@ -3069,10 +3077,10 @@ function App() {
                   <button className="singleActionBtn" onClick={joinPvpQueue} disabled={isLoading || pvpSearching}>
                     {isLoading ? "MATCHING..." : pvpSearching ? "SEARCHING..." : "FIND OPPONENT"}
                   </button>
-                  <button className="singleHomeBtn" onClick={() => cancelPvpQueue()} disabled={!pvpSearching}>
+                  <button className="singleHomeBtn" onClick={() => cancelPvpQueue()} disabled={!pvpSearching || isPvpCancelHomeLocked}>
                     CANCEL
                   </button>
-                  <button className="singleSfxBtn" onClick={backToMenu}>
+                  <button className="singleSfxBtn" onClick={backToMenu} disabled={isPvpCancelHomeLocked}>
                     HOME
                   </button>
                 </div>
