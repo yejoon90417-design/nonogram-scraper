@@ -3127,7 +3127,6 @@ function App() {
                     </button>
                   </>
                 )}
-                <button onClick={leaveRace} disabled={!raceRoomCode}>{L("나가기", "Leave")}</button>
                 {isModeMulti && isRaceFinished && (
                   <button onClick={requestRematch} disabled={isRematchLoading}>
                     {isRematchLoading ? L("준비중...", "Preparing...") : L("한판 더?", "Rematch?")}
