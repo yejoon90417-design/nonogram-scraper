@@ -2619,14 +2619,15 @@ async function buildPvpStatusPayload(ticket, viewerUserId) {
   };
 }
 
-function findPvpOpponent(myUserId) {
-  while (pvpWaitingOrder.length > 0) {
-    const candidateId = pvpWaitingOrder.shift();
+function findPvpOpponent(myUserId, removeFromQueue = true) {
+  const now = Date.now();
+  const validCandidateIds = [];
+  for (const candidateId of pvpWaitingOrder) {
     const candidate = pvpQueueTickets.get(candidateId);
     if (!candidate) continue;
     if (candidate.userId === myUserId) continue;
     if (candidate.state !== "waiting") continue;
-    if (Date.now() - Number(candidate.updatedAt || candidate.createdAt || Date.now()) > PVP_QUEUE_STALE_MS) {
+    if (now - Number(candidate.updatedAt || candidate.createdAt || now) > PVP_QUEUE_STALE_MS) {
       removePvpTicket(candidateId);
       continue;
     }
@@ -2634,7 +2635,17 @@ function findPvpOpponent(myUserId) {
       removePvpTicket(candidateId);
       continue;
     }
-    return candidate;
+    validCandidateIds.push(candidateId);
+  }
+  if (validCandidateIds.length > 0) {
+    const chosenId = randomFrom(validCandidateIds);
+    if (removeFromQueue) {
+      const idx = pvpWaitingOrder.indexOf(chosenId);
+      if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
+    }
+    const candidate = pvpQueueTickets.get(chosenId);
+    if (!candidate) return null;
+    return { ticketId: chosenId, ticket: candidate };
   }
   return null;
 }
@@ -2791,7 +2802,27 @@ app.post("/pvp/queue/join", requireAuth, async (req, res) => {
   pvpQueueTickets.set(myTicketId, myTicket);
   pvpUserTicket.set(req.authUser.id, myTicketId);
 
-  const opponent = findPvpOpponent(req.authUser.id);
+  const humanCandidate = findPvpOpponent(req.authUser.id, false);
+  const botOpponent = pvpBotEnabledRuntime ? await fetchAvailablePvpBotTicket(now) : null;
+  let opponent = null;
+  if (humanCandidate && botOpponent) {
+    // Human/Bot same-priority random match.
+    if (Math.random() < 0.5) {
+      const idx = pvpWaitingOrder.indexOf(humanCandidate.ticketId);
+      if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
+      opponent = humanCandidate.ticket;
+    } else {
+      opponent = botOpponent;
+    }
+  } else {
+    if (humanCandidate) {
+      const idx = pvpWaitingOrder.indexOf(humanCandidate.ticketId);
+      if (idx >= 0) pvpWaitingOrder.splice(idx, 1);
+      opponent = humanCandidate.ticket;
+    } else {
+      opponent = botOpponent || null;
+    }
+  }
   if (!opponent) {
     pvpWaitingOrder.push(myTicketId);
     return res.json({
