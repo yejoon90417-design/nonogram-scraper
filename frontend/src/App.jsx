@@ -10,7 +10,6 @@ const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
 const LANG_KEY = "nonogram-ui-lang";
 const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
-const POOP_SFX_URL = `${import.meta.env.BASE_URL}sounds/poot.mp3`;
 const PVP_SIZE_KEYS = ["5x5", "10x10", "15x15", "20x20", "25x25"];
 const PVP_REVEAL_RESULT_HOLD_MS = 1600;
 
@@ -240,8 +239,6 @@ function App() {
   const [chatInput, setChatInput] = useState("");
   const [chatSending, setChatSending] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [reactionMenuForPlayerId, setReactionMenuForPlayerId] = useState("");
-  const [reactionFlights, setReactionFlights] = useState([]);
   const [mobilePaintMode, setMobilePaintMode] = useState("fill"); // fill | mark
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [showMultiResultModal, setShowMultiResultModal] = useState(false);
@@ -260,9 +257,6 @@ function App() {
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
   const emojiWrapRef = useRef(null);
-  const playerBadgeRefs = useRef(new Map());
-  const seenReactionIdsRef = useRef(new Set());
-  const reactionFlightsRef = useRef([]);
   const dragRef = useRef(null); // { button: 'left'|'right', paintValue, ignoreButtons }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
@@ -295,9 +289,6 @@ function App() {
   const inactivityWarnCueRef = useRef(-1);
   const prevRacePhaseRef = useRef("idle");
   const lastPaintSfxAtRef = useRef(0);
-  const poopBufferRef = useRef(null);
-  const poopLoadingRef = useRef(false);
-  const poopAudioFallbackRef = useRef(null);
   const tutorialCompleteShownRef = useRef(false);
   const multiResultShownKeyRef = useRef("");
   const deferredCells = useDeferredValue(cells);
@@ -428,32 +419,6 @@ function App() {
     };
     window.addEventListener("pointerdown", unlock, { passive: true });
     return () => window.removeEventListener("pointerdown", unlock);
-  }, []);
-
-  useEffect(() => {
-    const ctx = ensureAudio();
-    if (!ctx || poopBufferRef.current || poopLoadingRef.current) return;
-    poopLoadingRef.current = true;
-    fetch(POOP_SFX_URL)
-      .then((res) => res.arrayBuffer())
-      .then((buf) => ctx.decodeAudioData(buf))
-      .then((decoded) => {
-        poopBufferRef.current = decoded;
-      })
-      .catch(() => {
-        // keep fallback tone
-      })
-      .finally(() => {
-        poopLoadingRef.current = false;
-      });
-  }, []);
-
-  useEffect(() => {
-    if (poopAudioFallbackRef.current) return;
-    const audio = new Audio(POOP_SFX_URL);
-    audio.preload = "auto";
-    audio.volume = 1;
-    poopAudioFallbackRef.current = audio;
   }, []);
 
   const rowHints = useMemo(() => {
@@ -622,7 +587,6 @@ function App() {
   }, [isModeMulti, raceState, racePlayerId]);
   const roomTitleText = raceState?.roomTitle || "";
   const chatMessages = Array.isArray(raceState?.chatMessages) ? raceState.chatMessages : [];
-  const reactionEvents = Array.isArray(raceState?.reactionEvents) ? raceState.reactionEvents : [];
 
   const formatRaceElapsedSec = (sec) => {
     if (!Number.isInteger(Number(sec))) return "-";
@@ -842,36 +806,6 @@ function App() {
       return;
     }
     tone(500, 60, { type: "triangle", gain: 0.05 });
-  };
-
-  const playPoopSfx = () => {
-    if (!soundOn) return;
-    const ctx = ensureAudio();
-    const master = masterGainRef.current;
-    if (!ctx || !master || !poopBufferRef.current) {
-      const fallback = poopAudioFallbackRef.current;
-      if (!fallback) return;
-      try {
-        fallback.currentTime = 0;
-        fallback.volume = 1;
-        fallback.play().catch(() => {});
-      } catch {
-        // ignore fallback playback errors
-      }
-      return;
-    }
-    try {
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      const src = ctx.createBufferSource();
-      src.buffer = poopBufferRef.current;
-      const gain = ctx.createGain();
-      gain.gain.value = 2.1;
-      src.connect(gain);
-      gain.connect(master);
-      src.start();
-    } catch {
-      // ignore playback errors
-    }
   };
 
   const handleToggleSfx = () => {
@@ -1678,12 +1612,9 @@ function App() {
     setRaceSubmitting(false);
     setChatInput("");
     setShowEmojiPicker(false);
-    setReactionMenuForPlayerId("");
-    setReactionFlights([]);
     setShowMultiResultModal(false);
     setPublicRooms([]);
     setStatus(leaveStatusMessage);
-    seenReactionIdsRef.current = new Set();
     raceFinishedSentRef.current = false;
     raceResultShownRef.current = false;
     raceProgressLastSentRef.current = 0;
@@ -1967,23 +1898,6 @@ function App() {
       setStatus(err.message);
     } finally {
       setChatSending(false);
-    }
-  };
-
-  const sendReaction = async (targetPlayerId, emoji) => {
-    if (!raceRoomCode || !racePlayerId || !targetPlayerId) return;
-    if (targetPlayerId === racePlayerId) return;
-    try {
-      const res = await fetch(`${API_BASE}/race/reaction`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders },
-        body: JSON.stringify({ roomCode: raceRoomCode, playerId: racePlayerId, targetPlayerId, emoji }),
-      });
-      const data = await parseJsonSafe(res);
-      if (!res.ok || !data.ok) throw new Error(data.error || L("리액션 전송 실패", "Failed to send reaction"));
-      applyRaceRoomState(data.room);
-    } catch (err) {
-      setStatus(err.message);
     }
   };
 
@@ -2557,81 +2471,6 @@ function App() {
   }, [chatMessages.length, isInRaceRoom]);
 
   useEffect(() => {
-    reactionFlightsRef.current = reactionFlights;
-  }, [reactionFlights]);
-
-  useEffect(() => {
-    if (!isInRaceRoom || reactionEvents.length === 0) return;
-    const nextFlights = [];
-    for (const event of reactionEvents) {
-      if (!event?.id || seenReactionIdsRef.current.has(event.id)) continue;
-      seenReactionIdsRef.current.add(event.id);
-      const fromEl = playerBadgeRefs.current.get(event.fromPlayerId);
-      const toEl = playerBadgeRefs.current.get(event.toPlayerId);
-      if (!fromEl || !toEl) continue;
-      const from = fromEl.getBoundingClientRect();
-      const to = toEl.getBoundingClientRect();
-      const id = `${event.id}-${Date.now()}`;
-      nextFlights.push({
-        id,
-        emoji: event.emoji,
-        x: from.left + from.width / 2,
-        y: from.top + from.height / 2,
-        dx: to.left + to.width / 2 - (from.left + from.width / 2),
-        dy: to.top + to.height / 2 - (from.top + from.height / 2),
-      });
-      if (event.emoji === "??") {
-        playPoopSfx();
-      }
-    }
-    if (!nextFlights.length) return;
-    setReactionFlights((prev) => [
-      ...prev,
-      ...nextFlights.map((f) => ({
-        ...f,
-        x0: f.x,
-        y0: f.y,
-        x: f.x,
-        y: f.y,
-        opacity: 1,
-        scale: 0.98,
-        startTs: performance.now(),
-        durationMs: 840,
-      })),
-    ]);
-  }, [reactionEvents, isInRaceRoom]);
-
-  useEffect(() => {
-    if (reactionFlights.length === 0) return;
-    let rafId = 0;
-
-    const tick = (now) => {
-      const current = reactionFlightsRef.current;
-      if (!current.length) return;
-      const next = [];
-      for (const f of current) {
-        const t = Math.max(0, Math.min(1, (now - f.startTs) / f.durationMs));
-        if (t >= 1) continue;
-        const ease = 1 - (1 - t) * (1 - t) * (1 - t);
-        const arc = Math.min(120, Math.max(42, Math.hypot(f.dx, f.dy) * 0.18));
-        const x = f.x0 + f.dx * ease;
-        const y = f.y0 + f.dy * ease - arc * (4 * t * (1 - t));
-        const opacity = 1;
-        const scale = 0.94 + 0.16 * (1 - t);
-        next.push({ ...f, x, y, opacity, scale });
-      }
-      reactionFlightsRef.current = next;
-      setReactionFlights(next);
-      if (next.length) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [reactionFlights.length]);
-
-  useEffect(() => {
     if (!showEmojiPicker) return;
     const onDocPointerDown = (event) => {
       if (!emojiWrapRef.current) return;
@@ -2642,18 +2481,6 @@ function App() {
     document.addEventListener("pointerdown", onDocPointerDown);
     return () => document.removeEventListener("pointerdown", onDocPointerDown);
   }, [showEmojiPicker]);
-
-  useEffect(() => {
-    if (!reactionMenuForPlayerId) return;
-    const onDocPointerDown = (event) => {
-      const target = event.target;
-      if (target?.closest?.(".reactionMenu")) return;
-      if (target?.closest?.(".nickBtn")) return;
-      setReactionMenuForPlayerId("");
-    };
-    document.addEventListener("pointerdown", onDocPointerDown);
-    return () => document.removeEventListener("pointerdown", onDocPointerDown);
-  }, [reactionMenuForPlayerId]);
 
   return (
     <main className="page">
@@ -3710,43 +3537,12 @@ function App() {
                     ? Math.round(((p.correctAnswerCells || 0) / raceState.totalAnswerCells) * 100)
                     : 0;
                   return (
-                    <div
-                      key={p.playerId}
-                      className="raceProgressRow"
-                      ref={(el) => {
-                        if (el) playerBadgeRefs.current.set(p.playerId, el);
-                        else playerBadgeRefs.current.delete(p.playerId);
-                      }}
-                    >
-                      <button
-                        className="nickBtn"
-                        onClick={() => {
-                          if (p.playerId === racePlayerId) return;
-                          setReactionMenuForPlayerId((prev) => (prev === p.playerId ? "" : p.playerId));
-                        }}
-                        disabled={p.playerId === racePlayerId}
-                      >
-                        {p.nickname}
-                      </button>
+                    <div key={p.playerId} className="raceProgressRow">
+                      <span>{p.nickname}</span>
                       <span>{percent}%</span>
-                      {reactionMenuForPlayerId === p.playerId && (
-                        <span className="reactionMenu">
-                          <button onClick={() => sendReaction(p.playerId, "??")}>??</button>
-                          <button onClick={() => sendReaction(p.playerId, "??")}>??</button>
-                          <button onClick={() => sendReaction(p.playerId, "??")}>??</button>
-                        </span>
-                      )}
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="reactionLayer">
-                {reactionFlights.map((f) => (
-                  <span key={f.id} className="reactionFlight" style={{ left: `${f.x}px`, top: `${f.y}px`, opacity: f.opacity, "--flight-scale": f.scale }}>
-                    {f.emoji}
-                  </span>
-                ))}
               </div>
 
               <div className="chatBox">
@@ -3764,7 +3560,7 @@ function App() {
                 </div>
                 <div className="chatInputRow">
                   <div className="emojiWrap" ref={emojiWrapRef}>
-                    <button type="button" onClick={() => setShowEmojiPicker((prev) => !prev)} title={L("이모지", "Emoji")}>??</button>
+                    <button type="button" onClick={() => setShowEmojiPicker((prev) => !prev)} title={L("이모지", "Emoji")}>😀</button>
                     {showEmojiPicker && (
                       <div className="emojiPopover">
                         <EmojiPicker
@@ -4163,4 +3959,5 @@ function App() {
 }
 
 export default App;
+
 

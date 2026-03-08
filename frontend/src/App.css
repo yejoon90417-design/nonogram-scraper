@@ -795,17 +795,6 @@
   font-weight: 800;
 }
 
-.raceProgressRow .nickBtn {
-  color: #fff;
-  margin-right: 0.2rem;
-}
-
-.raceProgressRow .reactionMenu {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
 .singleTopControls {
   margin: 0.75rem 0 0.55rem;
   justify-content: center;
@@ -1604,69 +1593,6 @@
 
 .playerStateText {
   display: inline-block;
-}
-
-.nickBtn {
-  border: none;
-  background: transparent;
-  padding: 0;
-  margin-right: 0.1rem;
-  font-weight: 800;
-  color: #173659;
-  cursor: pointer;
-  box-shadow: none;
-  min-height: 0;
-  min-width: 0;
-}
-
-.nickBtn:hover {
-  text-decoration: underline;
-}
-
-.nickBtn:disabled {
-  cursor: default;
-  text-decoration: none;
-  opacity: 1;
-}
-
-.reactionMenu {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: calc(100% + 6px);
-  display: flex;
-  gap: 0.24rem;
-  padding: 0.16rem;
-  border: 1px solid #c2d4e8;
-  background: #fff;
-  border-radius: 999px;
-  z-index: 18;
-  box-shadow: 0 6px 14px rgba(13, 29, 50, 0.16);
-  white-space: nowrap;
-}
-
-.reactionMenu button {
-  min-width: 30px;
-  padding: 0.08rem 0.18rem;
-  border-radius: 999px;
-}
-
-.reactionLayer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 50;
-}
-
-.reactionFlight {
-  position: fixed;
-  left: 0;
-  top: 0;
-  font-size: 1.45rem;
-  transform: translate3d(-50%, -50%, 0) scale(var(--flight-scale, 1));
-  opacity: 1;
-  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.22);
-  will-change: left, top, transform, opacity;
 }
 
 .timerBar {
