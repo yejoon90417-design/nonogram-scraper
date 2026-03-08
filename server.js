@@ -1980,6 +1980,8 @@ function roomPublicState(room) {
     reactionEvents: room.reactionEvents,
     winner,
     isFinished: room.state === "finished",
+    ratedResultApplied: Boolean(room.ratedResultApplied),
+    ratedResultApplying: Boolean(room.ratedResultApplying),
     inactivityTimeoutMs: RACE_INACTIVITY_TIMEOUT_MS,
     serverNow: Date.now(),
   };

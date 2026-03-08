@@ -279,6 +279,7 @@ function App() {
   const pvpRatingBaseRef = useRef(null);
   const pvpRatingBaseGamesRef = useRef(null);
   const pvpRatingFxDoneRoomRef = useRef("");
+  const pvpAuthRefreshDoneRoomRef = useRef("");
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -1361,6 +1362,7 @@ function App() {
     pvpRatingBaseRef.current = null;
     pvpRatingBaseGamesRef.current = null;
     pvpRatingFxDoneRoomRef.current = "";
+    pvpAuthRefreshDoneRoomRef.current = "";
   };
 
   const applyPvpMatch = (data) => {
@@ -1379,6 +1381,7 @@ function App() {
     pvpRatingBaseRef.current = Number(authUser?.rating ?? 1500);
     pvpRatingBaseGamesRef.current = Number(authUser?.rating_games ?? 0);
     pvpRatingFxDoneRoomRef.current = "";
+    pvpAuthRefreshDoneRoomRef.current = "";
     if (data.ticketId) setPvpTicketId(data.ticketId);
     setRaceRoomCode(data.roomCode);
     setRacePlayerId(data.playerId);
@@ -1596,6 +1599,18 @@ function App() {
             `게임 종료 전 방을 나가 점수 ${points}점이 차감되었습니다.`,
             `You left before match end. ${points} rating points were deducted.`
           );
+          if (authToken) {
+            try {
+              const meRes = await fetch(`${API_BASE}/auth/me`, { headers: { ...authHeaders } });
+              const meData = await parseJsonSafe(meRes);
+              if (meRes.ok && meData?.ok && meData?.user) {
+                setAuthUser(meData.user);
+                localStorage.setItem(AUTH_USER_KEY, JSON.stringify(meData.user));
+              }
+            } catch {
+              // ignore leave-penalty auth refresh errors
+            }
+          }
         }
       } catch {
         // ignore leave API errors
@@ -2292,24 +2307,44 @@ function App() {
   }, [isModeMulti, isInRaceRoom, racePhase, raceResultKey]);
 
   useEffect(() => {
-    if (!isLoggedIn || !isModePvp || !isInRaceRoom || racePhase !== "finished") return;
+    if (!isLoggedIn || !isModePvp || !isInRaceRoom || racePhase !== "finished" || !raceRoomCode) return;
+    if (pvpAuthRefreshDoneRoomRef.current === raceRoomCode) return;
+    if (raceState?.ratedResultApplied !== true) return;
+
     let cancelled = false;
-    (async () => {
+    let retryTimer = 0;
+
+    const refreshAuth = async (attempt = 0) => {
       try {
         const res = await fetch(`${API_BASE}/auth/me`, { headers: { ...authHeaders } });
         const data = await parseJsonSafe(res);
-        if (!cancelled && res.ok && data.ok && data.user) {
-          setAuthUser(data.user);
-          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
-        }
+        if (cancelled) return;
+        if (!res.ok || !data?.ok || !data?.user) throw new Error("auth_refresh_failed");
+        setAuthUser(data.user);
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
+        pvpAuthRefreshDoneRoomRef.current = raceRoomCode;
       } catch {
-        // ignore post-match auth refresh errors
+        if (cancelled || attempt >= 4) return;
+        retryTimer = window.setTimeout(() => {
+          refreshAuth(attempt + 1);
+        }, 350);
       }
-    })();
+    };
+
+    refreshAuth(0);
     return () => {
       cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
-  }, [isLoggedIn, isModePvp, isInRaceRoom, racePhase, authHeaders]);
+  }, [
+    isLoggedIn,
+    isModePvp,
+    isInRaceRoom,
+    racePhase,
+    raceRoomCode,
+    raceState?.ratedResultApplied,
+    authHeaders,
+  ]);
 
   useEffect(() => {
     if (!isLoggedIn || !isModePvp || !isInRaceRoom || racePhase !== "finished" || !raceRoomCode) return;
