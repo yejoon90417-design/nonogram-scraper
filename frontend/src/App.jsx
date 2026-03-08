@@ -631,6 +631,20 @@ function App() {
     return `${mm}:${ss}`;
   };
 
+  const formatRaceElapsedMs = (elapsedMs, fallbackSec = null) => {
+    let ms = Number(elapsedMs || 0);
+    if (!Number.isFinite(ms) || ms <= 0) {
+      const sec = Number(fallbackSec);
+      if (!Number.isFinite(sec) || sec <= 0) return "-";
+      ms = sec * 1000;
+    }
+    const totalCs = Math.max(0, Math.floor(ms / 10));
+    const mm = String(Math.floor(totalCs / 6000)).padStart(2, "0");
+    const ss = String(Math.floor((totalCs % 6000) / 100)).padStart(2, "0");
+    const cc = String(totalCs % 100).padStart(2, "0");
+    return `${mm}:${ss}.${cc}`;
+  };
+
   const formatRaceStatusLabel = (status) => {
     if (status === "finished") return L("완주", "Finished");
     if (status === "timeout") return L("타임아웃", "Timeout");
@@ -1287,6 +1301,7 @@ function App() {
           userId: Number(r.userId),
           nickname: String(r.nickname || ""),
           elapsedSec: Number(r.elapsedSec || 0),
+          elapsedMs: Number(r.elapsedMs || 0),
           puzzleId: Number(r.puzzleId),
           finishedAtMs: Number(r.finishedAtMs || 0),
           sizeKey,
@@ -3139,7 +3154,7 @@ function App() {
                             <span className={`hallMedal ${medalClass}`}>{formatRankLabel(rank)}</span>
                           </td>
                           <td>{record.nickname || "-"}</td>
-                          <td>{formatRaceElapsedSec(record.elapsedSec)}</td>
+                          <td>{formatRaceElapsedMs(record.elapsedMs, record.elapsedSec)}</td>
                           <td>{formatKstDate(record.finishedAtMs)}</td>
                         </tr>
                       );

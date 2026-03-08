@@ -1705,21 +1705,34 @@ async function persistBestReplayRecordIfNeeded(room) {
   const client = await pool.connect();
   try {
     const finishers = Array.from(room.players.values())
-      .filter((p) => {
+      .map((p) => {
+        const elapsedSec = Number.isInteger(Number(p.elapsedSec)) ? Number(p.elapsedSec) : null;
+        const finishedAtMsParsed = Date.parse(String(p.finishedAt || ""));
+        const finishedAtMs = Number.isFinite(finishedAtMsParsed)
+          ? finishedAtMsParsed
+          : gameStartAtMs + Math.max(1, Number(elapsedSec || 0)) * 1000;
+        const elapsedMs =
+          Number.isFinite(finishedAtMs) && finishedAtMs > gameStartAtMs
+            ? Math.max(1, finishedAtMs - gameStartAtMs)
+            : Math.max(1, Number(elapsedSec || 0) * 1000);
+        return { player: p, elapsedSec, elapsedMs, finishedAtMs };
+      })
+      .filter((f) => {
+        const p = f.player;
         if (!Number.isInteger(Number(p.userId))) return false;
         if (p.isBot === true) return false;
-        if (!Number.isInteger(Number(p.elapsedSec))) return false;
-        if (Number(p.elapsedSec) <= 0) return false;
+        if (!Number.isInteger(Number(f.elapsedSec))) return false;
+        if (Number(f.elapsedSec) <= 0) return false;
         if (p.loseReason) return false;
         return true;
       })
-      .sort((a, b) => Number(a.elapsedSec) - Number(b.elapsedSec));
+      .sort((a, b) => Number(a.elapsedMs) - Number(b.elapsedMs));
     if (!finishers.length) {
       room.bestReplaySaved = true;
       return;
     }
 
-    const userIds = finishers.map((p) => Number(p.userId));
+    const userIds = finishers.map((f) => Number(f.player.userId));
     await client.query("BEGIN");
     await client.query(`SELECT pg_advisory_xact_lock($1)`, [sizeLockKey]);
 
@@ -1732,31 +1745,46 @@ async function persistBestReplayRecordIfNeeded(room) {
     let hallTopRows = [];
     {
       const { rows } = await client.query(
-        `SELECT id, elapsed_sec, game_start_at_ms
+        `SELECT
+           id,
+           elapsed_sec,
+           game_start_at_ms,
+           finished_at_ms,
+           GREATEST(
+             1,
+             CASE
+               WHEN finished_at_ms > game_start_at_ms THEN (finished_at_ms - game_start_at_ms)
+               ELSE (elapsed_sec * 1000)
+             END
+           ) AS elapsed_ms
          FROM hall_replay_records
          WHERE width = $1 AND height = $2
-         ORDER BY elapsed_sec ASC, game_start_at_ms ASC, id ASC
+         ORDER BY elapsed_ms ASC, game_start_at_ms ASC, id ASC
          LIMIT $3`,
         [width, height, HALL_TOP_LIMIT]
       );
       hallTopRows = rows.map((r) => ({
         id: Number(r.id),
         elapsedSec: Number(r.elapsed_sec),
+        elapsedMs: Number(r.elapsed_ms || Number(r.elapsed_sec || 0) * 1000),
         gameStartAtMs: Number(r.game_start_at_ms),
       }));
     }
 
-    for (const p of finishers) {
+    for (const finisher of finishers) {
+      const p = finisher.player;
       const userInfo = userMap.get(Number(p.userId));
       if (!userInfo || userInfo.is_bot === true) continue;
-      const elapsedSec = Number(p.elapsedSec);
+      const elapsedSec = Number(finisher.elapsedSec);
+      const elapsedMs = Number(finisher.elapsedMs);
+      const finishedAtMs = Number(finisher.finishedAtMs);
 
       let frames = sanitizeReplayFrames(p.progressFrames);
       if (!frames.length) {
         frames = [{ atMs: 0, bits: emptyBitsBase64(width, height) }];
       }
       if (solvedBits) {
-        const finalAtMs = Math.max(0, elapsedSec * 1000);
+        const finalAtMs = Math.max(0, elapsedMs);
         const last = frames[frames.length - 1] || null;
         if (!last || last.bits !== solvedBits || Number(last.atMs || 0) < finalAtMs) {
           frames.push({ atMs: finalAtMs, bits: solvedBits });
@@ -1804,8 +1832,8 @@ async function persistBestReplayRecordIfNeeded(room) {
       } else {
         const worst = hallTopRows[hallTopRows.length - 1];
         shouldInsertHall =
-          elapsedSec < worst.elapsedSec ||
-          (elapsedSec === worst.elapsedSec && gameStartAtMs < worst.gameStartAtMs);
+          elapsedMs < worst.elapsedMs ||
+          (elapsedMs === worst.elapsedMs && gameStartAtMs < worst.gameStartAtMs);
       }
       if (!shouldInsertHall) continue;
 
@@ -1824,7 +1852,7 @@ async function persistBestReplayRecordIfNeeded(room) {
           elapsedSec,
           puzzleId,
           gameStartAtMs,
-          gameStartAtMs + elapsedSec * 1000,
+          finishedAtMs,
           JSON.stringify(frames),
         ]
       );
@@ -1838,23 +1866,44 @@ async function persistBestReplayRecordIfNeeded(room) {
              FROM hall_replay_records x
              WHERE x.width = $1
                AND x.height = $2
-             ORDER BY x.elapsed_sec ASC, x.game_start_at_ms ASC, x.id ASC
+             ORDER BY
+               GREATEST(
+                 1,
+                 CASE
+                   WHEN x.finished_at_ms > x.game_start_at_ms THEN (x.finished_at_ms - x.game_start_at_ms)
+                   ELSE (x.elapsed_sec * 1000)
+                 END
+               ) ASC,
+               x.game_start_at_ms ASC,
+               x.id ASC
              LIMIT $3
            )`,
         [width, height, HALL_TOP_LIMIT]
       );
 
       const { rows: hallRowsNext } = await client.query(
-        `SELECT id, elapsed_sec, game_start_at_ms
+        `SELECT
+           id,
+           elapsed_sec,
+           game_start_at_ms,
+           finished_at_ms,
+           GREATEST(
+             1,
+             CASE
+               WHEN finished_at_ms > game_start_at_ms THEN (finished_at_ms - game_start_at_ms)
+               ELSE (elapsed_sec * 1000)
+             END
+           ) AS elapsed_ms
          FROM hall_replay_records
          WHERE width = $1 AND height = $2
-         ORDER BY elapsed_sec ASC, game_start_at_ms ASC, id ASC
+         ORDER BY elapsed_ms ASC, game_start_at_ms ASC, id ASC
          LIMIT $3`,
         [width, height, HALL_TOP_LIMIT]
       );
       hallTopRows = hallRowsNext.map((r) => ({
         id: Number(r.id),
         elapsedSec: Number(r.elapsed_sec),
+        elapsedMs: Number(r.elapsed_ms || Number(r.elapsed_sec || 0) * 1000),
         gameStartAtMs: Number(r.game_start_at_ms),
       }));
     }
@@ -2307,7 +2356,7 @@ app.get("/replays/hall", async (_req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT ranked.id, ranked.width, ranked.height, ranked.user_id, ranked.nickname,
-              ranked.elapsed_sec, ranked.puzzle_id, ranked.finished_at_ms, ranked.rank
+              ranked.elapsed_sec, ranked.elapsed_ms, ranked.puzzle_id, ranked.finished_at_ms, ranked.rank
        FROM (
          SELECT
            h.id,
@@ -2316,11 +2365,27 @@ app.get("/replays/hall", async (_req, res) => {
            h.user_id,
            h.nickname,
            h.elapsed_sec,
+           GREATEST(
+             1,
+             CASE
+               WHEN h.finished_at_ms > h.game_start_at_ms THEN (h.finished_at_ms - h.game_start_at_ms)
+               ELSE (h.elapsed_sec * 1000)
+             END
+           ) AS elapsed_ms,
            h.puzzle_id,
            h.finished_at_ms,
            ROW_NUMBER() OVER (
              PARTITION BY h.width, h.height
-             ORDER BY h.elapsed_sec ASC, h.game_start_at_ms ASC, h.id ASC
+             ORDER BY
+               GREATEST(
+                 1,
+                 CASE
+                   WHEN h.finished_at_ms > h.game_start_at_ms THEN (h.finished_at_ms - h.game_start_at_ms)
+                   ELSE (h.elapsed_sec * 1000)
+                 END
+               ) ASC,
+               h.game_start_at_ms ASC,
+               h.id ASC
            ) AS rank
          FROM hall_replay_records h
          JOIN users u ON u.id = h.user_id
@@ -2369,6 +2434,7 @@ app.get("/replays/hall", async (_req, res) => {
         userId: Number(r.user_id),
         nickname: String(r.nickname || ""),
         elapsedSec: Number(r.elapsed_sec),
+        elapsedMs: Number(r.elapsed_ms || Number(r.elapsed_sec || 0) * 1000),
         puzzleId: Number(r.puzzle_id),
         finishedAtMs: Number(r.finished_at_ms),
       });
@@ -2407,6 +2473,13 @@ app.get("/replays/hall/record/:recordId", async (req, res) => {
          h.user_id,
          h.nickname,
          h.elapsed_sec,
+         GREATEST(
+           1,
+           CASE
+             WHEN h.finished_at_ms > h.game_start_at_ms THEN (h.finished_at_ms - h.game_start_at_ms)
+             ELSE (h.elapsed_sec * 1000)
+           END
+         ) AS elapsed_ms,
          h.puzzle_id,
          h.game_start_at_ms,
          h.finished_at_ms,
@@ -2439,6 +2512,7 @@ app.get("/replays/hall/record/:recordId", async (req, res) => {
         userId: Number(row.user_id),
         nickname: String(row.nickname || ""),
         elapsedSec: Number(row.elapsed_sec),
+        elapsedMs: Number(row.elapsed_ms || Number(row.elapsed_sec || 0) * 1000),
         puzzleId: Number(row.puzzle_id),
         gameStartAtMs: Number(row.game_start_at_ms),
         finishedAtMs: Number(row.finished_at_ms),
