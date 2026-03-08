@@ -1910,6 +1910,28 @@ function App() {
     }
   };
 
+  const submitSingleFinish = async () => {
+    if (!puzzle || isInRaceRoom || isModeTutorial) return;
+    try {
+      const res = await fetch(`${API_BASE}/single/finish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({
+          puzzleId: Number(puzzle.id),
+          width: Number(puzzle.width),
+          height: Number(puzzle.height),
+          elapsedSec,
+        }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to save single log.");
+      }
+    } catch {
+      // ignore logging errors in solo play UX
+    }
+  };
+
   const sendRaceChat = async () => {
     if (!raceRoomCode || !racePlayerId) return;
     const text = chatInput.trim();
@@ -2291,15 +2313,18 @@ function App() {
         // Tutorial completion status is handled by tutorial progress effect.
       } else if (isInRaceRoom && isRacePlaying) {
         setStatus(L("완주! 다른 플레이어 결과 대기중...", "Finished! Waiting for other players..."));
+        submitRaceFinish();
       } else {
         setStatus("Success! Puzzle solved.");
+        if (isModeSingle && !isInRaceRoom) {
+          submitSingleFinish();
+        }
       }
-      submitRaceFinish();
     }
     if (!isBoardCompleteByHints) {
       autoSolvedShownRef.current = false;
     }
-  }, [isBoardCompleteByHints, puzzle, isInRaceRoom, isRacePlaying, isModeTutorial]);
+  }, [isBoardCompleteByHints, puzzle, isInRaceRoom, isRacePlaying, isModeTutorial, isModeSingle]);
 
   useEffect(() => {
     if (!isInRaceRoom || racePhase !== "finished" || !raceState?.winnerPlayerId || raceResultShownRef.current) return;

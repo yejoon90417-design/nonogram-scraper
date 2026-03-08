@@ -3581,6 +3581,112 @@ app.post("/race/leave", async (req, res) => {
   return res.json({ ok: true, leavePenalty, room: roomPublicState(room) });
 });
 
+app.post("/single/finish", async (req, res) => {
+  const elapsedRaw = Number(req.body?.elapsedSec);
+  const puzzleIdRaw = Number(req.body?.puzzleId);
+  const widthRaw = Number(req.body?.width);
+  const heightRaw = Number(req.body?.height);
+
+  if (!Number.isFinite(elapsedRaw) || elapsedRaw <= 0) {
+    return res.status(400).json({ ok: false, error: "elapsedSec is required" });
+  }
+
+  const elapsedSec = Math.max(1, Math.floor(elapsedRaw));
+  let puzzleId = Number.isInteger(puzzleIdRaw) && puzzleIdRaw > 0 ? puzzleIdRaw : null;
+  let width = Number.isInteger(widthRaw) && widthRaw > 0 ? widthRaw : null;
+  let height = Number.isInteger(heightRaw) && heightRaw > 0 ? heightRaw : null;
+
+  try {
+    if (puzzleId) {
+      const { rows } = await pool.query(
+        `SELECT id, width, height
+         FROM puzzles
+         WHERE id = $1
+         LIMIT 1`,
+        [puzzleId]
+      );
+      if (rows.length === 0) {
+        return res.status(404).json({ ok: false, error: "Puzzle not found" });
+      }
+      width = Number(rows[0].width);
+      height = Number(rows[0].height);
+    }
+
+    let authUser = null;
+    try {
+      authUser = await getAuthUserFromReq(req);
+    } catch {
+      authUser = null;
+    }
+
+    const winnerUserId =
+      authUser && Number.isInteger(Number(authUser.id)) ? Number(authUser.id) : null;
+    const winnerNickname = String(authUser?.nickname || req.body?.nickname || "Guest").slice(0, 64);
+    const finishedAtMs = Date.now();
+    const gameStartAtMs = finishedAtMs - elapsedSec * 1000;
+    const roomCode = `S${finishedAtMs.toString(36).toUpperCase()}${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    const playerId = winnerUserId ? `u${winnerUserId}` : "guest";
+    const rankings = [
+      {
+        rank: 1,
+        playerId,
+        nickname: winnerNickname,
+        elapsedSec,
+        status: "finished",
+      },
+    ];
+    const playersPayload = [
+      {
+        userId: winnerUserId,
+        playerId,
+        nickname: winnerNickname,
+        isBot: false,
+        elapsedSec,
+        rank: 1,
+        status: "finished",
+        outcome: "win",
+        disconnectedAt: null,
+      },
+    ];
+
+    await pool.query(
+      `INSERT INTO race_match_logs (
+        room_code, game_start_at_ms, room_created_at_ms, mode, puzzle_id, width, height,
+        winner_user_id, winner_nickname, player_count, participants, rankings_json, players_json, finished_at_ms
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12::jsonb, $13::jsonb, $14
+      )
+      ON CONFLICT (room_code, game_start_at_ms) DO NOTHING`,
+      [
+        roomCode,
+        gameStartAtMs,
+        gameStartAtMs,
+        "single",
+        puzzleId,
+        width,
+        height,
+        winnerUserId,
+        winnerNickname,
+        1,
+        winnerNickname,
+        JSON.stringify(rankings),
+        JSON.stringify(playersPayload),
+        finishedAtMs,
+      ]
+    );
+
+    return res.json({
+      ok: true,
+      mode: "single",
+      elapsedSec,
+      finishedAtMs,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post("/verify", async (req, res) => {
   const puzzleId = Number(req.body?.puzzleId);
   if (!Number.isInteger(puzzleId)) {
