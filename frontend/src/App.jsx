@@ -1,7 +1,7 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
-import { ChevronDown, Eraser, Home, Lock, LogIn, Redo2, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Eraser, Home, Lock, LogIn, Moon, Redo2, Sun, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "https://nonogram-api.onrender.com").replace(/\/$/, "");
@@ -9,6 +9,7 @@ const MAX_HISTORY = 200;
 const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
 const LANG_KEY = "nonogram-ui-lang";
+const THEME_KEY = "nonogram-ui-theme";
 const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
 const PVP_SIZE_KEYS = ["5x5", "10x10", "15x15", "20x20", "25x25"];
 const PVP_REVEAL_RESULT_HOLD_MS = 1600;
@@ -205,6 +206,7 @@ function App() {
     const saved = localStorage.getItem(LANG_KEY);
     return saved === "en" ? "en" : "ko";
   });
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem(THEME_KEY) === "dark");
   const [authToken, setAuthToken] = useState(localStorage.getItem(AUTH_TOKEN_KEY) || "");
   const [authUser, setAuthUser] = useState(() => {
     try {
@@ -298,6 +300,14 @@ function App() {
   useEffect(() => {
     localStorage.setItem(LANG_KEY, lang);
   }, [lang]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(THEME_KEY, isDarkMode ? "dark" : "light");
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -2069,7 +2079,27 @@ function App() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    ctx.fillStyle = "#e6e6e6";
+    const palette = isDarkMode
+      ? {
+          empty: "#0f172a",
+          filled: "#e2e8f0",
+          filledBorder: "#64748b",
+          mark: "#f87171",
+          grid: "#475569",
+          gridStrong: "#e2e8f0",
+          border: "#f8fafc",
+        }
+      : {
+          empty: "#e6e6e6",
+          filled: "#1d1d1d",
+          filledBorder: "#7f8d9b",
+          mark: "#8f0000",
+          grid: "#444",
+          gridStrong: "#111",
+          border: "#111",
+        };
+
+    ctx.fillStyle = palette.empty;
     ctx.fillRect(0, 0, w, h);
 
     for (let y = 0; y < puzzle.height; y += 1) {
@@ -2078,14 +2108,14 @@ function App() {
         const px = x * cellSize;
         const py = y * cellSize;
         if (v === 1) {
-          ctx.fillStyle = "#1d1d1d";
+          ctx.fillStyle = palette.filled;
           ctx.fillRect(px, py, cellSize, cellSize);
           // Filled cells keep a subtle border so adjacent blacks remain distinguishable.
-          ctx.strokeStyle = "#7f8d9b";
+          ctx.strokeStyle = palette.filledBorder;
           ctx.lineWidth = 1;
           ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
         } else if (v === 2) {
-          ctx.strokeStyle = "#8f0000";
+          ctx.strokeStyle = palette.mark;
           ctx.lineWidth = 1.8;
           ctx.beginPath();
           ctx.moveTo(px + 4, py + 4);
@@ -2097,7 +2127,7 @@ function App() {
       }
     }
 
-    ctx.strokeStyle = "#444";
+    ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     for (let x = 0; x <= puzzle.width; x += 1) {
       const px = x * cellSize + 0.5;
@@ -2114,7 +2144,7 @@ function App() {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "#111";
+    ctx.strokeStyle = palette.gridStrong;
     ctx.lineWidth = 2;
     for (let x = 5; x < puzzle.width; x += 5) {
       const px = x * cellSize + 0.5;
@@ -2131,10 +2161,10 @@ function App() {
       ctx.stroke();
     }
 
-    ctx.strokeStyle = "#111";
+    ctx.strokeStyle = palette.border;
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-  }, [puzzle, cells, cellSize]);
+  }, [puzzle, cells, cellSize, isDarkMode]);
 
   useEffect(() => {
     const onWindowPointerMove = (event) => {
@@ -2518,7 +2548,7 @@ function App() {
   }, [showEmojiPicker]);
 
   return (
-    <main className="page">
+    <main className={`page ${isDarkMode ? "themeDark" : ""}`}>
       <div className="bgGlow bgGlowA" />
       <div className="bgGlow bgGlowB" />
       <motion.section
@@ -2542,6 +2572,14 @@ function App() {
                   EN
                 </button>
               </div>
+              <button
+                type="button"
+                className="themeToggleBtn"
+                onClick={() => setIsDarkMode((prev) => !prev)}
+              >
+                {isDarkMode ? <Sun size={15} /> : <Moon size={15} />}
+                {isDarkMode ? L("라이트", "LIGHT") : L("다크", "DARK")}
+              </button>
               {isLoggedIn ? (
                 <>
                   <span className="userChip">
@@ -2610,6 +2648,19 @@ function App() {
             <button className="menuTutorialBtn" onClick={startTutorialMode}>
               {L("플레이 방법", "HOW TO PLAY")}
             </button>
+            <a
+              className="discordFab"
+              href="https://discord.gg/42Mqmy9Ka"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Discord"
+              title="Discord"
+            >
+              <img
+                src="/whitediscord.png"
+                alt="Discord"
+              />
+            </a>
             <div className="menuDust menuDustA" />
             <div className="menuDust menuDustB" />
             <div className="menuDust menuDustC" />

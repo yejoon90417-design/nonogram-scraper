@@ -141,6 +141,534 @@
   color: #fff;
 }
 
+/* Dark mode contrast patch */
+.page.themeDark .rankingTitle {
+  color: #e5f0ff;
+}
+
+.page.themeDark .rankingMeBadge {
+  border-color: #405e82;
+  background: #12233a;
+  color: #d7e9ff;
+}
+
+.page.themeDark .ratingScore {
+  color: #8ec8ff;
+}
+
+.page.themeDark .rankingEmpty,
+.page.themeDark .hallTableEmpty {
+  color: #bdd6f3;
+}
+
+.page.themeDark .hallTabs {
+  border-color: #2d4969;
+  background: #0f1d32;
+}
+
+.page.themeDark .hallTab {
+  border-color: #355171;
+  background: #15273f;
+  color: #d8e9ff;
+}
+
+.page.themeDark .hallTab small {
+  color: #9fb9d7;
+}
+
+.page.themeDark .hallTab.active {
+  border-color: #70a7dd;
+  background: linear-gradient(180deg, #204267 0%, #183654 100%);
+  color: #f0f7ff;
+}
+
+.page.themeDark .hallStreakTitle,
+.page.themeDark .hallStreakValue {
+  color: #dceafd;
+}
+
+.page.themeDark .raceInfoTitle,
+.page.themeDark .raceInfoProgress,
+.page.themeDark .raceInfoMe {
+  color: #e5f0ff;
+}
+
+.page.themeDark .timerBar {
+  border-color: #3d5a7f;
+  background: #12243b;
+  color: #d5e8ff;
+}
+
+.page.themeDark .singleTimer {
+  color: #e3efff;
+}
+
+.page.themeDark .roomRow {
+  border-color: #304862;
+  background: #0f1d32;
+}
+
+.page.themeDark .roomBadge {
+  border-color: #3f5877;
+  background: #16283f;
+  color: #d6e7fb;
+}
+
+.page.themeDark .roomBadge.private {
+  border-color: #7c4a58;
+  background: #38212a;
+  color: #ffd2dc;
+}
+
+.page.themeDark .roomBadge.public {
+  border-color: #3f7360;
+  background: #1a332a;
+  color: #c8f3de;
+}
+
+.page.themeDark .chatTitle {
+  color: #c8dcf6;
+}
+
+.page.themeDark .chatMsg {
+  color: #e2edf9;
+}
+
+.page.themeDark .chatEmpty {
+  color: #9ab2cd;
+}
+
+.page.themeDark .modalCard h2,
+.page.themeDark .modalCard p,
+.page.themeDark .modalCard label {
+  color: #dceafd;
+}
+
+.page.themeDark .policyBody {
+  border-color: #30465f;
+  background: #0a1526;
+  color: #d8e8fb;
+}
+
+.page.themeDark .policyBody h3,
+.page.themeDark .policyBody p {
+  color: #d8e8fb;
+}
+
+.page.themeDark .agreementRow {
+  color: #d5e7fb;
+}
+
+.page.themeDark .agreementLinkBtn {
+  border-color: #3d5d82;
+  background: #13253e;
+  color: #d6eaff;
+}
+
+.page.themeDark .fieldErrorText {
+  color: #ffb6c5;
+}
+
+.page.themeDark .raceResultTableWrap {
+  border-color: #30465f;
+  background: #0d1a2e;
+}
+
+.page.themeDark .raceResultTable th {
+  background: #132741;
+  color: #d8e9ff;
+}
+
+.page.themeDark .raceResultTable td {
+  border-bottom-color: #2a3e56;
+  color: #dbeafe;
+}
+
+.page.themeDark .raceResultTable tr.me td {
+  background: #1a3557;
+}
+
+.page.themeDark .replayViewerMeta,
+.page.themeDark .replayViewerLoading,
+.page.themeDark .replayTimes {
+  color: #d5e8ff;
+}
+
+.page.themeDark .replayTimeline {
+  border-color: #30455f;
+  background: #0f1d33;
+}
+
+/* Dark Mode */
+.page.themeDark {
+  --ink: #e6edf8;
+  --muted: #9db1cb;
+  --line: #334155;
+  --line-strong: #64748b;
+  --panel: #0f172a;
+  --panel-soft: #111b31;
+  --accent: #1f8bc4;
+  --accent-ink: #ffffff;
+  --danger: #fb7185;
+  --success: #34d399;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(57, 88, 130, 0.32), rgba(14, 23, 41, 0) 58%),
+    linear-gradient(180deg, #050a14 0%, #0a1222 55%, #0f172a 100%);
+  color: var(--ink);
+}
+
+.page.themeDark .panel {
+  border-color: #24344a;
+  background: #0b1325;
+}
+
+.page.themeDark .topBar {
+  border-bottom-color: #24344a;
+  background: #0a1222;
+}
+
+.page.themeDark .title {
+  color: #eaf2ff;
+}
+
+.page.themeDark .guestIcon {
+  color: #91a7c4;
+}
+
+.page.themeDark .langSwitch {
+  border-color: #3b82f6;
+  background: #0c1a30;
+}
+
+.page.themeDark .langSwitch button {
+  color: #c9defd;
+}
+
+.page.themeDark .langSwitch button.active {
+  background: linear-gradient(180deg, #2a84c4 0%, #1f5f98 100%);
+}
+
+.page.themeDark .themeToggleBtn {
+  border-color: #3b82f6;
+  background: #0c1a30;
+  color: #c9defd;
+}
+
+.page.themeDark .topAuth .ghostBtn {
+  border-color: #2f73a8;
+  background: #0d1a2d;
+  color: #d4e8ff;
+}
+
+.page.themeDark .topAuth .primaryBtn {
+  border-color: #2f73a8;
+  background: linear-gradient(180deg, #2a84c4 0%, #1f5f98 100%);
+}
+
+.page.themeDark .userChip {
+  border-color: #2b3d56;
+  background: #0c1a2d;
+  color: #d3e6ff;
+}
+
+.page.themeDark input,
+.page.themeDark select,
+.page.themeDark button {
+  border-color: #334155;
+  background: #121f34;
+  color: #e6edf8;
+}
+
+.page.themeDark input::placeholder {
+  color: #92a8c4;
+}
+
+.page.themeDark input:focus,
+.page.themeDark select:focus,
+.page.themeDark button:focus-visible {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.26);
+}
+
+.page.themeDark button:hover:enabled {
+  border-color: #4f6784;
+}
+
+.page.themeDark .status {
+  border-color: #2b3d56;
+  background: #0c1a2d;
+  color: #d7e8ff;
+}
+
+.page.themeDark .singleTopControls select,
+.page.themeDark .singleSfxBtn {
+  border-color: #2f73a8;
+  background: #0e1d31;
+  color: #d8ebff;
+}
+
+.page.themeDark .singleActionBtn,
+.page.themeDark .singleHomeBtn {
+  border-color: #2f73a8;
+  background: linear-gradient(180deg, #2a84c4 0%, #1f5f98 100%);
+  color: #ffffff;
+}
+
+.page.themeDark .modeBtn,
+.page.themeDark .lobbyCardBtn {
+  border-color: #263a56;
+  box-shadow: 8px 8px 0 rgba(2, 8, 18, 0.52);
+}
+
+.page.themeDark .modeSingle,
+.page.themeDark .lobbyCardBtn.create {
+  background: linear-gradient(130deg, #155b88 0%, #2478ad 100%);
+}
+
+.page.themeDark .modeMulti,
+.page.themeDark .lobbyCardBtn.join {
+  background: linear-gradient(130deg, #8a2f5e 0%, #ad3f6d 100%);
+}
+
+.page.themeDark .modePvp {
+  background: linear-gradient(130deg, #186b58 0%, #238a71 100%);
+}
+
+.page.themeDark .modeRank {
+  background: linear-gradient(130deg, #48369e 0%, #5c47bc 100%);
+}
+
+.page.themeDark .modeTag {
+  color: #e6d7a7;
+  background: linear-gradient(180deg, #594f34 0%, #6f5c38 100%);
+}
+
+.page.themeDark .menuDust {
+  background: #5f7392;
+  opacity: 0.44;
+}
+
+.page.themeDark .lobbyQuickBtn {
+  color: #bdd3ee;
+}
+
+.page.themeDark .lobbyTableWrap,
+.page.themeDark .rankingTableWrap,
+.page.themeDark .hallTableWrap,
+.page.themeDark .hallStreakWrap {
+  border-color: #233655;
+  background: #0b1325;
+}
+
+.page.themeDark .lobbyTableTitle,
+.page.themeDark .hallTable thead th,
+.page.themeDark .hallStreakTable thead th,
+.page.themeDark .rankingTable thead th {
+  color: #d8e9ff;
+  border-color: #2a3a54;
+  background: linear-gradient(180deg, #132641 0%, #102036 100%);
+}
+
+.page.themeDark .lobbyTable th,
+.page.themeDark .lobbyTable td,
+.page.themeDark .rankingTable th,
+.page.themeDark .rankingTable td,
+.page.themeDark .hallTable th,
+.page.themeDark .hallTable td,
+.page.themeDark .hallStreakTable th,
+.page.themeDark .hallStreakTable td {
+  border-bottom-color: #2a3a54;
+}
+
+.page.themeDark .lobbyTable td.private,
+.page.themeDark .lobbyTable td.open,
+.page.themeDark .hallTable,
+.page.themeDark .hallStreakTable,
+.page.themeDark .rankingTable {
+  color: #dce9fc;
+}
+
+.page.themeDark .pvpQueuePanel {
+  border-color: #264567;
+  background: linear-gradient(130deg, #101e35 0%, #142743 100%);
+}
+
+.page.themeDark .pvpQueueTitle,
+.page.themeDark .pvpStageTitle {
+  color: #e0eeff;
+}
+
+.page.themeDark .pvpQueueDesc {
+  color: #9ab4d1;
+}
+
+.page.themeDark .pvpQueueState {
+  border-color: #365f8a;
+  background: #0f2038;
+  color: #d0e4ff;
+}
+
+.page.themeDark .pvpStageCard {
+  border-color: #2c4d71;
+  background: #0c1a2d;
+}
+
+.page.themeDark .pvpAcceptPlayer,
+.page.themeDark .pvpBanCard,
+.page.themeDark .pvpRevealItem {
+  border-color: #385674;
+  background: #132840;
+  color: #d8eaff;
+}
+
+.page.themeDark .pvpBanCard.banned,
+.page.themeDark .pvpRevealItem.banned {
+  background: #402237;
+  color: #ffdae4;
+}
+
+.page.themeDark .pvpBanCard.mine,
+.page.themeDark .pvpRevealItem.chosen {
+  border-color: #70a0d8;
+  box-shadow: 0 0 0 1px rgba(112, 160, 216, 0.35);
+}
+
+.page.themeDark .raceInfoPane,
+.page.themeDark .raceSidePlayers,
+.page.themeDark .chatBox,
+.page.themeDark .raceStateBox,
+.page.themeDark .authCard,
+.page.themeDark .authTabs,
+.page.themeDark .modalCard {
+  border-color: #2a3d57;
+  background: #0c1a2d;
+  color: #dceafd;
+}
+
+.page.themeDark .chatBody {
+  border-color: #30445f;
+  background: #0a1526;
+}
+
+.page.themeDark .chatMsg {
+  border-bottom-color: #22334b;
+}
+
+.page.themeDark .modalError {
+  border-color: #6d2d39;
+  background: #321720;
+  color: #ffc9d3;
+}
+
+.page.themeDark .timerBar,
+.page.themeDark .singleBottomBar {
+  color: #dbeafe;
+}
+
+.page.themeDark .toolBtn,
+.page.themeDark .iconBtn {
+  border-color: #2f73a8;
+  background: #10233a;
+  color: #d6eaff;
+  box-shadow: 4px 4px 0 rgba(5, 10, 18, 0.55);
+}
+
+.page.themeDark .iconBtn.danger,
+.page.themeDark .toolBtn.toolClear {
+  border-color: #9b2d45;
+  background: linear-gradient(180deg, #b73e62 0%, #8b2745 100%);
+  color: #fff;
+}
+
+.page.themeDark .boardWrap {
+  border-color: #2b3e58;
+  background:
+    linear-gradient(135deg, rgba(11, 20, 36, 0.7), rgba(16, 29, 51, 0.92)),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(82, 112, 147, 0.12) 0,
+      rgba(82, 112, 147, 0.12) 8px,
+      rgba(0, 0, 0, 0) 8px,
+      rgba(0, 0, 0, 0) 16px
+    );
+}
+
+.page.themeDark .corner {
+  border-color: #8aa1be;
+  background: #1a2a40;
+}
+
+.page.themeDark .colHints {
+  border-top-color: #8aa1be;
+  border-left-color: #8aa1be;
+  border-right-color: #8aa1be;
+}
+
+.page.themeDark .rowHints {
+  border-top-color: #8aa1be;
+  border-left-color: #8aa1be;
+  border-bottom-color: #8aa1be;
+}
+
+.page.themeDark .hintNum {
+  background: #17253a;
+  color: #e2edf9;
+  border-color: #64748b;
+}
+
+.page.themeDark .hintNum.active {
+  background: linear-gradient(180deg, #f9c96b 0%, #e8a93a 100%);
+  color: #5c3904;
+}
+
+.page.themeDark .hintNum.solved {
+  background: linear-gradient(180deg, #37485d 0%, #2a394d 100%);
+  color: #d8e4f2;
+  border-color: #7187a1;
+}
+
+.page.themeDark .board {
+  background: #0f172a;
+  box-shadow: inset 0 0 0 1px #8aa1be;
+}
+
+.page.themeDark .countdownOverlay {
+  color: #e5f0ff;
+  background: rgba(9, 16, 30, 0.72);
+  text-shadow: 0 2px 14px rgba(97, 156, 229, 0.4);
+}
+
+.page.themeDark .countdownOverlay.result {
+  color: #5ee5a8;
+}
+
+.page.themeDark .hallHero {
+  border-color: #2d4969;
+  background: linear-gradient(140deg, #0f2036 0%, #132b47 100%);
+}
+
+.page.themeDark .hallHeroTag {
+  color: #ffe8b3;
+  background: linear-gradient(180deg, #6f5531 0%, #5b4527 100%);
+  border-color: #a8844c;
+}
+
+.themeToggleBtn {
+  min-width: 98px;
+  min-height: 38px;
+  border: 2px solid #2a7bb2;
+  border-radius: 999px;
+  background: #f4fbff;
+  color: #1f6ea6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.34rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
 .topAuth .ghostBtn,
 .topAuth .primaryBtn {
   min-width: 138px;
@@ -855,6 +1383,36 @@
   display: grid;
   place-items: center;
   padding: 1.5rem;
+}
+
+.discordFab {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  z-index: 4;
+}
+
+.discordFab img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(9, 16, 28, 0.45));
+}
+
+.discordFab:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+}
+
+.discordFab:focus-visible {
+  outline: 2px solid #9fc8ff;
+  outline-offset: 3px;
 }
 
 .modeBtn {
