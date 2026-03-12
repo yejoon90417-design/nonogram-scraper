@@ -5013,6 +5013,14 @@ function App() {
                       "Real puzzles are served in order for 5 minutes: 5x5 -> 10x10 -> 10x10 -> 15x15 -> 15x15. Solving one advances automatically."
                     )}
               </p>
+              {!hasPlacementQualification && (
+                <div className="placementEntryWarning">
+                  {L(
+                    "주의! 배치고사는 계정당 한 번만 볼 수 있습니다.",
+                    "Warning! Placement can only be taken once per account."
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="placementMeta">
@@ -6662,6 +6670,12 @@ function App() {
                   "You must complete placement before entering PvP. Your initial tier and starting rating are assigned from the placement result."
                 )}
               </p>
+              <div className="placementEntryWarning compact">
+                {L(
+                  "주의! 배치고사는 계정당 한 번만 볼 수 있습니다.",
+                  "Warning! Placement can only be taken once per account."
+                )}
+              </div>
               <div className="modalActions">
                 <button onClick={() => setShowPlacementRequiredPopup(false)}>{L("취소", "Cancel")}</button>
                 <button
