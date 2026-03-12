@@ -241,28 +241,28 @@ const BOT_SPAWN_WEIGHT_TIERS = [
 const BOT_SOLVE_TIME_RANGE_SEC = {
   "5x5": {
     easy: [120, 180],
-    normal: [50, 120],
-    hard: [15, 30],
+    normal: [45, 108],
+    hard: [14, 28],
   },
   "10x10": {
     easy: [300, 360],
-    normal: [120, 240],
-    hard: [60, 90],
+    normal: [108, 216],
+    hard: [57, 85],
   },
   "15x15": {
     easy: [960, 1500],
-    normal: [600, 900],
-    hard: [300, 420],
+    normal: [540, 810],
+    hard: [285, 399],
   },
   "20x20": {
     easy: [1500, 1800],
-    normal: [900, 1200],
-    hard: [420, 600],
+    normal: [810, 1080],
+    hard: [399, 570],
   },
   "25x25": {
     easy: [2700, 3000],
-    normal: [1260, 2100],
-    hard: [900, 1200],
+    normal: [1134, 1890],
+    hard: [855, 1140],
   },
 };
 const ELO_DEFAULT_RATING = 1500;
