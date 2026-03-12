@@ -1701,6 +1701,24 @@
   color: #9ab4d1;
 }
 
+.page.themeDark .pvpTierGuideTrigger {
+  border-color: rgba(102, 146, 193, 0.38);
+  background: linear-gradient(180deg, #142742, #0f1d31);
+  color: #d8e9ff;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.3);
+}
+
+.page.themeDark .pvpTierGuideTrigger:hover {
+  border-color: rgba(120, 173, 228, 0.62);
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.34);
+}
+
+.page.themeDark .pvpTierGuideBackdrop {
+  background:
+    radial-gradient(circle at 50% 26%, rgba(100, 148, 221, 0.18), transparent 34%),
+    rgba(3, 7, 14, 0.82);
+}
+
 .page.themeDark .pvpQueueState {
   border-color: #365f8a;
   background: #0f2038;
@@ -2384,9 +2402,144 @@
   color: #122f4f;
 }
 
+.pvpQueueDescRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
 .pvpQueueDesc {
+  flex: 1;
   font-size: 0.95rem;
   color: #264763;
+}
+
+.pvpTierGuideTrigger {
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(34, 86, 132, 0.42);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f8fbff, #dcebfa);
+  color: #16446f;
+  box-shadow: 0 10px 18px rgba(39, 92, 137, 0.14);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.pvpTierGuideTrigger:hover {
+  transform: translateY(-1px);
+  border-color: rgba(27, 84, 133, 0.65);
+  box-shadow: 0 12px 22px rgba(39, 92, 137, 0.18);
+}
+
+.pvpTierGuideTriggerGlyph {
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pvpTierGuideBackdrop {
+  background:
+    radial-gradient(circle at 50% 28%, rgba(122, 183, 255, 0.18), transparent 32%),
+    rgba(4, 10, 18, 0.78);
+  backdrop-filter: blur(9px);
+}
+
+.pvpTierGuideModal {
+  position: relative;
+  box-sizing: border-box;
+  width: min(88vw, 1640px);
+  height: min(86vh, 1080px);
+  padding: 0.18rem;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 190, 239, 0.18);
+  background:
+    linear-gradient(180deg, rgba(12, 20, 32, 0.9), rgba(7, 14, 24, 0.94)),
+    #0b1320;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.pvpTierGuideAura {
+  position: absolute;
+  inset: -16% -10% auto;
+  height: 54%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(120, 175, 255, 0.26), rgba(120, 175, 255, 0.07) 38%, transparent 64%);
+  pointer-events: none;
+  filter: blur(12px);
+}
+
+.pvpTierGuideBadge {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.75rem;
+  z-index: 2;
+  padding: 0.34rem 0.66rem;
+  border: 1px solid rgba(142, 188, 242, 0.24);
+  border-radius: 999px;
+  background: rgba(10, 20, 33, 0.72);
+  color: #e6f1ff;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+}
+
+.pvpTierGuideFrame {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 22px;
+  padding: 0.08rem;
+  background:
+    linear-gradient(135deg, rgba(158, 202, 255, 0.16), rgba(69, 111, 165, 0.05));
+  border: 1px solid rgba(153, 192, 241, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 16px 42px rgba(0, 0, 0, 0.3);
+}
+
+.pvpTierGuideModalImage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+  border-radius: 18px;
+  background: #09111d;
+}
+
+.pvpTierGuideClose {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  width: 3rem;
+  height: 3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(7, 16, 30, 0.72);
+  color: #ffffff;
+  font-size: 1.9rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 3;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.pvpTierGuideClose:hover {
+  transform: scale(1.08) rotate(90deg);
+  background: rgba(10, 22, 37, 0.96);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .pvpQueueState {
@@ -7379,6 +7532,46 @@ button:disabled {
 
   .pvpQueueDesc {
     font-size: 0.82rem;
+  }
+
+  .pvpQueueDescRow {
+    gap: 0.5rem;
+  }
+
+  .pvpTierGuideTrigger {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .pvpTierGuideModal {
+    width: min(91vw, 980px);
+    height: min(84vh, 900px);
+    padding: 0.08rem;
+    border-radius: 20px;
+  }
+
+  .pvpTierGuideBadge {
+    top: 0.5rem;
+    left: 0.56rem;
+    font-size: 0.62rem;
+  }
+
+  .pvpTierGuideFrame {
+    padding: 0.04rem;
+    border-radius: 16px;
+  }
+
+  .pvpTierGuideModalImage {
+    height: 100%;
+    max-height: none;
+  }
+
+  .pvpTierGuideClose {
+    top: 0.48rem;
+    right: 0.48rem;
+    width: 2.65rem;
+    height: 2.65rem;
+    font-size: 1.6rem;
   }
 
   .pvpQueueActions .singleActionBtn,

@@ -60,6 +60,10 @@ const TIER_IMAGE_MAP = {
   master: "/tiers/master.png",
   challenger: "/tiers/master.png",
 };
+const TIER_GUIDE_IMAGE_MAP = {
+  ko: "/tier-guide/ko.png",
+  en: "/tier-guide/en.png",
+};
 const DEFAULT_PROFILE_AVATAR_KEY = "default-user";
 const DEFAULT_PROFILE_AVATAR_OPTIONS = [
   { key: "default-user", labelKo: "스마일", labelEn: "Smile", emoji: "😎", colorA: "#8dc8ff", colorB: "#31568e" },
@@ -956,6 +960,7 @@ function App() {
   const [showNeedLoginPopup, setShowNeedLoginPopup] = useState(false);
   const [needLoginReturnMode, setNeedLoginReturnMode] = useState("multi");
   const [showPlacementRequiredPopup, setShowPlacementRequiredPopup] = useState(false);
+  const [showPvpTierGuideModal, setShowPvpTierGuideModal] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -5687,11 +5692,22 @@ function App() {
             {isLoggedIn && !isInRaceRoom && (
               <section className="pvpQueuePanel">
                 <div className="pvpQueueTitle">RANKED PVP MATCH</div>
-                <div className="pvpQueueDesc">
-                  {L(
-                    "실버 티어까지는 5x5·10x10·15x15, 골드 티어부터는 10x10·15x15·20x20·25x25 퍼즐이 등장합니다.",
-                    "Up to Silver tier, 5x5/10x10/15x15 puzzles appear. From Gold tier, 10x10/15x15/20x20/25x25 puzzles appear."
-                  )}
+                <div className="pvpQueueDescRow">
+                  <div className="pvpQueueDesc">
+                    {L(
+                      "실버 티어까지는 5x5·10x10·15x15, 골드 티어부터는 10x10·15x15·20x20·25x25 퍼즐이 등장합니다.",
+                      "Up to Silver tier, 5x5/10x10/15x15 puzzles appear. From Gold tier, 10x10/15x15/20x20/25x25 puzzles appear."
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="pvpTierGuideTrigger"
+                    onClick={() => setShowPvpTierGuideModal(true)}
+                    aria-label={L("티어 안내 보기", "Open tier guide")}
+                    title={L("티어 안내", "Tier guide")}
+                  >
+                    <span className="pvpTierGuideTriggerGlyph">i</span>
+                  </button>
                 </div>
                 <div className="pvpQueueState">
                   {pvpServerState === "matching" && pvpMatchState === "accept" && L("수락 확인 단계", "Acceptance check")}
@@ -6658,6 +6674,37 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {showPvpTierGuideModal && (
+          <div className="modalBackdrop pvpTierGuideBackdrop" onClick={() => setShowPvpTierGuideModal(false)}>
+            <motion.div
+              className="pvpTierGuideModal"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.84, y: 42, filter: "blur(10px)" }}
+              animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+              exit={{ opacity: 0, scale: 0.94, y: 20, filter: "blur(6px)" }}
+              transition={{ type: "spring", stiffness: 210, damping: 22, mass: 0.9 }}
+            >
+              <div className="pvpTierGuideAura" aria-hidden="true" />
+              <div className="pvpTierGuideBadge">{L("티어 안내", "TIER GUIDE")}</div>
+              <button
+                type="button"
+                className="pvpTierGuideClose"
+                onClick={() => setShowPvpTierGuideModal(false)}
+                aria-label={L("닫기", "Close")}
+              >
+                ×
+              </button>
+              <div className="pvpTierGuideFrame">
+                <img
+                  className="pvpTierGuideModalImage"
+                  src={lang === "ko" ? TIER_GUIDE_IMAGE_MAP.ko : TIER_GUIDE_IMAGE_MAP.en}
+                  alt={lang === "ko" ? "티어 안내" : "Tier guide"}
+                />
+              </div>
+            </motion.div>
           </div>
         )}
 
