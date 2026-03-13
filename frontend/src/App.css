@@ -6907,10 +6907,48 @@ button:disabled {
   padding: 0.25rem 0.8rem;
 }
 
+.paintCollapseBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #aebfd4;
+  background: #ffffff;
+  color: #20364f;
+}
+
 .paintFocusBtn.active {
   background: linear-gradient(180deg, #16385f 0%, #0c2340 100%);
   border-color: #09182b;
   color: #ffffff;
+}
+
+.mobileControlsReveal {
+  position: relative;
+  z-index: 121;
+  margin-top: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #bed0e3;
+  background: rgba(244, 248, 253, 0.96);
+  color: #20364f;
+  font-size: 0.84rem;
+  font-weight: 900;
+  box-shadow: 0 10px 28px rgba(10, 22, 37, 0.14);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+
+.mobileControlsReveal.focusMode {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0;
 }
 
 .boardWrap {

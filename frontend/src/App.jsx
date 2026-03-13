@@ -978,6 +978,7 @@ function App() {
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
   const [mobileBoardScale, setMobileBoardScale] = useState(1);
   const [mobileBoardFocus, setMobileBoardFocus] = useState(false);
+  const [mobileControlsCollapsed, setMobileControlsCollapsed] = useState(false);
   const [showMultiResultModal, setShowMultiResultModal] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundVolume, setSoundVolume] = useState(() => readInitialSoundVolume());
@@ -1960,6 +1961,7 @@ function App() {
     if (isMobileBoardUi) return;
     setMobileBoardFocus(false);
     setMobileBoardScale(1);
+    setMobileControlsCollapsed(false);
     mobilePinchRef.current = null;
   }, [isMobileBoardUi]);
 
@@ -1975,7 +1977,7 @@ function App() {
   const updateMobileBoardScale = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return;
-    setMobileBoardScale(Math.max(0.72, Math.min(1.9, Number(numeric.toFixed(2)))));
+    setMobileBoardScale(Math.max(0.5, Math.min(1.9, Number(numeric.toFixed(2)))));
   };
 
   const nudgeMobileBoardScale = (delta) => {
@@ -6699,43 +6701,63 @@ function App() {
         )}
 
         {isMobileBoardUi && (
-          <div
-            className={`mobilePaintToggle ${mobileBoardFocus ? "focusMode" : ""}`}
-            role="group"
-            aria-label={L("모바일 퍼즐 컨트롤", "Mobile puzzle controls")}
-          >
+          mobileControlsCollapsed ? (
             <button
               type="button"
-              className={`paintModeBtn ${mobilePaintMode === "fill" ? "active" : ""}`}
-              onClick={() => setMobilePaintMode("fill")}
+              className={`mobileControlsReveal ${mobileBoardFocus ? "focusMode" : ""}`}
+              onClick={() => setMobileControlsCollapsed(false)}
+              aria-label={L("모바일 컨트롤 열기", "Show mobile controls")}
             >
-              {L("채우기", "Fill")}
+              <ChevronDown size={18} />
+              <span>{L("도구", "Tools")}</span>
             </button>
-            <button
-              type="button"
-              className={`paintModeBtn ${mobilePaintMode === "mark" ? "active" : ""}`}
-              onClick={() => setMobilePaintMode("mark")}
+          ) : (
+            <div
+              className={`mobilePaintToggle ${mobileBoardFocus ? "focusMode" : ""}`}
+              role="group"
+              aria-label={L("모바일 퍼즐 컨트롤", "Mobile puzzle controls")}
             >
-              {L("X 표시", "Mark X")}
-            </button>
-            <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(-0.12)} aria-label={L("축소", "Zoom out")}>
-              <Minus size={16} />
-            </button>
-            <button type="button" className="paintScaleBtn" onClick={() => updateMobileBoardScale(1)}>
-              {Math.round(mobileBoardScale * 100)}%
-            </button>
-            <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(0.12)} aria-label={L("확대", "Zoom in")}>
-              <Plus size={16} />
-            </button>
-            <button
-              type="button"
-              className={`paintFocusBtn ${mobileBoardFocus ? "active" : ""}`}
-              onClick={() => setMobileBoardFocus((prev) => !prev)}
-            >
-              {mobileBoardFocus ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-              <span>{mobileBoardFocus ? L("닫기", "Close") : L("보드", "Board")}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                className={`paintModeBtn ${mobilePaintMode === "fill" ? "active" : ""}`}
+                onClick={() => setMobilePaintMode("fill")}
+              >
+                {L("채우기", "Fill")}
+              </button>
+              <button
+                type="button"
+                className={`paintModeBtn ${mobilePaintMode === "mark" ? "active" : ""}`}
+                onClick={() => setMobilePaintMode("mark")}
+              >
+                {L("X 표시", "Mark X")}
+              </button>
+              <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(-0.12)} aria-label={L("축소", "Zoom out")}>
+                <Minus size={16} />
+              </button>
+              <button type="button" className="paintScaleBtn" onClick={() => updateMobileBoardScale(1)}>
+                {Math.round(mobileBoardScale * 100)}%
+              </button>
+              <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(0.12)} aria-label={L("확대", "Zoom in")}>
+                <Plus size={16} />
+              </button>
+              <button
+                type="button"
+                className={`paintFocusBtn ${mobileBoardFocus ? "active" : ""}`}
+                onClick={() => setMobileBoardFocus((prev) => !prev)}
+              >
+                {mobileBoardFocus ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                <span>{mobileBoardFocus ? L("닫기", "Close") : L("보드", "Board")}</span>
+              </button>
+              <button
+                type="button"
+                className="paintCollapseBtn"
+                onClick={() => setMobileControlsCollapsed(true)}
+                aria-label={L("모바일 컨트롤 숨기기", "Hide mobile controls")}
+              >
+                <ChevronDown size={16} />
+              </button>
+            </div>
+          )
         )}
 
         {showMultiResultModal && isModeMulti && isInRaceRoom && isRaceFinished && (
