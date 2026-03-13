@@ -5883,6 +5883,118 @@
   margin: 0;
 }
 
+.voteModalBackdrop {
+  z-index: 28;
+}
+
+.voteModal {
+  width: min(980px, calc(100vw - 28px));
+  position: relative;
+  gap: 1rem;
+  padding: 1.2rem;
+  border-radius: 20px;
+  border-color: #d5e1ef;
+  box-shadow: 0 22px 60px rgba(12, 24, 38, 0.26);
+}
+
+.voteModalClose {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #cad9e9;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1d3855;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.voteModalHeader {
+  display: grid;
+  gap: 0.24rem;
+  padding-right: 3rem;
+}
+
+.voteModalEyebrow {
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6382a2;
+}
+
+.voteModalHeader h2 {
+  margin: 0;
+  font-size: clamp(1.24rem, 2vw, 1.8rem);
+  color: #132942;
+}
+
+.voteOptionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.voteOptionCard {
+  border: 1px solid #d6e3f0;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f8fc 100%);
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.72rem;
+  box-shadow: 0 10px 24px rgba(21, 40, 61, 0.1);
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.voteOptionCard:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #8db3d6;
+  box-shadow: 0 16px 32px rgba(21, 40, 61, 0.16);
+}
+
+.voteOptionCard:disabled {
+  opacity: 0.72;
+}
+
+.voteOptionImageWrap {
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%);
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+  min-height: 260px;
+}
+
+.voteOptionImage {
+  width: 100%;
+  height: auto;
+  max-height: min(52vh, 460px);
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+.voteOptionLabel {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #17314d;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .voteModal {
+    width: min(560px, calc(100vw - 18px));
+    padding: 1rem;
+  }
+
+  .voteOptionGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .settingsModal {
   width: min(520px, calc(100vw - 24px));
 }

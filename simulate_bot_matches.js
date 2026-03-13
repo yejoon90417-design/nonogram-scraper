@@ -39,18 +39,29 @@ function normalizeBotDifficulty(rawDifficulty = "normal") {
   return "normal";
 }
 
-function pickBotTargetSec(sizeKey, rawDifficulty = "normal") {
+function pickBotTargetSec(sizeKey, rawDifficulty = "normal", rawRating = 0) {
   const difficulty = normalizeBotDifficulty(rawDifficulty);
   const bySize = BOT_SOLVE_TIME_RANGE_SEC[sizeKey];
+  const getTierSpeedMultiplier = (ratingRaw) => {
+    const rating = Number(ratingRaw || 0);
+    if (rating >= 2500) return 0.84;
+    if (rating >= 2000) return 0.88;
+    if (rating >= 1500) return 0.92;
+    return 1;
+  };
+  const applySpeedMultiplier = (targetSec) => {
+    const multiplier = getTierSpeedMultiplier(rawRating);
+    return Math.max(1, Math.round(Number(targetSec) * multiplier));
+  };
   if (bySize && Array.isArray(bySize[difficulty])) {
     const [minSec, maxSec] = bySize[difficulty];
-    return randomInt(minSec, maxSec);
+    return applySpeedMultiplier(randomInt(minSec, maxSec));
   }
   if (bySize && Array.isArray(bySize.normal)) {
     const [minSec, maxSec] = bySize.normal;
-    return randomInt(minSec, maxSec);
+    return applySpeedMultiplier(randomInt(minSec, maxSec));
   }
-  return randomInt(120, 420);
+  return applySpeedMultiplier(randomInt(120, 420));
 }
 
 function eloExpected(myRating, opponentRating) {
@@ -162,8 +173,8 @@ async function main() {
       if (!puzzleRows.length) continue;
       const puzzleId = Number(puzzleRows[0].id);
 
-      const aSec = pickBotTargetSec(sizeKey, a.bot_skill);
-      const bSec = pickBotTargetSec(sizeKey, b.bot_skill);
+      const aSec = pickBotTargetSec(sizeKey, a.bot_skill, a.rating);
+      const bSec = pickBotTargetSec(sizeKey, b.bot_skill, b.rating);
 
       let winner = a;
       let loser = b;

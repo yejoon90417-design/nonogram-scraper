@@ -947,6 +947,10 @@ function App() {
   const [showNeedLoginPopup, setShowNeedLoginPopup] = useState(false);
   const [needLoginReturnMode, setNeedLoginReturnMode] = useState("multi");
   const [showPlacementRequiredPopup, setShowPlacementRequiredPopup] = useState(false);
+  const [showVoteModal, setShowVoteModal] = useState(false);
+  const [activeVote, setActiveVote] = useState(null);
+  const [voteSubmitting, setVoteSubmitting] = useState(false);
+  const [voteError, setVoteError] = useState("");
   const [showPvpTierGuideModal, setShowPvpTierGuideModal] = useState(false);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -1056,6 +1060,7 @@ function App() {
   const pvpRatingFxDoneRoomRef = useRef("");
   const pvpAuthRefreshDoneRoomRef = useRef("");
   const pvpShowdownSeenRef = useRef("");
+  const votePromptedTokenRef = useRef("");
   const raceFinishedSentRef = useRef(false);
   const raceResultShownRef = useRef(false);
   const raceProgressLastSentRef = useRef(0);
@@ -1922,6 +1927,32 @@ function App() {
   const isRacePlaying = isInRaceRoom && racePhase === "playing";
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const isRacePreStartMasked = isInRaceRoom && (isRaceLobby || isRaceCountdown);
+  const canAutoOpenVoteModal = isLoggedIn
+    && playMode !== "auth"
+    && !isInRaceRoom
+    && !placementRunning
+    && !pvpSearching
+    && !showNeedLoginPopup
+    && !showPlacementRequiredPopup;
+
+  useEffect(() => {
+    if (!authToken || !authUser?.id) {
+      setActiveVote(null);
+      setShowVoteModal(false);
+      setVoteError("");
+      votePromptedTokenRef.current = "";
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const vote = await refreshActiveVote({ autoOpen: true });
+      if (cancelled || !vote) return;
+      if (!vote.pending) setShowVoteModal(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken, authUser?.id, canAutoOpenVoteModal]);
   const racePhaseLabel = useMemo(() => {
     if (racePhase === "lobby") return L("로비", "Lobby");
     if (racePhase === "countdown") return L("카운트다운", "Countdown");
@@ -2234,6 +2265,42 @@ function App() {
     if (!authToken) return {};
     return { Authorization: `Bearer ${authToken}` };
   }, [authToken]);
+
+  const getVoteOptionImageSrc = (option) => {
+    const optionKey = String(option?.key || "");
+    if (optionKey === "vote-1") return "/votes/vote1.png";
+    if (optionKey === "vote-2") return "/votes/vote2.png";
+    return String(option?.imagePath || "");
+  };
+
+  const refreshActiveVote = async ({ autoOpen = false } = {}) => {
+    if (!authToken) {
+      setActiveVote(null);
+      setShowVoteModal(false);
+      setVoteError("");
+      return null;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/vote/current`, { headers: { ...authHeaders } });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data?.ok || !data?.vote) {
+        throw new Error(data?.error || "vote_load_failed");
+      }
+      setActiveVote(data.vote);
+      setVoteError("");
+      if (!data.vote.pending) {
+        setShowVoteModal(false);
+      } else if (autoOpen && canAutoOpenVoteModal && votePromptedTokenRef.current !== authToken) {
+        votePromptedTokenRef.current = authToken;
+        setShowVoteModal(true);
+      }
+      return data.vote;
+    } catch (err) {
+      setActiveVote(null);
+      setVoteError(String(err.message || "Vote load failed"));
+      return null;
+    }
+  };
 
   const tone = (freq, durMs, { type = "square", gain = 0.1, slideTo = null } = {}) => {
     if (soundVolume <= 0) return;
@@ -2922,6 +2989,10 @@ function App() {
   const clearAuth = () => {
     setAuthToken("");
     setAuthUser(null);
+    setActiveVote(null);
+    setShowVoteModal(false);
+    setVoteError("");
+    votePromptedTokenRef.current = "";
     closeProfileModal();
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -3042,6 +3113,30 @@ function App() {
     await leaveRace();
     clearAuth();
     setStatus(L("로그아웃 되었습니다.", "Logged out."));
+  };
+
+  const submitVote = async (optionKey) => {
+    if (!authToken || voteSubmitting) return;
+    setVoteSubmitting(true);
+    setVoteError("");
+    try {
+      const res = await fetch(`${API_BASE}/vote/current`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ optionKey }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data?.ok || !data?.vote) {
+        throw new Error(data?.error || L("투표 저장 실패", "Vote submission failed"));
+      }
+      setActiveVote(data.vote);
+      setShowVoteModal(false);
+      setStatus(L("투표가 반영되었습니다.", "Your vote has been recorded."));
+    } catch (err) {
+      setVoteError(String(err.message || L("투표 저장 실패", "Vote submission failed")));
+    } finally {
+      setVoteSubmitting(false);
+    }
   };
 
   const fetchPublicRooms = async () => {
@@ -6734,6 +6829,53 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {showVoteModal && activeVote?.pending && (
+          <div className="modalBackdrop voteModalBackdrop" onClick={() => setShowVoteModal(false)}>
+            <motion.div
+              className="modalCard voteModal"
+              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0, y: 22, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 240, damping: 22 }}
+            >
+              <button
+                type="button"
+                className="voteModalClose"
+                onClick={() => setShowVoteModal(false)}
+                aria-label={L("닫기", "Close")}
+              >
+                ×
+              </button>
+              <div className="voteModalHeader">
+                <div className="voteModalEyebrow">{lang === "ko" ? activeVote.titleKo : activeVote.titleEn}</div>
+                <h2>{lang === "ko" ? activeVote.questionKo : activeVote.questionEn}</h2>
+              </div>
+              <div className="voteOptionGrid">
+                {(Array.isArray(activeVote.options) ? activeVote.options : []).map((option) => (
+                  <button
+                    key={option.key}
+                    type="button"
+                    className="voteOptionCard"
+                    onClick={() => submitVote(option.key)}
+                    disabled={voteSubmitting}
+                  >
+                    <div className="voteOptionImageWrap">
+                      <img
+                        className="voteOptionImage"
+                        src={getVoteOptionImageSrc(option)}
+                        alt={lang === "ko" ? option.labelKo : option.labelEn}
+                      />
+                    </div>
+                    <div className="voteOptionLabel">{lang === "ko" ? option.labelKo : option.labelEn}</div>
+                  </button>
+                ))}
+              </div>
+              {voteError && <div className="modalError">{voteError}</div>}
+            </motion.div>
           </div>
         )}
 

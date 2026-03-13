@@ -83,6 +83,28 @@ const REPLAY_FRAME_MIN_INTERVAL_MS = Math.max(80, Number(process.env.REPLAY_FRAM
 const REPLAY_MAX_FRAMES = Math.max(200, Number(process.env.REPLAY_MAX_FRAMES || 2400));
 const PVP_FAKE_QUEUE_ENABLED = process.env.PVP_FAKE_QUEUE_ENABLED !== "false";
 const CURRENT_PLACEMENT_VERSION = Math.max(1, Number(process.env.PLACEMENT_VERSION || 1));
+const ACTIVE_SITE_VOTE = {
+  key: "site-vote-2026-03",
+  titleKo: "간단 투표",
+  titleEn: "Quick Vote",
+  questionKo: "어떤 디자인이 더 맘에드시나요?",
+  questionEn: "Which design fits better?",
+  options: [
+    {
+      key: "vote-1",
+      labelKo: "1번",
+      labelEn: "Option 1",
+      imagePath: "/votes/vote1.png",
+    },
+    {
+      key: "vote-2",
+      labelKo: "2번",
+      labelEn: "Option 2",
+      imagePath: "/votes/vote2.png",
+    },
+  ],
+};
+const ACTIVE_SITE_VOTE_OPTION_KEYS = ACTIVE_SITE_VOTE.options.map((option) => option.key);
 const PVP_FAKE_QUEUE_MIN = Math.max(0, Number(process.env.PVP_FAKE_QUEUE_MIN || 0));
 const PVP_FAKE_QUEUE_MAX = Math.max(PVP_FAKE_QUEUE_MIN, Number(process.env.PVP_FAKE_QUEUE_MAX || 6));
 const PVP_FAKE_QUEUE_UPDATE_MS = Math.max(1200, Number(process.env.PVP_FAKE_QUEUE_UPDATE_MS || 3200));
@@ -993,6 +1015,19 @@ async function ensureAuthTables() {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_hall_replay_size_finished_desc ON hall_replay_records (width, height, finished_at_ms DESC);`
   );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS site_vote_responses (
+      id BIGSERIAL PRIMARY KEY,
+      vote_key VARCHAR(64) NOT NULL,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      option_key VARCHAR(32) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (vote_key, user_id)
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_site_vote_responses_vote_key ON site_vote_responses (vote_key);`
+  );
   // Defensive cleanup for legacy bad records.
   await pool.query(`DELETE FROM best_replay_records WHERE elapsed_sec <= 0`);
   await pool.query(`DELETE FROM hall_replay_records WHERE elapsed_sec <= 0`);
@@ -1182,6 +1217,57 @@ function buildClientUser(user) {
     placement_completed_at_ms: placementActive ? Number(user.placement_completed_at_ms || 0) : null,
     placement_solved_sequential: placementActive ? Number(user.placement_solved_sequential || 0) : 0,
     placement_elapsed_sec: placementActive ? Number(user.placement_elapsed_sec || 0) : 0,
+  };
+}
+
+async function buildActiveSiteVotePayloadForUser(userId) {
+  const numericUserId = Number(userId || 0);
+  const countsPromise = pool.query(
+    `SELECT option_key, COUNT(*)::int AS count
+     FROM site_vote_responses
+     WHERE vote_key = $1
+     GROUP BY option_key`,
+    [ACTIVE_SITE_VOTE.key]
+  );
+  const userVotePromise = numericUserId > 0
+    ? pool.query(
+      `SELECT option_key, created_at
+       FROM site_vote_responses
+       WHERE vote_key = $1
+         AND user_id = $2
+       LIMIT 1`,
+      [ACTIVE_SITE_VOTE.key, numericUserId]
+    )
+    : Promise.resolve({ rows: [] });
+  const [countsResult, userVoteResult] = await Promise.all([countsPromise, userVotePromise]);
+  const counts = Object.fromEntries(ACTIVE_SITE_VOTE.options.map((option) => [option.key, 0]));
+  for (const row of countsResult.rows) {
+    const optionKey = String(row.option_key || "");
+    if (Object.prototype.hasOwnProperty.call(counts, optionKey)) {
+      counts[optionKey] = Number(row.count || 0);
+    }
+  }
+  const userVote = userVoteResult.rows[0] || null;
+  const votedOptionKey = userVote ? String(userVote.option_key || "") : "";
+  const totalVotes = Object.values(counts).reduce((sum, value) => sum + Number(value || 0), 0);
+  return {
+    key: ACTIVE_SITE_VOTE.key,
+    titleKo: ACTIVE_SITE_VOTE.titleKo,
+    titleEn: ACTIVE_SITE_VOTE.titleEn,
+    questionKo: ACTIVE_SITE_VOTE.questionKo,
+    questionEn: ACTIVE_SITE_VOTE.questionEn,
+    pending: !votedOptionKey,
+    hasVoted: Boolean(votedOptionKey),
+    votedOptionKey,
+    votedAt: userVote?.created_at ? new Date(userVote.created_at).getTime() : null,
+    totalVotes,
+    options: ACTIVE_SITE_VOTE.options.map((option) => ({
+      key: option.key,
+      labelKo: option.labelKo,
+      labelEn: option.labelEn,
+      imagePath: option.imagePath,
+      count: counts[option.key] || 0,
+    })),
   };
 }
 
@@ -1538,19 +1624,30 @@ async function fetchUserRatingSnapshot(userId) {
   };
 }
 
-function pickBotTargetSec(width, height, rawDifficulty = "normal") {
+function pickBotTargetSec(width, height, rawDifficulty = "normal", rawRating = 0) {
   const difficulty = normalizeBotDifficulty(rawDifficulty);
   const key = `${width}x${height}`;
   const bySize = BOT_SOLVE_TIME_RANGE_SEC[key];
+  const getTierSpeedMultiplier = (rawRating) => {
+    const rating = normalizeRatingValue(rawRating);
+    if (rating >= 2500) return 0.84;
+    if (rating >= 2000) return 0.88;
+    if (rating >= 1500) return 0.92;
+    return 1;
+  };
+  const applySpeedMultiplier = (targetSec, rawRating) => {
+    const multiplier = getTierSpeedMultiplier(rawRating);
+    return Math.max(1, Math.round(Number(targetSec) * multiplier));
+  };
   if (bySize && Array.isArray(bySize[difficulty]) && bySize[difficulty].length === 2) {
     const [minSec, maxSec] = bySize[difficulty];
-    return randomInt(Number(minSec), Number(maxSec));
+    return applySpeedMultiplier(randomInt(Number(minSec), Number(maxSec)), rawRating);
   }
   if (bySize && Array.isArray(bySize.normal) && bySize.normal.length === 2) {
     const [minSec, maxSec] = bySize.normal;
-    return randomInt(Number(minSec), Number(maxSec));
+    return applySpeedMultiplier(randomInt(Number(minSec), Number(maxSec)), rawRating);
   }
-  return randomInt(120, 420);
+  return applySpeedMultiplier(randomInt(120, 420), rawRating);
 }
 
 function getWinStreakBonus(nextStreak) {
@@ -1698,8 +1795,8 @@ async function runAutomatedBotLadderMatch(now = Date.now()) {
     const puzzle = await fetchRandomPuzzleForSize(width, height);
     if (!puzzle) return null;
 
-    const aSec = pickBotTargetSec(width, height, botA.bot_skill);
-    const bSec = pickBotTargetSec(width, height, botB.bot_skill);
+    const aSec = pickBotTargetSec(width, height, botA.bot_skill, botA.rating);
+    const bSec = pickBotTargetSec(width, height, botB.bot_skill, botB.rating);
     let winner = botA;
     let loser = botB;
     let winnerSec = aSec;
@@ -2088,7 +2185,7 @@ async function createPvpRoomForMatch(match) {
       nickname: p.nickname,
       isBot: p.isBot === true,
       botDifficulty: p.isBot ? normalizeBotDifficulty(p.botDifficulty) : null,
-      botTargetSec: p.isBot ? pickBotTargetSec(puzzle.width, puzzle.height, p.botDifficulty) : null,
+      botTargetSec: p.isBot ? pickBotTargetSec(puzzle.width, puzzle.height, p.botDifficulty, p.rating) : null,
       joinedAt: nowIso,
       finishedAt: null,
       elapsedSec: null,
@@ -2272,7 +2369,7 @@ function advanceBotPlayers(room, now = Date.now()) {
     if (!p.isBot) continue;
     p.lastSeenAt = now;
     if (p.disconnectedAt || Number.isInteger(p.elapsedSec)) continue;
-    const targetSec = Number(p.botTargetSec || pickBotTargetSec(room.width, room.height, p.botDifficulty));
+    const targetSec = Number(p.botTargetSec || pickBotTargetSec(room.width, room.height, p.botDifficulty, p.rating));
     if (!p.botTargetSec) p.botTargetSec = targetSec;
     const elapsedSec = Math.max(0, Math.floor((now - gameStartAt) / 1000));
     const clamped = Math.min(targetSec, elapsedSec);
@@ -3091,6 +3188,38 @@ app.get("/auth/me", requireAuth, async (req, res) => {
     ok: true,
     user: buildClientUser(req.authUser),
   });
+});
+
+app.get("/vote/current", requireAuth, async (req, res) => {
+  try {
+    const vote = await buildActiveSiteVotePayloadForUser(req.authUser.id);
+    return res.json({ ok: true, vote });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/vote/current", requireAuth, async (req, res) => {
+  const optionKey = String(req.body?.optionKey || "").trim();
+  if (!ACTIVE_SITE_VOTE_OPTION_KEYS.includes(optionKey)) {
+    return res.status(400).json({ ok: false, error: "Invalid vote option" });
+  }
+  try {
+    await pool.query(
+      `INSERT INTO site_vote_responses (vote_key, user_id, option_key)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (vote_key, user_id) DO NOTHING`,
+      [ACTIVE_SITE_VOTE.key, Number(req.authUser.id), optionKey]
+    );
+    const vote = await buildActiveSiteVotePayloadForUser(req.authUser.id);
+    return res.json({
+      ok: true,
+      alreadyVoted: vote.votedOptionKey !== optionKey,
+      vote,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 const updateAuthPreferences = async (req, res) => {
