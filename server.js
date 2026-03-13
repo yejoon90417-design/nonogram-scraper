@@ -3681,8 +3681,7 @@ app.get("/replays/hall", async (_req, res) => {
              ORDER BY u.win_streak_best DESC, u.rating DESC, u.id ASC
            ) AS rank
          FROM users u
-         WHERE u.is_bot = false
-           AND u.win_streak_best > 0
+         WHERE u.win_streak_best > 0
        ) ranked
        WHERE ranked.rank <= $1
        ORDER BY ranked.rank ASC`,
