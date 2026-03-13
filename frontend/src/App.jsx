@@ -6227,7 +6227,11 @@ function App() {
         )}
 
         {(isModeMulti || isModePvp) && isLoggedIn && raceRoomCode && shouldShowPuzzleBoard && (
-          <section className="raceMatchLayout">
+          <section
+            className={`raceMatchLayout ${isMobileBoardUi ? "mobileBoardLayout" : ""} ${
+              isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusLayout" : ""
+            }`}
+          >
             <aside className="raceInfoPane">
               <div className="raceInfoTitle">
                 {L("경기 상태", "Match Status")}: {racePhaseLabel}
@@ -6402,7 +6406,7 @@ function App() {
                   </div>
                 )}
               </div>
-              <div className="singleTools">
+              <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`}>
                 <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>{L("되돌리기", "UNDO")}</button>
                 <button className="toolBtn toolRedo" onClick={redo} disabled={!canRedo || !canInteractBoard}>{L("다시하기", "REDO")}</button>
                 <button className="toolBtn toolClear" onClick={resetGrid} disabled={!canInteractBoard}>{L("초기화", "CLEAR")}</button>
@@ -6503,9 +6507,11 @@ function App() {
           </section>
         )}
 
-        {shouldShowPuzzleBoard && !isSingleSoloMode && !isInRaceRoom && <div className="timerBar">TIME {formattedTime}</div>}
         {shouldShowPuzzleBoard && !isSingleSoloMode && !isInRaceRoom && (
-          <div className="gameTools" role="toolbar" aria-label="Board tools">
+          <div className={`timerBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimer" : ""}`}>TIME {formattedTime}</div>
+        )}
+        {shouldShowPuzzleBoard && !isSingleSoloMode && !isInRaceRoom && (
+          <div className={`gameTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusGameTools" : ""}`} role="toolbar" aria-label="Board tools">
             <button
               className="iconBtn"
               onClick={undo}
@@ -6536,11 +6542,11 @@ function App() {
           </div>
         )}
         {shouldShowPuzzleBoard && isSingleSoloMode && (
-          <div className="singleBottomBar">
-            <div className="singleTimer">
+          <div className={`singleBottomBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusBottomBar" : ""}`}>
+            <div className={`singleTimer ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimerReadout" : ""}`}>
               {isModePlacementTest ? L("남은 시간", "Time Left") : "TIMER"}: {isModePlacementTest ? placementTimerText : formattedTime}
             </div>
-            <div className="singleTools" data-tutorial="single-tools">
+            <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`} data-tutorial="single-tools">
               <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
                 UNDO
               </button>
