@@ -1,7 +1,7 @@
 ﻿import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
-import { ChevronDown, Eraser, Home, Lock, LogIn, Moon, Redo2, Settings, Sun, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { ChevronDown, Eraser, Home, Lock, LogIn, Maximize2, Minimize2, Minus, Moon, Plus, Redo2, Settings, Sun, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
 import "./App.css";
 
 const DEFAULT_API_BASE = "https://nonogram-api.onrender.com";
@@ -975,6 +975,9 @@ function App() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [mobilePaintMode, setMobilePaintMode] = useState("fill"); // fill | mark
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  const [mobileBoardScale, setMobileBoardScale] = useState(1);
+  const [mobileBoardFocus, setMobileBoardFocus] = useState(false);
   const [showMultiResultModal, setShowMultiResultModal] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
   const [soundVolume, setSoundVolume] = useState(() => readInitialSoundVolume());
@@ -1719,6 +1722,21 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 900px)");
+    const apply = () => setIsNarrowViewport(Boolean(mq.matches));
+    apply();
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+    if (typeof mq.addListener === "function") {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+  }, []);
+
+  useEffect(() => {
     cellValuesRef.current = cells;
   }, [cells]);
 
@@ -1921,6 +1939,7 @@ function App() {
   const shouldShowPuzzleBoard = Boolean(
     puzzle && ((isSingleSoloMode && !isInRaceRoom) || ((isModeMulti || isModePvp) && isInRaceRoom))
   );
+  const isMobileBoardUi = shouldShowPuzzleBoard && isCoarsePointer && isNarrowViewport;
   const racePhase = raceState?.state || "idle";
   const isRaceLobby = isInRaceRoom && racePhase === "lobby";
   const isRaceCountdown = isInRaceRoom && racePhase === "countdown";
@@ -1934,6 +1953,31 @@ function App() {
     && !pvpSearching
     && !showNeedLoginPopup
     && !showPlacementRequiredPopup;
+
+  useEffect(() => {
+    if (isMobileBoardUi) return;
+    setMobileBoardFocus(false);
+    setMobileBoardScale(1);
+  }, [isMobileBoardUi]);
+
+  useEffect(() => {
+    if (typeof document === "undefined" || !mobileBoardFocus) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [mobileBoardFocus]);
+
+  const updateMobileBoardScale = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return;
+    setMobileBoardScale(Math.max(0.72, Math.min(1.9, Number(numeric.toFixed(2)))));
+  };
+
+  const nudgeMobileBoardScale = (delta) => {
+    updateMobileBoardScale(mobileBoardScale + delta);
+  };
 
   useEffect(() => {
     if (!authToken || !authUser?.id) {
@@ -6217,7 +6261,14 @@ function App() {
             </aside>
 
             <div className="raceBoardPane">
-              <div className="boardWrap" onContextMenu={(e) => e.preventDefault()}>
+              <div
+                className={`boardWrap ${isMobileBoardUi ? "mobileBoardEnabled" : ""} ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocus" : ""}`}
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div
+                  className={`mobileBoardScaleShell ${isMobileBoardUi ? "active" : ""}`}
+                  style={isMobileBoardUi ? { transform: `scale(${mobileBoardScale})` } : undefined}
+                >
                 <div className={`excelBoardScaffold ${isExcelMode ? "active" : ""}`}>
                   {isExcelMode && (
                     <div className="excelBoardHeaderRow" aria-hidden="true">
@@ -6339,6 +6390,7 @@ function App() {
                       </div>
                     </div>
                   </div>
+                </div>
                 </div>
                 {isRacePreStartMasked && (
                   <div className="racePuzzleMask">
@@ -6593,8 +6645,12 @@ function App() {
           </div>
         )}
 
-        {shouldShowPuzzleBoard && isCoarsePointer && (
-          <div className="mobilePaintToggle" role="group" aria-label={L("모바일 그리기 모드", "Mobile Paint Mode")}>
+        {isMobileBoardUi && (
+          <div
+            className={`mobilePaintToggle ${mobileBoardFocus ? "focusMode" : ""}`}
+            role="group"
+            aria-label={L("모바일 퍼즐 컨트롤", "Mobile puzzle controls")}
+          >
             <button
               type="button"
               className={`paintModeBtn ${mobilePaintMode === "fill" ? "active" : ""}`}
@@ -6608,6 +6664,23 @@ function App() {
               onClick={() => setMobilePaintMode("mark")}
             >
               {L("X 표시", "Mark X")}
+            </button>
+            <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(-0.12)} aria-label={L("축소", "Zoom out")}>
+              <Minus size={16} />
+            </button>
+            <button type="button" className="paintScaleBtn" onClick={() => updateMobileBoardScale(1)}>
+              {Math.round(mobileBoardScale * 100)}%
+            </button>
+            <button type="button" className="paintZoomBtn" onClick={() => nudgeMobileBoardScale(0.12)} aria-label={L("확대", "Zoom in")}>
+              <Plus size={16} />
+            </button>
+            <button
+              type="button"
+              className={`paintFocusBtn ${mobileBoardFocus ? "active" : ""}`}
+              onClick={() => setMobileBoardFocus((prev) => !prev)}
+            >
+              {mobileBoardFocus ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+              <span>{mobileBoardFocus ? L("닫기", "Close") : L("보드", "Board")}</span>
             </button>
           </div>
         )}
@@ -7176,10 +7249,14 @@ function App() {
 
         {shouldShowPuzzleBoard && !isInRaceRoom && (
           <div
-            className="boardWrap"
+            className={`boardWrap ${isMobileBoardUi ? "mobileBoardEnabled" : ""} ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocus" : ""}`}
             onContextMenu={(e) => e.preventDefault()}
             data-tutorial={isSingleSoloMode ? "single-board" : undefined}
           >
+            <div
+              className={`mobileBoardScaleShell ${isMobileBoardUi ? "active" : ""}`}
+              style={isMobileBoardUi ? { transform: `scale(${mobileBoardScale})` } : undefined}
+            >
             <div className={`excelBoardScaffold ${isExcelMode ? "active" : ""}`}>
               {isExcelMode && (
                 <div className="excelBoardHeaderRow" aria-hidden="true">
@@ -7326,6 +7403,7 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         )}

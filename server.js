@@ -298,7 +298,9 @@ const BOT_SOLVE_TIME_RANGE_SEC = {
 };
 const ELO_DEFAULT_RATING = 1500;
 const RATING_WIN_BASE = Math.max(1, Number(process.env.RATING_WIN_BASE || 30));
-const RATING_LOSS_BASE = Math.max(1, Number(process.env.RATING_LOSS_BASE || 18));
+const RATING_LOSS_BASE = Math.max(1, Number(process.env.RATING_LOSS_BASE || 20));
+const RATING_LOSS_MIN = Math.max(0, Number(process.env.RATING_LOSS_MIN || 7));
+const RATING_LOSS_MAX = Math.max(RATING_LOSS_MIN, Number(process.env.RATING_LOSS_MAX || 30));
 const WIN_STREAK_BONUS_TABLE = [
   [5, 10],
   [4, 7],
@@ -1920,7 +1922,10 @@ async function runAutomatedBotLadderMatch(now = Date.now()) {
     const loserRating = normalizeRatingValue(loser.rating);
     const ratingDiff = loserRating - winnerRating;
     const winnerDeltaBase = Math.max(12, Math.min(48, Math.round(RATING_WIN_BASE + ratingDiff / 130)));
-    const loserDelta = Math.max(6, Math.min(28, Math.round(RATING_LOSS_BASE + (winnerRating - loserRating) / 220)));
+    const loserDelta = Math.max(
+      RATING_LOSS_MIN,
+      Math.min(RATING_LOSS_MAX, Math.round(RATING_LOSS_BASE + (winnerRating - loserRating) / 220))
+    );
     const winnerNextStreak = Math.max(0, Number(winner.win_streak_current || 0)) + 1;
     const winnerStreakBonus = getWinStreakBonus(winnerNextStreak);
     const winnerDelta = Math.max(1, winnerDeltaBase + winnerStreakBonus);
@@ -2652,7 +2657,10 @@ async function applyRatedResultIfNeeded(room) {
     const loserRating = normalizeRatingValue(loser.rating);
     const ratingDiff = loserRating - winnerRating;
     const winnerDeltaBase = Math.max(12, Math.min(48, Math.round(RATING_WIN_BASE + ratingDiff / 130)));
-    const loserDelta = Math.max(6, Math.min(28, Math.round(RATING_LOSS_BASE + (winnerRating - loserRating) / 220)));
+    const loserDelta = Math.max(
+      RATING_LOSS_MIN,
+      Math.min(RATING_LOSS_MAX, Math.round(RATING_LOSS_BASE + (winnerRating - loserRating) / 220))
+    );
     const winnerNextStreak = Math.max(0, Number(winner.win_streak_current || 0)) + 1;
     const winnerStreakBonus = getWinStreakBonus(winnerNextStreak);
     const winnerDelta = Math.max(1, winnerDeltaBase + winnerStreakBonus);

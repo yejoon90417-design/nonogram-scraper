@@ -6803,11 +6803,25 @@ button:disabled {
   margin-top: 0.5rem;
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.4rem;
   padding: 0.24rem;
   border: 1px solid #bed0e3;
   border-radius: 999px;
   background: #f4f8fd;
+  position: relative;
+  z-index: 121;
+}
+
+.mobilePaintToggle.focusMode {
+  position: fixed;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 0;
+  box-shadow: 0 18px 44px rgba(6, 16, 30, 0.24);
+  background: rgba(244, 248, 253, 0.96);
+  backdrop-filter: blur(10px) saturate(120%);
 }
 
 .paintModeBtn {
@@ -6824,6 +6838,42 @@ button:disabled {
 .paintModeBtn.active {
   background: linear-gradient(180deg, #11a5af 0%, #0f7b83 100%);
   border-color: #0b6168;
+  color: #ffffff;
+}
+
+.paintZoomBtn,
+.paintScaleBtn,
+.paintFocusBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 34px;
+  border-radius: 999px;
+  border: 1px solid #aebfd4;
+  background: #ffffff;
+  color: #20364f;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.paintZoomBtn {
+  min-width: 34px;
+  padding: 0.25rem 0.5rem;
+}
+
+.paintScaleBtn {
+  min-width: 62px;
+  padding: 0.25rem 0.72rem;
+}
+
+.paintFocusBtn {
+  padding: 0.25rem 0.8rem;
+}
+
+.paintFocusBtn.active {
+  background: linear-gradient(180deg, #16385f 0%, #0c2340 100%);
+  border-color: #09182b;
   color: #ffffff;
 }
 
@@ -6847,6 +6897,43 @@ button:disabled {
   user-select: none;
   display: flex;
   justify-content: center;
+}
+
+.boardWrap.mobileBoardEnabled {
+  justify-content: flex-start;
+  align-items: flex-start;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileBoardScaleShell {
+  width: fit-content;
+}
+
+.mobileBoardScaleShell.active {
+  transform-origin: top left;
+  transition: transform 0.16s ease;
+}
+
+.boardWrap.mobileBoardFocus {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  padding:
+    calc(max(56px, env(safe-area-inset-top) + 52px))
+    0.85rem
+    calc(max(12px, env(safe-area-inset-bottom) + 12px))
+    0.85rem;
+  background:
+    radial-gradient(circle at top, rgba(161, 197, 233, 0.26), rgba(11, 20, 31, 0) 36%),
+    rgba(8, 14, 22, 0.95);
+}
+
+.boardWrap.mobileBoardFocus .mobileBoardScaleShell {
+  min-width: max-content;
 }
 
 .nonogram {
