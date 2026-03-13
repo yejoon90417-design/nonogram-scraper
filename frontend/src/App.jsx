@@ -2659,15 +2659,6 @@ function App() {
     setStatus("");
   };
 
-  const goLegacyRankingMode = () => {
-    if (pvpSearching && !isInRaceRoom) {
-      void cancelPvpQueue({ silent: true });
-    }
-    if (!isInRaceRoom) clearPuzzleViewState();
-    setPlayMode("legacy_ranking");
-    setStatus("");
-  };
-
   const goReplayHallMode = () => {
     if (pvpSearching && !isInRaceRoom) {
       void cancelPvpQueue({ silent: true });
@@ -5664,9 +5655,6 @@ function App() {
               <div className="hallHeroGlint" />
               <div className="hallHeroTop">
                 <div className="hallHeroTag">HALL OF FAME</div>
-                <button className="hallLegacyBtn" onClick={goLegacyRankingMode}>
-                  {L("이전 랭킹", "Legacy Ranking")}
-                </button>
               </div>
               <h2>{L("사이즈별 최고 기록", "Best Records By Size")}</h2>
               <p>

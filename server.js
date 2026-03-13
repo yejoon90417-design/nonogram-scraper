@@ -79,6 +79,14 @@ const PVP_BOT_LADDER_RECENT_PAIR_LIMIT = Math.max(
   4,
   Number(process.env.PVP_BOT_LADDER_RECENT_PAIR_LIMIT || 24)
 );
+const PVP_BOT_RECENT_APPEARANCE_TTL_MS = Math.max(
+  1000 * 60 * 45,
+  Number(process.env.PVP_BOT_RECENT_APPEARANCE_TTL_MS || 1000 * 60 * 90)
+);
+const PVP_BOT_RECENT_APPEARANCE_LIMIT = Math.max(
+  20,
+  Number(process.env.PVP_BOT_RECENT_APPEARANCE_LIMIT || 160)
+);
 const REPLAY_FRAME_MIN_INTERVAL_MS = Math.max(80, Number(process.env.REPLAY_FRAME_MIN_INTERVAL_MS || 140));
 const REPLAY_MAX_FRAMES = Math.max(200, Number(process.env.REPLAY_MAX_FRAMES || 2400));
 const PVP_FAKE_QUEUE_ENABLED = process.env.PVP_FAKE_QUEUE_ENABLED !== "false";
@@ -320,6 +328,7 @@ let pvpFakeQueueUpdatedAt = 0;
 let pvpBotLadderTimer = null;
 let pvpBotLadderRunning = false;
 const pvpBotLadderRecentPairs = [];
+const pvpRecentBotAppearances = [];
 
 app.use(cors());
 app.use((req, res, next) => {
@@ -1519,11 +1528,104 @@ function createPvpBotTicket(botUser, now = Date.now()) {
   };
 }
 
-function pickWeightedBotTicket(candidates) {
+function getBotTimeBucket(now = Date.now()) {
+  const hour = new Date(now + 9 * 60 * 60 * 1000).getUTCHours();
+  if (hour >= 6 && hour < 14) return "day";
+  if (hour >= 14 && hour < 22) return "evening";
+  return "night";
+}
+
+function getBotPreferredTimeBucket(botUserId) {
+  const id = Math.abs(Number(botUserId || 0));
+  const bucketIndex = id % 3;
+  if (bucketIndex === 0) return "day";
+  if (bucketIndex === 1) return "evening";
+  return "night";
+}
+
+function getBotTimeAffinity(botUserId, now = Date.now()) {
+  const currentBucket = getBotTimeBucket(now);
+  const preferredBucket = getBotPreferredTimeBucket(botUserId);
+  if (currentBucket === preferredBucket) return 1.75;
+  if (preferredBucket === "evening" && currentBucket === "night") return 1.18;
+  if (preferredBucket === "night" && currentBucket === "evening") return 1.12;
+  return 0.68;
+}
+
+function pruneRecentBotAppearances(now = Date.now()) {
+  for (let i = pvpRecentBotAppearances.length - 1; i >= 0; i -= 1) {
+    const item = pvpRecentBotAppearances[i];
+    if (!item || now - Number(item.at || 0) > PVP_BOT_RECENT_APPEARANCE_TTL_MS) {
+      pvpRecentBotAppearances.splice(i, 1);
+    }
+  }
+  while (pvpRecentBotAppearances.length > PVP_BOT_RECENT_APPEARANCE_LIMIT) {
+    pvpRecentBotAppearances.shift();
+  }
+}
+
+function getBotRecentAppearancePenalty(botUserId, targetUserId = null, now = Date.now()) {
+  pruneRecentBotAppearances(now);
+  const numericBotId = Number(botUserId || 0);
+  const numericTargetId = Number(targetUserId || 0);
+  let globalRank = -1;
+  let sameTargetRank = -1;
+  for (let i = pvpRecentBotAppearances.length - 1, seen = 0, seenSame = 0; i >= 0; i -= 1) {
+    const item = pvpRecentBotAppearances[i];
+    if (Number(item.botUserId) === numericBotId) {
+      if (globalRank === -1) globalRank = seen;
+      seen += 1;
+      if (Number.isInteger(numericTargetId) && numericTargetId > 0 && Number(item.targetUserId) === numericTargetId) {
+        if (sameTargetRank === -1) sameTargetRank = seenSame;
+        seenSame += 1;
+      }
+    }
+  }
+  if (sameTargetRank === 0) return 0.04;
+  if (sameTargetRank === 1) return 0.12;
+  if (sameTargetRank >= 2) return 0.35;
+  if (globalRank === 0) return 0.08;
+  if (globalRank === 1) return 0.18;
+  if (globalRank >= 2 && globalRank <= 4) return 0.48;
+  if (globalRank >= 5 && globalRank <= 8) return 0.74;
+  return 1;
+}
+
+function markRecentBotAppearance(botUserId, targetUserId = null, now = Date.now()) {
+  const numericBotId = Number(botUserId || 0);
+  if (!Number.isInteger(numericBotId)) return;
+  pruneRecentBotAppearances(now);
+  pvpRecentBotAppearances.push({
+    botUserId: numericBotId,
+    targetUserId: Number.isInteger(Number(targetUserId || 0)) ? Number(targetUserId || 0) : null,
+    at: now,
+  });
+}
+
+function getBotTierAffinity(botTicket, targetTicket = null) {
+  if (!targetTicket) return 1;
+  const botTier = getTierIndexByRating(botTicket?.rating);
+  const targetTier = getTierIndexByRating(targetTicket?.rating);
+  const gap = Math.abs(botTier - targetTier);
+  if (gap === 0) return 2.4;
+  if (gap === 1) return 1.08;
+  if (gap === 2) return 0.28;
+  return 0.08;
+}
+
+function buildBotCandidateWeight(botTicket, targetTicket = null, now = Date.now()) {
+  const baseWeight = normalizeBotSpawnWeight(botTicket?.botSpawnWeight) || 1;
+  const tierAffinity = getBotTierAffinity(botTicket, targetTicket);
+  const timeAffinity = getBotTimeAffinity(botTicket?.userId, now);
+  const recentPenalty = getBotRecentAppearancePenalty(botTicket?.userId, targetTicket?.userId, now);
+  return Math.max(0.001, baseWeight * tierAffinity * timeAffinity * recentPenalty);
+}
+
+function pickWeightedBotTicket(candidates, targetTicket = null, now = Date.now()) {
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
   const weighted = candidates.map((ticket) => ({
     ticket,
-    weight: normalizeBotSpawnWeight(ticket?.botSpawnWeight) || 1,
+    weight: buildBotCandidateWeight(ticket, targetTicket, now),
   }));
   const total = weighted.reduce((acc, x) => acc + x.weight, 0);
   if (total <= 0) return randomFrom(candidates);
@@ -1588,9 +1690,15 @@ async function fetchAvailablePvpBotTicket(now = Date.now(), targetTicket = null)
   if (!candidates.length) return null;
   if (targetTicket) {
     const preferred = candidates.filter((bot) => canTierMatch(targetTicket, bot, now));
-    if (preferred.length) return pickWeightedBotTicket(preferred);
+    if (preferred.length) {
+      const selected = pickWeightedBotTicket(preferred, targetTicket, now);
+      if (selected) markRecentBotAppearance(selected.userId, targetTicket.userId, now);
+      return selected;
+    }
   }
-  return pickWeightedBotTicket(candidates);
+  const selected = pickWeightedBotTicket(candidates, targetTicket, now);
+  if (selected) markRecentBotAppearance(selected.userId, targetTicket?.userId, now);
+  return selected;
 }
 
 async function fetchUserRatingSnapshot(userId) {
