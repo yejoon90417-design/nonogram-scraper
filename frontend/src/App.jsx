@@ -1952,13 +1952,7 @@ function App() {
   const isRacePlaying = isInRaceRoom && racePhase === "playing";
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const isRacePreStartMasked = isInRaceRoom && (isRaceLobby || isRaceCountdown);
-  const canAutoOpenVoteModal = isLoggedIn
-    && playMode !== "auth"
-    && !isInRaceRoom
-    && !placementRunning
-    && !pvpSearching
-    && !showNeedLoginPopup
-    && !showPlacementRequiredPopup;
+  const canAutoOpenVoteModal = false;
 
   useEffect(() => {
     if (isMobileBoardUi) return;
@@ -2098,22 +2092,10 @@ function App() {
   };
 
   useEffect(() => {
-    if (!authToken || !authUser?.id) {
-      setActiveVote(null);
-      setShowVoteModal(false);
-      setVoteError("");
-      votePromptedTokenRef.current = "";
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const vote = await refreshActiveVote({ autoOpen: true });
-      if (cancelled || !vote) return;
-      if (!vote.pending) setShowVoteModal(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    setActiveVote(null);
+    setShowVoteModal(false);
+    setVoteError("");
+    votePromptedTokenRef.current = "";
   }, [authToken, authUser?.id, canAutoOpenVoteModal]);
   const racePhaseLabel = useMemo(() => {
     if (racePhase === "lobby") return L("로비", "Lobby");
@@ -7075,53 +7057,6 @@ function App() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {showVoteModal && activeVote?.pending && (
-          <div className="modalBackdrop voteModalBackdrop" onClick={() => setShowVoteModal(false)}>
-            <motion.div
-              className="modalCard voteModal"
-              onClick={(e) => e.stopPropagation()}
-              initial={{ opacity: 0, y: 22, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 240, damping: 22 }}
-            >
-              <button
-                type="button"
-                className="voteModalClose"
-                onClick={() => setShowVoteModal(false)}
-                aria-label={L("닫기", "Close")}
-              >
-                ×
-              </button>
-              <div className="voteModalHeader">
-                <div className="voteModalEyebrow">{lang === "ko" ? activeVote.titleKo : activeVote.titleEn}</div>
-                <h2>{lang === "ko" ? activeVote.questionKo : activeVote.questionEn}</h2>
-              </div>
-              <div className="voteOptionGrid">
-                {(Array.isArray(activeVote.options) ? activeVote.options : []).map((option) => (
-                  <button
-                    key={option.key}
-                    type="button"
-                    className="voteOptionCard"
-                    onClick={() => submitVote(option.key)}
-                    disabled={voteSubmitting}
-                  >
-                    <div className="voteOptionImageWrap">
-                      <img
-                        className="voteOptionImage"
-                        src={getVoteOptionImageSrc(option)}
-                        alt={lang === "ko" ? option.labelKo : option.labelEn}
-                      />
-                    </div>
-                    <div className="voteOptionLabel">{lang === "ko" ? option.labelKo : option.labelEn}</div>
-                  </button>
-                ))}
-              </div>
-              {voteError && <div className="modalError">{voteError}</div>}
-            </motion.div>
           </div>
         )}
 
