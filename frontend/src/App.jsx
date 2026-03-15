@@ -1047,6 +1047,7 @@ function App() {
   const redoStackRef = useRef([]);
   const autoSolvedShownRef = useRef(false);
   const racePollRef = useRef(0);
+  const raceHeartbeatBusyRef = useRef(false);
   const pvpPollRef = useRef(0);
   const pvpRevealAnimRef = useRef(0);
   const placementSessionRef = useRef(0);
@@ -4061,6 +4062,24 @@ function App() {
     }
   };
 
+  const sendRaceHeartbeat = async (roomCode = raceRoomCode, playerId = racePlayerId, { keepalive = false } = {}) => {
+    if (!roomCode || !playerId) return;
+    if (raceHeartbeatBusyRef.current && !keepalive) return;
+    if (!keepalive) raceHeartbeatBusyRef.current = true;
+    try {
+      await fetch(`${API_BASE}/race/heartbeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomCode, playerId }),
+        keepalive,
+      });
+    } catch {
+      // ignore heartbeat failures
+    } finally {
+      if (!keepalive) raceHeartbeatBusyRef.current = false;
+    }
+  };
+
   const startRacePolling = (roomCode, playerId) => {
     if (racePollRef.current) clearInterval(racePollRef.current);
     pollRaceRoom(roomCode, playerId);
@@ -4068,6 +4087,31 @@ function App() {
       pollRaceRoom(roomCode, playerId);
     }, 700);
   };
+
+  useEffect(() => {
+    if (!raceRoomCode || !racePlayerId) return undefined;
+    sendRaceHeartbeat(raceRoomCode, racePlayerId);
+    const heartbeatId = window.setInterval(() => {
+      sendRaceHeartbeat(raceRoomCode, racePlayerId);
+    }, 5000);
+
+    const flushHeartbeat = () => {
+      sendRaceHeartbeat(raceRoomCode, racePlayerId, { keepalive: true });
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushHeartbeat();
+    };
+
+    window.addEventListener("pagehide", flushHeartbeat);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.clearInterval(heartbeatId);
+      window.removeEventListener("pagehide", flushHeartbeat);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [raceRoomCode, racePlayerId]);
 
   const createRaceRoom = async () => {
     const roomTitle = createRoomTitle.trim();

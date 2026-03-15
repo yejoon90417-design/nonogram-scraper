@@ -1929,8 +1929,8 @@ async function runAutomatedBotLadderMatch(now = Date.now()) {
     const winnerNextStreak = Math.max(0, Number(winner.win_streak_current || 0)) + 1;
     const winnerStreakBonus = getWinStreakBonus(winnerNextStreak);
     const winnerDelta = Math.max(1, winnerDeltaBase + winnerStreakBonus);
-    const winnerNext = Math.max(0, Math.min(5000, winnerRating + winnerDelta));
-    const loserNext = Math.max(0, Math.min(5000, loserRating - loserDelta));
+    const winnerNext = Math.max(0, Math.min(10000, winnerRating + winnerDelta));
+    const loserNext = Math.max(0, Math.min(10000, loserRating - loserDelta));
 
     const roomCode = `B${randomCode()}${randomCode()}`.slice(0, 12);
     const roomCreatedAtMs = now - randomInt(8000, 18000);
@@ -2664,8 +2664,8 @@ async function applyRatedResultIfNeeded(room) {
     const winnerNextStreak = Math.max(0, Number(winner.win_streak_current || 0)) + 1;
     const winnerStreakBonus = getWinStreakBonus(winnerNextStreak);
     const winnerDelta = Math.max(1, winnerDeltaBase + winnerStreakBonus);
-    const winnerNext = Math.max(0, Math.min(5000, winnerRating + winnerDelta));
-    const loserNext = Math.max(0, Math.min(5000, loserRating - loserDelta));
+    const winnerNext = Math.max(0, Math.min(10000, winnerRating + winnerDelta));
+    const loserNext = Math.max(0, Math.min(10000, loserRating - loserDelta));
 
     await client.query(
       `UPDATE users
@@ -4727,6 +4727,25 @@ app.post("/race/rematch", async (req, res) => {
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+app.post("/race/heartbeat", (req, res) => {
+  const roomCode = String(req.body?.roomCode || "").trim().toUpperCase();
+  const playerId = String(req.body?.playerId || "").trim();
+  if (!roomCode || !playerId) {
+    return res.status(400).json({ ok: false, error: "roomCode/playerId are required" });
+  }
+  const room = raceRooms.get(roomCode);
+  if (!room) {
+    return res.status(404).json({ ok: false, error: "Room not found" });
+  }
+  syncRoomState(room);
+  const player = room.players.get(playerId);
+  if (!player) {
+    return res.status(404).json({ ok: false, error: "Player not found in room" });
+  }
+  touchPlayer(room, playerId);
+  return res.json({ ok: true });
 });
 
 app.get("/race/:roomCode", (req, res) => {
