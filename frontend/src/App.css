@@ -1340,6 +1340,7 @@
 .page.themeDark .profileEyebrow,
 .page.themeDark .profileUsername,
 .page.themeDark .profileSectionSub,
+.page.themeDark .authCardIntro,
 .page.themeDark .profileStatCard span,
 .page.themeDark .profileRewardItem span {
   color: #97b0cc;
@@ -1349,6 +1350,7 @@
 .page.themeDark .profileSectionTitle,
 .page.themeDark .profileStatCard strong,
 .page.themeDark .profileRewardItem strong,
+.page.themeDark .profileEmailField span,
 .page.themeDark .profileTierLine {
   color: #e3efff;
 }
@@ -1390,6 +1392,37 @@
 .page.themeDark .profileAvatarOption.hasTooltip::after {
   background: rgba(6, 12, 22, 0.96);
   color: #eef6ff;
+}
+
+.page.themeDark .inlineNotice.success {
+  border-color: rgba(59, 192, 127, 0.4);
+  background: rgba(11, 49, 33, 0.88);
+  color: #b8f5d2;
+}
+
+.page.themeDark .inlineNotice.error {
+  border-color: rgba(220, 96, 120, 0.44);
+  background: rgba(59, 22, 31, 0.88);
+  color: #ffd0d9;
+}
+
+.page.themeDark .profileEmailPanel {
+  border-color: #29415c;
+  background: #0d1f34;
+}
+
+.page.themeDark .authInlineLink {
+  color: #85c7ff;
+}
+
+.page.themeDark .profileEmailBadge.verified {
+  background: rgba(33, 122, 84, 0.2);
+  color: #bff0d3;
+}
+
+.page.themeDark .profileEmailBadge.pending {
+  background: rgba(140, 156, 177, 0.16);
+  color: #c8d7ea;
 }
 
 .page.themeDark .profileStatCard,
@@ -5533,6 +5566,50 @@
   gap: 0.48rem;
 }
 
+.authCardIntro {
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #5f7793;
+}
+
+.authInlineLink {
+  width: fit-content;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #1f6fb1;
+}
+
+.authInlineActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.inlineNotice {
+  border: 1px solid #d7e2ee;
+  border-radius: 10px;
+  padding: 0.58rem 0.68rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.inlineNotice.success {
+  border-color: rgba(48, 135, 86, 0.24);
+  background: #f1fff6;
+  color: #1f6a39;
+}
+
+.inlineNotice.error {
+  border-color: rgba(194, 74, 95, 0.24);
+  background: #fff4f6;
+  color: #8f1e34;
+}
+
 .signupAgreements {
   display: grid;
   gap: 0.35rem;
@@ -6209,6 +6286,18 @@
   gap: 0.48rem;
 }
 
+.profileEmailPanel {
+  border: 1px solid #d6e2ef;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f1f7fd 100%);
+  padding: 0.72rem;
+}
+
+.profileEmailPanel .profileSectionHead {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
 .profileSectionHead {
   display: grid;
   gap: 0.12rem;
@@ -6224,6 +6313,46 @@
   font-size: 0.78rem;
   font-weight: 700;
   color: #6b819a;
+}
+
+.profileEmailBadge {
+  width: fit-content;
+  min-height: 28px;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.profileEmailBadge.verified {
+  background: rgba(47, 142, 88, 0.12);
+  color: #1f6a39;
+}
+
+.profileEmailBadge.pending {
+  background: rgba(87, 113, 145, 0.12);
+  color: #4f6682;
+}
+
+.profileEmailRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.profileEmailField {
+  display: grid;
+  gap: 0.28rem;
+}
+
+.profileEmailField span {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #234362;
 }
 
 .profileTabRow {
@@ -6699,6 +6828,11 @@
 
   .profileAvatarGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profileEmailPanel .profileSectionHead,
+  .profileEmailRow {
+    grid-template-columns: 1fr;
   }
 }
 
