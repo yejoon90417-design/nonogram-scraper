@@ -307,6 +307,14 @@ function getTierInfoByRating(ratingRaw, rankRaw = null) {
   return { key: "bronze", labelKo: "브론즈", labelEn: "Bronze" };
 }
 
+function getRankingTierInfoByRating(ratingRaw, rankRaw = null) {
+  const rank = Number(rankRaw || 0);
+  if (Number.isInteger(rank) && rank >= 1 && rank <= 5) {
+    return { key: "challenger", labelKo: "챌린저", labelEn: "Challenger" };
+  }
+  return getTierInfoByRating(ratingRaw, rankRaw);
+}
+
 function isGoldOrHigherTierKey(raw) {
   const tierKey = String(raw || "").trim().toLowerCase();
   return tierKey === "gold" || tierKey === "diamond" || tierKey === "master";
@@ -1980,7 +1988,7 @@ function App() {
   const placementAssignedTier = hasPlacementQualification
     ? getTierInfoByRating(placementAssignedRating, myRatingRank)
     : null;
-  const myTierInfo = isLoggedIn ? getTierInfoByRating(authUser?.rating, myRatingRank) : null;
+  const myTierInfo = isLoggedIn ? getRankingTierInfoByRating(authUser?.rating, myRatingRank) : null;
   const isInRaceRoom = Boolean(raceRoomCode);
   const isSingleSoloMode = (isModeSingle || isModeTutorial || isModePlacementTest) && !isInRaceRoom;
   const shouldShowPuzzleBoard = Boolean(
@@ -5874,7 +5882,9 @@ function App() {
                       const wins = Number(u.rating_wins || 0);
                       const losses = Number(u.rating_losses || 0);
                       const winRate = games > 0 ? Math.round((wins / games) * 100) : 0;
-                      const tierInfo = getTierInfoByRating(u.rating, idx + 1);
+                      const tierInfo = isModeLegacyRanking
+                        ? getTierInfoByRating(u.rating, idx + 1)
+                        : getRankingTierInfoByRating(u.rating, idx + 1);
                       return (
                         <tr key={u.id}>
                           <td>{idx + 1}</td>
