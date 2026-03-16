@@ -309,7 +309,7 @@ function getTierInfoByRating(ratingRaw, rankRaw = null) {
 
 function getRankingTierInfoByRating(ratingRaw, rankRaw = null) {
   const rank = Number(rankRaw || 0);
-  if (Number.isInteger(rank) && rank >= 1 && rank <= 5) {
+  if (Number.isInteger(rank) && rank >= 1 && rank <= 3) {
     return { key: "challenger", labelKo: "챌린저", labelEn: "Challenger" };
   }
   return getTierInfoByRating(ratingRaw, rankRaw);
