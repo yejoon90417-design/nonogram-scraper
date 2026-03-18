@@ -1023,6 +1023,9 @@ function App() {
   const [creatorSamples, setCreatorSamples] = useState(DEFAULT_CREATOR_SAMPLE_PUZZLES);
   const [creatorSamplesLoading, setCreatorSamplesLoading] = useState(false);
   const [creatorSaving, setCreatorSaving] = useState(false);
+  const [creatorMyPuzzles, setCreatorMyPuzzles] = useState([]);
+  const [creatorMyPuzzlesLoading, setCreatorMyPuzzlesLoading] = useState(false);
+  const [creatorMyPuzzlesOpen, setCreatorMyPuzzlesOpen] = useState(false);
   const [customSizeGroup, setCustomSizeGroup] = useState("small");
   const [communityPuzzles, setCommunityPuzzles] = useState([]);
   const [communityLoading, setCommunityLoading] = useState(false);
@@ -3152,6 +3155,9 @@ function App() {
     }
     setPlayMode("create");
     setStatus("");
+    if (isLoggedIn && creatorMyPuzzlesOpen) {
+      void loadMyCreatorPuzzles({ silent: true });
+    }
     const draft = creatorDraftRef.current;
     if (draft) {
       loadCreatorCanvas(draft.width, draft.height, draft.cells);
@@ -3299,6 +3305,29 @@ function App() {
     }
   }, [adminCreatorHeaders, isCreatorAdminUser, lang]);
 
+  const loadMyCreatorPuzzles = useCallback(async ({ silent = false } = {}) => {
+    if (!isLoggedIn) {
+      setCreatorMyPuzzles([]);
+      return;
+    }
+    if (!silent) setCreatorMyPuzzlesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-puzzles/mine`, { headers: { ...authHeaders } });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !Array.isArray(data.puzzles)) {
+        throw new Error(data.error || "Failed to load submitted puzzles.");
+      }
+      setCreatorMyPuzzles(data.puzzles);
+    } catch (err) {
+      if (!silent) {
+        setStatus(err.message || L("내 제출 퍼즐을 불러오지 못했습니다.", "Failed to load your submissions."));
+      }
+      setCreatorMyPuzzles([]);
+    } finally {
+      if (!silent) setCreatorMyPuzzlesLoading(false);
+    }
+  }, [API_BASE, authHeaders, isLoggedIn, lang]);
+
   const markCommunityPuzzleSolved = useCallback((puzzleId) => {
     const targetId = String(puzzleId || "").trim();
     if (!targetId) return;
@@ -3405,6 +3434,8 @@ function App() {
           `"${title}" passed validation and is now waiting for admin approval.`
         )
       );
+      setCreatorMyPuzzlesOpen(true);
+      void loadMyCreatorPuzzles({ silent: true });
       playSfx("ui");
     } catch (err) {
       setStatus(err.message || L("퍼즐 저장에 실패했습니다.", "Failed to save the puzzle."));
@@ -3614,6 +3645,15 @@ function App() {
   useEffect(() => {
     void loadCreatorSamples({ silent: true });
   }, [loadCreatorSamples, authToken, authUser?.id]);
+
+  useEffect(() => {
+    if (!creatorMyPuzzlesOpen) return;
+    if (!isLoggedIn) {
+      setCreatorMyPuzzles([]);
+      return;
+    }
+    void loadMyCreatorPuzzles({ silent: true });
+  }, [creatorMyPuzzlesOpen, isLoggedIn, loadMyCreatorPuzzles, authUser?.id]);
 
   useEffect(() => {
     void loadCommunityPuzzles({ silent: true });
@@ -7446,6 +7486,92 @@ function App() {
 
         {isModeCreate && (
           <section className="createPuzzleScreen">
+            {creatorMyPuzzlesOpen && (
+              <section className="creatorSubmissionsScreen">
+                <div className="controls singleTopControls createTopControls createSubmissionsTopControls">
+                  <div className="createSubmissionsTitleWrap">
+                    <div className="singleSourceTitle">{L("내 제출 퍼즐", "My Submitted Puzzles")}</div>
+                    <div className="singleSourceSubtitle">
+                      {L("승인 대기 상태와 검증 결과를 여기서 확인할 수 있습니다.", "You can check approval status and validation results here.")}
+                    </div>
+                  </div>
+                  <button className="singleSfxBtn" onClick={() => setCreatorMyPuzzlesOpen(false)}>
+                    {L("퍼즐 만들기로", "Back to Creator")}
+                  </button>
+                  <button className="singleActionBtn" onClick={() => loadMyCreatorPuzzles()} disabled={creatorMyPuzzlesLoading}>
+                    {creatorMyPuzzlesLoading ? L("불러오는 중...", "Loading...") : L("새로고침", "Refresh")}
+                  </button>
+                  <button className="singleHomeBtn" onClick={backToMenu}>
+                    HOME
+                  </button>
+                </div>
+
+                <div className="creatorSubmissionsList creatorSubmissionsListLarge">
+                  {!isLoggedIn ? (
+                    <div className="singleCommunityEmpty">
+                      {L("로그인 후 제출 목록을 확인할 수 있습니다.", "Log in to view your submissions.")}
+                    </div>
+                  ) : creatorMyPuzzles.length ? (
+                    creatorMyPuzzles.map((item) => {
+                      const approvalStatus = String(item.approvalStatus || "pending");
+                      const approvalLabel =
+                        approvalStatus === "approved"
+                          ? L("승인됨", "Approved")
+                          : approvalStatus === "rejected"
+                            ? L("반려됨", "Rejected")
+                            : L("승인 대기", "Pending");
+                      const approvalClass =
+                        approvalStatus === "approved"
+                          ? "approved"
+                          : approvalStatus === "rejected"
+                            ? "rejected"
+                            : "pending";
+                      return (
+                        <article key={`creator-mine-${item.id}`} className="creatorSubmissionCard creatorSubmissionCardLarge">
+                          <div
+                            className="createSamplePreview creatorSubmissionPreviewLarge"
+                            style={{
+                              gridTemplateColumns: `repeat(${item.width}, 1fr)`,
+                              gridTemplateRows: `repeat(${item.height}, 1fr)`,
+                            }}
+                          >
+                            {(Array.isArray(item.rows) ? item.rows : []).flatMap((row, rowIndex) =>
+                              Array.from(String(row || "")).map((cell, colIndex) => (
+                                <span
+                                  key={`creator-mine-preview-${item.id}-${rowIndex}-${colIndex}`}
+                                  className={`createSamplePixel ${cell === "#" ? "filled" : ""}`}
+                                />
+                              ))
+                            )}
+                          </div>
+                          <div className="creatorSubmissionTop">
+                            <div>
+                              <strong>{lang === "ko" ? item.titleKo : item.titleEn}</strong>
+                              <div className="creatorSubmissionMeta">
+                                <span>{item.width}x{item.height}</span>
+                                <span>{item.createdAt ? new Date(item.createdAt).toLocaleString() : ""}</span>
+                              </div>
+                            </div>
+                            <span className={`creatorSubmissionStatus ${approvalClass}`}>{approvalLabel}</span>
+                          </div>
+                          {item.approvalNote ? (
+                            <div className="creatorSubmissionNote">
+                              {L("메모", "Note")}: {item.approvalNote}
+                            </div>
+                          ) : null}
+                        </article>
+                      );
+                    })
+                  ) : (
+                    <div className="singleCommunityEmpty">
+                      {L("아직 제출한 퍼즐이 없습니다.", "You have not submitted any puzzles yet.")}
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {!creatorMyPuzzlesOpen && (
             <div className="controls singleTopControls createTopControls">
               <label className="createTitleField">
                 <span>{L("퍼즐 이름", "Puzzle Title")}</span>
@@ -7490,6 +7616,19 @@ function App() {
               <button className="singleActionBtn" onClick={saveCreatorPuzzle} disabled={creatorSaving || !puzzle}>
                 {creatorSaving ? L("제출 중...", "Submitting...") : L("제출", "Submit")}
               </button>
+              <button
+                className="singleSfxBtn"
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    setStatus(L("로그인 후 제출 목록을 볼 수 있습니다.", "Please log in to view your submissions."));
+                    return;
+                  }
+                  setCreatorMyPuzzlesOpen(true);
+                  void loadMyCreatorPuzzles();
+                }}
+              >
+                {L("내 제출 퍼즐", "My Submissions")}
+              </button>
               <button className="singleActionBtn" onClick={startCreatorSingleTest} disabled={!puzzle}>
                 {L("싱글 테스트", "Test Play")}
               </button>
@@ -7497,8 +7636,9 @@ function App() {
                 HOME
               </button>
             </div>
+            )}
 
-            {!puzzle && (
+            {!creatorMyPuzzlesOpen && !puzzle && (
               <div className="createBlankState">
                 <div className="createBlankArt" aria-hidden="true" />
                 <div className="createBlankText">
@@ -7508,7 +7648,7 @@ function App() {
               </div>
             )}
 
-            {puzzle && (
+            {!creatorMyPuzzlesOpen && puzzle && (
               <div className="createEditorToolbar">
                 <div className="createIconGroup">
                   <button type="button" className="createIconBtn" onClick={undo} disabled={!canUndo} aria-label={L("되돌리기", "Undo")} title={L("되돌리기", "Undo")}>

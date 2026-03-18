@@ -3846,6 +3846,37 @@ async function fetchCreatorCommunityPuzzleRowById(puzzleId, viewerUserId = null)
   return rows[0] || null;
 }
 
+async function fetchCreatorUserPuzzleRowsByUserId(userId) {
+  const numericUserId = Number(userId || 0);
+  if (!Number.isInteger(numericUserId) || numericUserId <= 0) return [];
+  const { rows } = await pool.query(
+    `SELECT
+       p.*,
+       COALESCE(u.nickname, '익명') AS created_by_nickname,
+       0::int AS comment_count,
+       0::int AS like_count,
+       0::int AS love_count,
+       0::int AS wow_count,
+       ''::text AS viewer_reaction,
+       false AS viewer_solved
+     FROM creator_user_puzzles p
+     LEFT JOIN users u
+       ON u.id = p.created_by_user_id
+     WHERE p.created_by_user_id = $1
+     ORDER BY
+       CASE p.approval_status
+         WHEN 'pending' THEN 1
+         WHEN 'approved' THEN 2
+         WHEN 'rejected' THEN 3
+         ELSE 99
+       END,
+       p.created_at DESC,
+       p.id ASC`,
+    [numericUserId]
+  );
+  return rows;
+}
+
 app.get("/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -4612,6 +4643,18 @@ app.get("/creator-community-puzzles/:id/discussion", async (req, res) => {
         userId: Number(row.user_id || 0),
         nickname: String(row.nickname || ""),
       })),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/creator-puzzles/mine", requireAuth, async (req, res) => {
+  try {
+    const rows = await fetchCreatorUserPuzzleRowsByUserId(req.authUser.id);
+    return res.json({
+      ok: true,
+      puzzles: rows.map(mapCreatorCommunityPuzzleRow),
     });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message });
