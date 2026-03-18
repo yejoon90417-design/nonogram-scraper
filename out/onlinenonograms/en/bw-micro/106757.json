@@ -1,0 +1,289 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 106757,
+  "title": "Bed",
+  "width": 10,
+  "height": 7,
+  "detailUrl": "https://onlinenonograms.com/en/id/106757",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/106757.webp",
+  "previewAlt": "#106757",
+  "likes": 15,
+  "dislikes": 4,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #106757",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/106757",
+  "publishedText": "September 1, 2025",
+  "decodedTitle": "Bed",
+  "payload": {
+    "sx": 10,
+    "sy": 7,
+    "p": "dU/BDsIgDPaXeu0BJlPL0d9AsiyTgxElQdhlab8LhJBs0TZ97XuvPXSBl5sNSKUIeU2C0qhyr+wn3+8T0h/OGa9K8anj82r7fdI1IXoLEp7ezWMY4qU79ydA8HEIjaDTC3CLTPAxoaAZj6ZgV7AoosxiSnfm3e6u5p6EyVnnPyAX4Ek7sBKwrl8=",
+    "id": 106757,
+    "agurl": "picross",
+    "url": "krovat_u82756",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        9,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9
+      ]
+    ],
+    "url": "krovat_u82756",
+    "ru_title": "Кровать",
+    "en_title": "Bed",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0110000000",
+    "1001000000",
+    "1111110110",
+    "1111111001",
+    "1001111111",
+    "0000011101",
+    "0000001000"
+  ],
+  "rowHints": [
+    [
+      2
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      6,
+      2
+    ],
+    [
+      7,
+      1
+    ],
+    [
+      1,
+      7
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      4
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      4
+    ],
+    [
+      3
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      3
+    ]
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 105943,
+  "title": "Cylinder piston",
+  "width": 5,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/105943",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/105943.webp",
+  "previewAlt": "#105943",
+  "likes": 19,
+  "dislikes": 6,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #105943",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/105943",
+  "publishedText": "July 9, 2025",
+  "decodedTitle": "Cylinder piston",
+  "payload": {
+    "sx": 5,
+    "sy": 10,
+    "p": "dY5BCsMgEEWvEqZbFxlrIbrtMUzIIrFUsBpMLJSQu2cnFFJoZ+At/hu+rvAITwNK18mQye/tmC4ZHgwe0t3sFv/e/urtGKToQMEU4nw3vk8NSsGBQUz9YheXfwRtqgXeCs+mUNTEhpILc1RkqOhUEHkhx2yV1z9V25ezfjSxmuy8BJ/lEFx+GtQKmPappoFtewM=",
+    "id": 105943,
+    "agurl": "picross",
+    "url": "porshen_u81942",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "porshen_u81942",
+    "ru_title": "Поршень ДВС",
+    "en_title": "Cylinder piston",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "01110",
+    "10001",
+    "01110",
+    "01010",
+    "00100",
+    "00100",
+    "00100",
+    "00100",
+    "01010",
+    "00100"
+  ],
+  "rowHints": [
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1,
+      1,
+      4,
+      1
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

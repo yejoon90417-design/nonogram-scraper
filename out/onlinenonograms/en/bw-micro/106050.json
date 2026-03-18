@@ -1,0 +1,227 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 106050,
+  "title": "Crown",
+  "width": 9,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/106050",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/106050.webp",
+  "previewAlt": "#106050",
+  "likes": 14,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #106050",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/106050",
+  "publishedText": "July 14, 2025",
+  "decodedTitle": "Crown",
+  "payload": {
+    "sx": 9,
+    "sy": 5,
+    "p": "q2bKzS9LVbKKjjbUgUDLWJ2oSwhLxxDMhvAM0cShLAxxfOoh5sfqKJUW5ShZKWXnF+XnJc1XWhgZmFgq6SgVlc1XZJbkAJajFFNqYGKYCCKNU0GkiQGCbZwCJgaAOlLz4Dqci/LL84BCyfk5+UXFSlbVSoZAUWUDMFCqrQUA",
+    "id": 106050,
+    "agurl": "picross",
+    "url": "korona_u82049",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9
+      ]
+    ],
+    "url": "korona_u82049",
+    "ru_title": "Корона",
+    "en_title": "Crown",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "100010001",
+    "110111011",
+    "111101111",
+    "101010101",
+    "011111110"
+  ],
+  "rowHints": [
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      2,
+      3,
+      2
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      7
+    ]
+  ],
+  "colHints": [
+    [
+      4
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      4
+    ]
+  ]
+}

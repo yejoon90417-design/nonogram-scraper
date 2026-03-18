@@ -1,0 +1,378 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 107573,
+  "title": "Calipers",
+  "width": 10,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/107573",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/107573.webp",
+  "previewAlt": "#107573",
+  "likes": 17,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #107573",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/107573",
+  "publishedText": "October 12, 2025",
+  "decodedTitle": "Calipers",
+  "payload": {
+    "sx": 10,
+    "sy": 10,
+    "p": "hZDBDoIwDIbfpV53YILKdvUxkBDEHQiTmcG8EN7dUthYuLgmf/98bf4mm+BtvgpkUQjGsVZdOlbJCk/E3olGW4GKiG2+SxB/qAj0uL3n8iiBE/XcTz09XisZOKtBQmdNPw6t7ZyuXJ5ebmdgYF02tqPGP4CHSzJeL5oli61K9EXkSj6PputmSv5JvsE82Ye8e63bj7ID0sZog0ZOwHFwSujBPP8A",
+    "id": 107573,
+    "agurl": "picross",
+    "url": "krontsirkul_u83572",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ]
+    ],
+    "url": "krontsirkul_u83572",
+    "ru_title": "Кронциркуль",
+    "en_title": "Calipers",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0110111000",
+    "1011001100",
+    "1111000110",
+    "0110000110",
+    "1000000010",
+    "1000000010",
+    "1100000010",
+    "0111100111",
+    "0001111101",
+    "0000000110"
+  ],
+  "rowHints": [
+    [
+      2,
+      3
+    ],
+    [
+      1,
+      2,
+      2
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      4,
+      3
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      2,
+      3
+    ],
+    [
+      1,
+      2,
+      2
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      6,
+      1
+    ],
+    [
+      2
+    ]
+  ]
+}

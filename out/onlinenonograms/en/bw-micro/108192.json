@@ -1,0 +1,226 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 108192,
+  "title": "Цветок",
+  "width": 8,
+  "height": 6,
+  "detailUrl": "https://onlinenonograms.com/en/id/108192",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/108192.webp",
+  "previewAlt": "#108192",
+  "likes": 25,
+  "dislikes": 3,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #108192",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/108192",
+  "publishedText": "November 1, 2025",
+  "decodedTitle": "Цветок",
+  "payload": {
+    "sx": 8,
+    "sy": 6,
+    "p": "Xc7BCsMgDAbgd/l39dC4bhBfxZUyhocxN8FqL6Xv3mjtYDPwky81cME7zA7GWlYkx1UGZUvXXEVNJDpuqImPt030o33yr0EhRw+DNM0uhdeom1EQ85ieycuHcMtdr68lz7rmpWS/967mXTbc57shegQf4gSzgGRw6urBum4=",
+    "id": 108192,
+    "agurl": "picross",
+    "url": "tsvetok_299",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        9
+      ]
+    ],
+    "url": "tsvetok_299",
+    "ru_title": "Цветок",
+    "en_title": "",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "01100000",
+    "10110000",
+    "11110100",
+    "01101100",
+    "00011111",
+    "00110000"
+  ],
+  "rowHints": [
+    [
+      2
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      5
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      2
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2
+    ],
+    [
+      3
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

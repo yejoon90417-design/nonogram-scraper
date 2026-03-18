@@ -1,0 +1,311 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 109318,
+  "title": "Flip-flops",
+  "width": 6,
+  "height": 12,
+  "detailUrl": "https://onlinenonograms.com/en/id/109318",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/109318.webp",
+  "previewAlt": "#109318",
+  "likes": 32,
+  "dislikes": 6,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #109318",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/109318",
+  "publishedText": "December 13, 2025",
+  "decodedTitle": "Flip-flops",
+  "payload": {
+    "sx": 6,
+    "sy": 12,
+    "p": "ZY/hCoMgFIXf5e6vA53Fpg+wl3AR0RzELMO0P9G7z640cvPA4XrPvR+6QG9nDVIpQVgmkVQRld3JPrcnv3tRh5acuCUi5x9o4m8+v1AiEJwBCbPaQ9Pbdx2uJWdXIOBC7Ttv4gfgEWjBLpsX7e18xBo7/IlO0VOq0ZvI0MOXcTfdeH4ZO06x32pj3QRyAR1jE8UD6/oB",
+    "id": 109318,
+    "agurl": "picross",
+    "url": "vetnamok_u85317",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "vetnamok_u85317",
+    "ru_title": "Вьетнамок",
+    "en_title": "Flip-flops",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "011100",
+    "111110",
+    "110111",
+    "101011",
+    "101101",
+    "101101",
+    "101101",
+    "101101",
+    "011110",
+    "011110",
+    "011010",
+    "001100"
+  ],
+  "rowHints": [
+    [
+      3
+    ],
+    [
+      5
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      1,
+      1,
+      2
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      1,
+      2,
+      1
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      7
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      2,
+      9
+    ],
+    [
+      3,
+      6,
+      1
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      6
+    ]
+  ]
+}

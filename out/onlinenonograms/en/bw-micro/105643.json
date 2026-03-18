@@ -1,0 +1,192 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 105643,
+  "title": "Helicopter full face",
+  "width": 7,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/105643",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/105643.webp",
+  "previewAlt": "#105643",
+  "likes": 14,
+  "dislikes": 6,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #105643",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/105643",
+  "publishedText": "June 15, 2025",
+  "decodedTitle": "Helicopter full face",
+  "payload": {
+    "sx": 7,
+    "sy": 5,
+    "p": "ZY2bCsIwEEW3EsbffHT1VDQrcA+2FK2TKIxGYlKQ0rabR6mgGThcDpebGe5mItBNg/KYr5VbxjVjuOjX9Od/+3mnleAtg41JrDP8Nq7zB9yrEiRY37nRcfgZzr5QWEZWd1QqErOhxGtkjdmLpFKpuiWlvkZhGKfHNn4iHnvzdGTF4JnFcOkpNHrDxr5Az4ChtCvSgaX5AA==",
+    "id": 105643,
+    "agurl": "picross",
+    "url": "vertolyot_u81642",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "vertolyot_u81642",
+    "ru_title": "Вертолёт анфас",
+    "en_title": "Helicopter full face",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "1110111",
+    "0001000",
+    "0011100",
+    "0010100",
+    "0101010"
+  ],
+  "rowHints": [
+    [
+      3,
+      3
+    ],
+    [
+      1
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

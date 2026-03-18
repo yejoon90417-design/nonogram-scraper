@@ -2,7 +2,8 @@
 import confetti from "canvas-confetti";
 import EmojiPicker from "emoji-picker-react";
 import { motion } from "framer-motion";
-import { ChevronDown, Eraser, GripHorizontal, Home, Lock, LogIn, Maximize2, Minimize2, Minus, Moon, Plus, Redo2, Settings, Sun, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ChevronDown, Eraser, GripHorizontal, Home, Lock, LogIn, Maximize2, Minimize2, Minus, Moon, Plus, Redo2, Settings, Sun, Trophy, Undo2, User, UserPlus, Volume2, VolumeX } from "lucide-react";
+import { GENERATED_CREATOR_SAMPLE_PUZZLES } from "./creatorSamples.generated";
 import "./App.css";
 
 const DEFAULT_API_BASE = "https://nonogram-api.onrender.com";
@@ -18,6 +19,7 @@ function normalizeApiBase(raw) {
 
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE_URL);
 const MAX_HISTORY = 200;
+const SOLVED_REVEAL_DURATION_MS = 820;
 const AUTH_TOKEN_KEY = "nonogram-auth-token";
 const AUTH_USER_KEY = "nonogram-auth-user";
 const PROFILE_AVATAR_LOCAL_OVERRIDES_KEY = "nonogram-local-profile-avatar-overrides";
@@ -26,16 +28,23 @@ const THEME_KEY = "nonogram-ui-theme";
 const STYLE_VARIANT_KEY = "nonogram-ui-style-variant";
 const SOUND_KEY = "nonogram-ui-sound";
 const TUTORIAL_SEEN_KEY = "nonogram-tutorial-seen-v1";
+const CREATOR_ADMIN_KEY = "nonogram-creator-admin-key";
+const PATCH_NOTES_VERSION = "theme-puzzles-2026-03-18-v1";
 const PVP_SIZE_KEYS = ["5x5", "10x10", "15x15", "20x20", "25x25"];
 const PVP_SIZE_KEYS_LOW_TIER = ["5x5", "10x10", "15x15"];
-const PVP_SIZE_KEYS_GOLD_PLUS = ["10x10", "15x15", "20x20", "25x25"];
+const PVP_SIZE_KEYS_GOLD_TIER = ["10x10", "15x15", "20x20"];
+const PVP_SIZE_KEYS_DIAMOND_PLUS = ["10x10", "15x15", "20x20", "25x25"];
 const PVP_REVEAL_RESULT_HOLD_MS = 1600;
 const SOUND_MASTER_GAIN_MAX = 0.34;
+const CREATOR_REACTION_OPTIONS = [
+  { key: "like", emoji: "👍", labelKo: "좋아요", labelEn: "Like" },
+];
 const ADSENSE_SCRIPT_ID = "adsense-auto-script";
 const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1492932683312516";
 const MODE_TO_PATH = {
   menu: "/",
   single: "/single",
+  create: "/create",
   multi: "/multi",
   pvp: "/pvp",
   placement_test: "/placement",
@@ -269,6 +278,7 @@ function normalizePath(pathname) {
 function getModeFromPath(pathname) {
   const path = normalizePath(pathname);
   if (path === "/single") return "single";
+  if (path === "/create") return "create";
   if (path === "/multi") return "multi";
   if (path === "/pvp") return "pvp";
   if (path === "/placement") return "placement_test";
@@ -321,6 +331,19 @@ function isGoldOrHigherTierKey(raw) {
   return tierKey === "gold" || tierKey === "diamond" || tierKey === "master";
 }
 
+function getPvpSizeBracketByTierKey(raw) {
+  const tierKey = String(raw || "").trim().toLowerCase();
+  if (tierKey === "diamond" || tierKey === "master") return "diamond_plus";
+  if (tierKey === "gold") return "gold";
+  return "low";
+}
+
+function getPvpAllowedSizeKeysForBracket(bracket) {
+  if (bracket === "diamond_plus") return PVP_SIZE_KEYS_DIAMOND_PLUS;
+  if (bracket === "gold") return PVP_SIZE_KEYS_GOLD_TIER;
+  return PVP_SIZE_KEYS_LOW_TIER;
+}
+
 function getAllowedPvpSizeKeys(players, viewerUser) {
   const playerTierKeys = Array.isArray(players)
     ? players
@@ -329,16 +352,21 @@ function getAllowedPvpSizeKeys(players, viewerUser) {
     : [];
 
   if (playerTierKeys.length >= 2) {
-    return playerTierKeys.every((tierKey) => isGoldOrHigherTierKey(tierKey))
-      ? PVP_SIZE_KEYS_GOLD_PLUS
-      : PVP_SIZE_KEYS_LOW_TIER;
+    const bracketPriority = { low: 0, gold: 1, diamond_plus: 2 };
+    const lowestBracket = playerTierKeys
+      .map((tierKey) => getPvpSizeBracketByTierKey(tierKey))
+      .reduce(
+        (current, next) => (bracketPriority[next] < bracketPriority[current] ? next : current),
+        "diamond_plus"
+      );
+    return getPvpAllowedSizeKeysForBracket(lowestBracket);
   }
 
   const viewerTierKey =
     String(viewerUser?.placement_tier_key || "").trim().toLowerCase() ||
     getTierInfoByRating(viewerUser?.placement_rating ?? viewerUser?.rating, viewerUser?.ratingRank).key;
 
-  return isGoldOrHigherTierKey(viewerTierKey) ? PVP_SIZE_KEYS_GOLD_PLUS : PVP_SIZE_KEYS_LOW_TIER;
+  return getPvpAllowedSizeKeysForBracket(getPvpSizeBracketByTierKey(viewerTierKey));
 }
 
 function parseHallProfileAvatarKey(raw) {
@@ -882,6 +910,81 @@ function cluesEqual(line, clues) {
   return true;
 }
 
+function clampCreatorSize(value) {
+  const parsed = Number.parseInt(String(value || "").trim(), 10);
+  if (!Number.isFinite(parsed)) return 12;
+  return Math.max(5, Math.min(40, parsed));
+}
+
+function normalizeCreatorCells(cells, total) {
+  if (!Array.isArray(cells)) return new Array(total).fill(0);
+  const normalized = cells.slice(0, total).map((value) => (value === 1 ? 1 : 0));
+  while (normalized.length < total) normalized.push(0);
+  return normalized;
+}
+
+function buildCreatorPuzzle(width, height, cells, meta = {}) {
+  const total = width * height;
+  const normalized = normalizeCreatorCells(cells, total);
+  const row_hints = Array.from({ length: height }, (_, y) =>
+    getRuns(normalized.slice(y * width, (y + 1) * width))
+  );
+  const col_hints = Array.from({ length: width }, (_, x) => {
+    const col = [];
+    for (let y = 0; y < height; y += 1) col.push(normalized[y * width + x]);
+    return getRuns(col);
+  });
+  return {
+    id: meta.id || `custom-${width}x${height}`,
+    width,
+    height,
+    row_hints,
+    col_hints,
+    solution: normalized.slice(),
+    isCustom: true,
+    isCustomPreview: Boolean(meta.isPreview),
+    isCustomLibrary: Boolean(meta.isLibrary),
+    isCommunityPuzzle: Boolean(meta.isCommunity),
+    creatorPuzzleId: String(meta.creatorPuzzleId || meta.id || ""),
+    createdByNickname: meta.createdByNickname || "",
+    titleKo: meta.titleKo || "",
+    titleEn: meta.titleEn || "",
+  };
+}
+
+function createCreatorSample(id, titleKo, titleEn, rows) {
+  const height = rows.length;
+  const width = rows[0]?.length || 0;
+  const cells = rows.flatMap((row) => Array.from(row).map((cell) => (cell === "#" ? 1 : 0)));
+  return {
+    id,
+    titleKo,
+    titleEn,
+    width,
+    height,
+    cells,
+  };
+}
+
+const DEFAULT_CREATOR_SAMPLE_PUZZLES = GENERATED_CREATOR_SAMPLE_PUZZLES.map((sample) =>
+  ({
+    ...createCreatorSample(sample.id, sample.titleKo, sample.titleEn, sample.rows),
+    sizeGroup: sample.sizeGroup || "medium",
+    groupTitleKo: sample.groupTitleKo || "미디엄",
+    groupTitleEn: sample.groupTitleEn || "Medium",
+    license: sample.license || "",
+    targetSize: sample.targetSize || sample.width || 0,
+    sourceUrl: sample.sourceUrl || "",
+  })
+);
+
+const CREATOR_SAMPLE_GROUP_ORDER = ["small", "medium", "large"];
+const CREATOR_GROUP_LABELS = {
+  small: { ko: "스몰", en: "Small" },
+  medium: { ko: "미디엄", en: "Medium" },
+  large: { ko: "라지", en: "Large" },
+};
+
 async function parseJsonSafe(res) {
   const contentType = res.headers.get("content-type") || "";
   if (contentType.includes("application/json")) {
@@ -912,16 +1015,41 @@ function App() {
   const [playMode, setPlayMode] = useState(() => {
     if (typeof window === "undefined") return "menu";
     return getModeFromPath(window.location.pathname);
-  }); // menu | single | multi | pvp | tutorial | auth | ranking | replay_hall
+  }); // menu | single | create | multi | pvp | tutorial | auth | ranking | replay_hall
   const [selectedSize, setSelectedSize] = useState("25x25");
+  const [creatorWidthInput, setCreatorWidthInput] = useState("12");
+  const [creatorHeightInput, setCreatorHeightInput] = useState("12");
+  const [creatorTitleInput, setCreatorTitleInput] = useState("");
+  const [creatorSamples, setCreatorSamples] = useState(DEFAULT_CREATOR_SAMPLE_PUZZLES);
+  const [creatorSamplesLoading, setCreatorSamplesLoading] = useState(false);
+  const [creatorSaving, setCreatorSaving] = useState(false);
+  const [customSizeGroup, setCustomSizeGroup] = useState("small");
+  const [communityPuzzles, setCommunityPuzzles] = useState([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communitySizeGroup, setCommunitySizeGroup] = useState("small");
+  const [communitySelectedId, setCommunitySelectedId] = useState("");
+  const [communityDiscussion, setCommunityDiscussion] = useState(null);
+  const [communityDiscussionLoading, setCommunityDiscussionLoading] = useState(false);
+  const [communityCommentInput, setCommunityCommentInput] = useState("");
+  const [communityCommentSending, setCommunityCommentSending] = useState(false);
+  const [communityReactionSending, setCommunityReactionSending] = useState(false);
+  const [adminCreatorKey, setAdminCreatorKey] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem(CREATOR_ADMIN_KEY) || "";
+  });
+  const [adminCreatorPuzzles, setAdminCreatorPuzzles] = useState([]);
+  const [adminCreatorLoading, setAdminCreatorLoading] = useState(false);
+  const [singleSection, setSingleSection] = useState("home");
   const [puzzle, setPuzzle] = useState(null);
   const [cells, setCells] = useState([]); // 0 empty, 1 filled, 2 marked(X)
+  const [solvedRevealProgress, setSolvedRevealProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeHints, setActiveHints] = useState(new Set());
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [raceRoomCode, setRaceRoomCode] = useState("");
   const [racePlayerId, setRacePlayerId] = useState("");
@@ -972,6 +1100,8 @@ function App() {
   const [showNeedLoginPopup, setShowNeedLoginPopup] = useState(false);
   const [needLoginReturnMode, setNeedLoginReturnMode] = useState("multi");
   const [showPlacementRequiredPopup, setShowPlacementRequiredPopup] = useState(false);
+  const [showPatchNotesModal, setShowPatchNotesModal] = useState(false);
+  const [patchNotesSessionHidden, setPatchNotesSessionHidden] = useState(false);
   const [showVoteModal, setShowVoteModal] = useState(false);
   const [activeVote, setActiveVote] = useState(null);
   const [voteSubmitting, setVoteSubmitting] = useState(false);
@@ -1061,6 +1191,7 @@ function App() {
   const canvasRef = useRef(null);
   const chatBodyRef = useRef(null);
   const emojiWrapRef = useRef(null);
+  const creatorDraftRef = useRef(null);
   const dragRef = useRef(null); // { button: 'left'|'right', paintValue, ignoreButtons }
   const lastPaintIndexRef = useRef(null);
   const strokeBaseRef = useRef(null);
@@ -1109,15 +1240,54 @@ function App() {
   const tutorialCompleteShownRef = useRef(false);
   const multiResultShownKeyRef = useRef("");
   const victoryConfettiTimersRef = useRef([]);
+  const solvedRevealRafRef = useRef(0);
+  const puzzleStartedAtMsRef = useRef(0);
   const deferredCells = useDeferredValue(cells);
+
+  const authHeaders = useMemo(() => {
+    if (!authToken) return {};
+    return { Authorization: `Bearer ${authToken}` };
+  }, [authToken]);
+
+  const adminCreatorHeaders = useMemo(() => {
+    const key = String(adminCreatorKey || "").trim();
+    if (!key) return { ...authHeaders };
+    return { ...authHeaders, "x-admin-key": key };
+  }, [adminCreatorKey, authHeaders]);
+  const isLoggedIn = Boolean(authToken && authUser);
+
   const L = (ko, en) => (lang === "ko" ? ko : en);
   const normalizeClientEmail = (value) => String(value || "").trim().toLowerCase();
-
   const clearVictoryConfettiTimers = useCallback(() => {
     if (!victoryConfettiTimersRef.current.length) return;
     victoryConfettiTimersRef.current.forEach((timerId) => clearTimeout(timerId));
     victoryConfettiTimersRef.current = [];
   }, []);
+
+  const stopSolvedReveal = useCallback(() => {
+    if (!solvedRevealRafRef.current) return;
+    window.cancelAnimationFrame(solvedRevealRafRef.current);
+    solvedRevealRafRef.current = 0;
+  }, []);
+
+  const startSolvedReveal = useCallback(() => {
+    if (typeof window === "undefined") return;
+    stopSolvedReveal();
+    setSolvedRevealProgress(0);
+    const startedAt = window.performance.now();
+
+    const tick = (now) => {
+      const next = Math.max(0, Math.min(1, (now - startedAt) / SOLVED_REVEAL_DURATION_MS));
+      setSolvedRevealProgress(next);
+      if (next < 1) {
+        solvedRevealRafRef.current = window.requestAnimationFrame(tick);
+      } else {
+        solvedRevealRafRef.current = 0;
+      }
+    };
+
+    solvedRevealRafRef.current = window.requestAnimationFrame(tick);
+  }, [stopSolvedReveal]);
 
   const triggerVictoryFx = useCallback((mode = "single") => {
     if (typeof window === "undefined") return;
@@ -1168,6 +1338,13 @@ function App() {
       }
     });
   }, [clearVictoryConfettiTimers]);
+
+  useEffect(() => () => stopSolvedReveal(), [stopSolvedReveal]);
+
+  useEffect(() => {
+    stopSolvedReveal();
+    setSolvedRevealProgress(0);
+  }, [puzzle?.id, playMode, stopSolvedReveal]);
 
   useEffect(() => () => {
     clearVictoryConfettiTimers();
@@ -1727,6 +1904,18 @@ function App() {
   }, [playMode]);
 
   useEffect(() => {
+    setPatchNotesSessionHidden(false);
+  }, [authUser?.id]);
+
+  useEffect(() => {
+    if (playMode !== "menu") return;
+    if (!authToken || !authUser?.id) return;
+    if (patchNotesSessionHidden) return;
+    if (String(authUser?.patch_notes_dismissed_version || "") === PATCH_NOTES_VERSION) return;
+    setShowPatchNotesModal(true);
+  }, [playMode, authToken, authUser?.id, authUser?.patch_notes_dismissed_version, patchNotesSessionHidden]);
+
+  useEffect(() => {
     if (typeof document === "undefined") return;
     const isAuthPage = playMode === "auth";
     const existing = document.getElementById(ADSENSE_SCRIPT_ID);
@@ -1822,6 +2011,52 @@ function App() {
       // ignore localStorage errors
     }
   }, [soundVolume]);
+
+  useEffect(() => {
+    try {
+      if (adminCreatorKey) {
+        localStorage.setItem(CREATOR_ADMIN_KEY, adminCreatorKey);
+      } else {
+        localStorage.removeItem(CREATOR_ADMIN_KEY);
+      }
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [adminCreatorKey]);
+
+  const closePatchNotesModal = useCallback(() => {
+    setShowPatchNotesModal(false);
+    setPatchNotesSessionHidden(true);
+  }, []);
+
+  const dismissPatchNotesForever = useCallback(async () => {
+    if (!isLoggedIn) {
+      closePatchNotesModal();
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/auth/patch-notes/dismiss`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ version: PATCH_NOTES_VERSION }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || L("패치 노트 저장 실패", "Failed to save patch note preference"));
+      }
+      cacheAuthUser(data.user, { applyPrefs: false });
+      setShowPatchNotesModal(false);
+      setPatchNotesSessionHidden(true);
+    } catch (err) {
+      setStatus(String(err?.message || L("패치 노트 저장 실패", "Failed to save patch note preference")));
+    }
+  }, [API_BASE, authHeaders, cacheAuthUser, closePatchNotesModal, isLoggedIn, L]);
+
+  const openThemePuzzlesFromPatchNotes = useCallback(() => {
+    closePatchNotesModal();
+    setSingleSection("home");
+    setPlayMode("single");
+  }, [closePatchNotesModal]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -1961,14 +2196,26 @@ function App() {
   }, []);
 
   const rowHints = useMemo(() => {
+    if (playMode === "create" && puzzle) {
+      return Array.from({ length: puzzle.height }, (_, y) =>
+        getRuns(cells.slice(y * puzzle.width, (y + 1) * puzzle.width).map((value) => (value === 1 ? 1 : 0)))
+      );
+    }
     if (!Array.isArray(puzzle?.row_hints)) return [];
     return puzzle.row_hints.map((hint) => (Array.isArray(hint) ? hint : []));
-  }, [puzzle]);
+  }, [cells, playMode, puzzle]);
 
   const colHints = useMemo(() => {
+    if (playMode === "create" && puzzle) {
+      return Array.from({ length: puzzle.width }, (_, x) => {
+        const col = [];
+        for (let y = 0; y < puzzle.height; y += 1) col.push(cells[y * puzzle.width + x] === 1 ? 1 : 0);
+        return getRuns(col);
+      });
+    }
     if (!Array.isArray(puzzle?.col_hints)) return [];
     return puzzle.col_hints.map((hint) => (Array.isArray(hint) ? hint : []));
-  }, [puzzle]);
+  }, [cells, playMode, puzzle]);
 
   const maxRowHintDepth = useMemo(() => {
     if (!rowHints.length) return 0;
@@ -1996,17 +2243,17 @@ function App() {
   }, [puzzle]);
 
   const solvedRows = useMemo(() => {
-    if (!puzzle) return new Set();
+    if (!puzzle || playMode === "create") return new Set();
     const solved = new Set();
     for (let y = 0; y < puzzle.height; y += 1) {
       const row = deferredCells.slice(y * puzzle.width, (y + 1) * puzzle.width);
       if (cluesEqual(row, rowHints[y] || [])) solved.add(y);
     }
     return solved;
-  }, [deferredCells, puzzle, rowHints]);
+  }, [deferredCells, playMode, puzzle, rowHints]);
 
   const solvedCols = useMemo(() => {
-    if (!puzzle) return new Set();
+    if (!puzzle || playMode === "create") return new Set();
     const solved = new Set();
     for (let x = 0; x < puzzle.width; x += 1) {
       const col = [];
@@ -2014,13 +2261,15 @@ function App() {
       if (cluesEqual(col, colHints[x] || [])) solved.add(x);
     }
     return solved;
-  }, [deferredCells, puzzle, colHints]);
+  }, [deferredCells, playMode, puzzle, colHints]);
 
   const formattedTime = useMemo(() => {
-    const mm = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
-    const ss = String(elapsedSec % 60).padStart(2, "0");
-    return `${mm}:${ss}`;
-  }, [elapsedSec]);
+    const totalCs = Math.max(0, Math.floor(Number(elapsedMs || 0) / 10));
+    const mm = String(Math.floor(totalCs / 6000)).padStart(2, "0");
+    const ss = String(Math.floor((totalCs % 6000) / 100)).padStart(2, "0");
+    const cc = String(totalCs % 100).padStart(2, "0");
+    return `${mm}:${ss}.${cc}`;
+  }, [elapsedMs]);
   const hallSizes = useMemo(
     () => PVP_SIZE_KEYS.map((sizeKey) => ({ sizeKey, records: Array.isArray(hallDataBySize[sizeKey]) ? hallDataBySize[sizeKey] : [] })),
     [hallDataBySize]
@@ -2031,11 +2280,12 @@ function App() {
   }, [hallDataBySize, hallActiveSizeKey]);
 
   const isBoardCompleteByHints = useMemo(() => {
-    if (!puzzle) return false;
+    if (!puzzle || playMode === "create") return false;
     return solvedRows.size === puzzle.height && solvedCols.size === puzzle.width;
-  }, [puzzle, solvedRows, solvedCols]);
+  }, [playMode, puzzle, solvedRows, solvedCols]);
   const isModeMenu = playMode === "menu";
   const isModeSingle = playMode === "single";
+  const isModeCreate = playMode === "create";
   const isModeMulti = playMode === "multi";
   const isModePvp = playMode === "pvp";
   const isModePlacementTest = playMode === "placement_test";
@@ -2044,7 +2294,8 @@ function App() {
   const isModeRanking = playMode === "ranking";
   const isModeLegacyRanking = playMode === "legacy_ranking";
   const isModeReplayHall = playMode === "replay_hall";
-  const isLoggedIn = Boolean(authToken && authUser);
+  const isCustomPreviewPuzzle = Boolean(puzzle?.isCustomPreview);
+  const isCreatorAdminUser = String(authUser?.username || "").trim().toLowerCase() === "kyurea";
   const placementAssignedRating = Number(authUser?.placement_rating || 0);
   const hasPlacementQualification = isLoggedIn && Boolean(authUser?.placement_done) && Number.isFinite(placementAssignedRating) && placementAssignedRating >= 0;
   const placementAssignedTier = hasPlacementQualification
@@ -2054,7 +2305,7 @@ function App() {
   const isInRaceRoom = Boolean(raceRoomCode);
   const isSingleSoloMode = (isModeSingle || isModeTutorial || isModePlacementTest) && !isInRaceRoom;
   const shouldShowPuzzleBoard = Boolean(
-    puzzle && ((isSingleSoloMode && !isInRaceRoom) || ((isModeMulti || isModePvp) && isInRaceRoom))
+    puzzle && (((isSingleSoloMode || isModeCreate) && !isInRaceRoom) || ((isModeMulti || isModePvp) && isInRaceRoom))
   );
   const isMobileBoardUi = shouldShowPuzzleBoard && isCoarsePointer && isNarrowViewport;
   const racePhase = raceState?.state || "idle";
@@ -2074,6 +2325,15 @@ function App() {
     mobilePinchRef.current = null;
     mobileToolbarDragRef.current = null;
   }, [isMobileBoardUi]);
+
+  useEffect(() => {
+    if (!isModeCreate || !puzzle) return;
+    creatorDraftRef.current = {
+      width: puzzle.width,
+      height: puzzle.height,
+      cells: cells.map((value) => (value === 1 ? 1 : 0)),
+    };
+  }, [cells, isModeCreate, puzzle]);
 
   useEffect(() => {
     if (typeof document === "undefined" || !mobileBoardFocus) return undefined;
@@ -2272,6 +2532,11 @@ function App() {
           : Number.isInteger(Number(rankInfo?.elapsedSec))
             ? Number(rankInfo.elapsedSec)
             : null;
+        const elapsedMs = Number.isFinite(Number(p.elapsedMs))
+          ? Number(p.elapsedMs)
+          : Number.isFinite(Number(rankInfo?.elapsedMs))
+            ? Number(rankInfo.elapsedMs)
+            : null;
         const status = String(rankInfo?.status || (p.disconnectedAt ? "left" : "dnf"));
         return {
           playerId: p.playerId,
@@ -2279,6 +2544,7 @@ function App() {
           nickname: p.nickname,
           rank,
           elapsedSec,
+          elapsedMs,
           status,
           isMe: p.playerId === racePlayerId,
         };
@@ -2515,11 +2781,6 @@ function App() {
     if (!master) return;
     master.gain.value = SOUND_MASTER_GAIN_MAX * (soundVolume / 100);
   }, [soundVolume]);
-
-  const authHeaders = useMemo(() => {
-    if (!authToken) return {};
-    return { Authorization: `Bearer ${authToken}` };
-  }, [authToken]);
 
   const getVoteOptionImageSrc = (option) => {
     const optionKey = String(option?.key || "");
@@ -2796,6 +3057,8 @@ function App() {
     raceFinishedSentRef.current = false;
     raceResultShownRef.current = false;
     raceProgressLastSentRef.current = 0;
+    puzzleStartedAtMsRef.current = startTimer ? Date.now() : 0;
+    setElapsedMs(0);
     setElapsedSec(0);
     setTimerRunning(startTimer);
     setStatus(suppressStatus ? "" : message || `Puzzle ${p.id} loaded.`);
@@ -2847,19 +3110,574 @@ function App() {
     applySnapshot([]);
     setActiveHints(new Set());
     resetHistory();
+    puzzleStartedAtMsRef.current = 0;
+    setElapsedMs(0);
     setElapsedSec(0);
     setTimerRunning(false);
     tutorialCompleteShownRef.current = false;
   };
+
+  const loadCreatorCanvas = useCallback((width, height, nextCells = null, message = "") => {
+    const safeWidth = clampCreatorSize(width);
+    const safeHeight = clampCreatorSize(height);
+    const total = safeWidth * safeHeight;
+    const normalized = normalizeCreatorCells(nextCells, total);
+    const creatorPuzzle = buildCreatorPuzzle(safeWidth, safeHeight, normalized, {
+      id: `custom-editor-${safeWidth}x${safeHeight}`,
+    });
+    setCreatorWidthInput(String(safeWidth));
+    setCreatorHeightInput(String(safeHeight));
+    setPuzzle(creatorPuzzle);
+    applySnapshot(normalized.slice());
+    setActiveHints(new Set());
+    resetHistory();
+    autoSolvedShownRef.current = false;
+    raceFinishedSentRef.current = false;
+    raceResultShownRef.current = false;
+    raceProgressLastSentRef.current = 0;
+    puzzleStartedAtMsRef.current = 0;
+    setElapsedMs(0);
+    setElapsedSec(0);
+    setTimerRunning(false);
+    if (message) setStatus(message);
+  }, []);
+
+  const goCreateMode = () => {
+    if (pvpSearching && !isInRaceRoom) {
+      void cancelPvpQueue({ silent: true });
+    }
+    if (isInRaceRoom) {
+      setStatus(L("방 플레이 중에는 제작기를 열 수 없습니다.", "The creator is unavailable during a live room."));
+      return;
+    }
+    setPlayMode("create");
+    setStatus("");
+    const draft = creatorDraftRef.current;
+    if (draft) {
+      loadCreatorCanvas(draft.width, draft.height, draft.cells);
+      return;
+    }
+    clearPuzzleViewState();
+  };
+
+  const generateCreatorCanvas = () => {
+    loadCreatorCanvas(
+      clampCreatorSize(creatorWidthInput),
+      clampCreatorSize(creatorHeightInput),
+      null,
+      L("새 캔버스를 생성했습니다.", "Created a new canvas.")
+    );
+    setCreatorTitleInput("");
+    playSfx("ui");
+  };
+
+  const loadCreatorSamples = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setCreatorSamplesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-samples`, { headers: { ...authHeaders } });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !Array.isArray(data.samples)) {
+        throw new Error(data.error || "Failed to load creator samples.");
+      }
+      const nextSamples = data.samples.map((sample) => ({
+        ...createCreatorSample(sample.id, sample.titleKo, sample.titleEn, sample.rows || []),
+        sizeGroup: sample.sizeGroup || "medium",
+        groupTitleKo: sample.groupTitleKo || "미디엄",
+        groupTitleEn: sample.groupTitleEn || "Medium",
+        license: sample.license || "",
+        targetSize: sample.targetSize || sample.width || 0,
+        sourceUrl: sample.sourceUrl || "",
+        unique: sample.unique === true,
+        needsGuess: sample.needsGuess === true,
+        isSolved: sample.isSolved === true,
+        sourceType: sample.sourceType || "sample",
+      }));
+      if (nextSamples.length) setCreatorSamples(nextSamples);
+      else setCreatorSamples([]);
+    } catch (err) {
+      if (!silent) {
+        setStatus(err.message || L("샘플 퍼즐을 불러오지 못했습니다.", "Failed to load sample puzzles."));
+      }
+      setCreatorSamples(DEFAULT_CREATOR_SAMPLE_PUZZLES);
+    } finally {
+      if (!silent) setCreatorSamplesLoading(false);
+    }
+  }, [authHeaders, lang]);
+
+  const loadCommunityPuzzles = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setCommunityLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-community-puzzles`, { headers: { ...authHeaders } });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !Array.isArray(data.puzzles)) {
+        throw new Error(data.error || "Failed to load community puzzles.");
+      }
+      const nextPuzzles = data.puzzles.map((puzzle) => ({
+          ...createCreatorSample(puzzle.id, puzzle.titleKo, puzzle.titleEn, puzzle.rows || []),
+          sizeGroup: puzzle.sizeGroup || "medium",
+          groupTitleKo: puzzle.groupTitleKo || "미디엄",
+          groupTitleEn: puzzle.groupTitleEn || "Medium",
+          createdAt: puzzle.createdAt || "",
+          createdByNickname: puzzle.createdByNickname || "",
+          approvalStatus: puzzle.approvalStatus || "approved",
+          commentCount: Number(puzzle.commentCount || 0),
+          reactionCounts: puzzle.reactionCounts || { like: 0, love: 0, wow: 0 },
+          viewerReaction: puzzle.viewerReaction || "",
+          isSolved: puzzle.isSolved === true,
+        }));
+      setCommunityPuzzles(nextPuzzles);
+      setCommunitySelectedId((prev) => {
+        if (prev && nextPuzzles.some((puzzle) => puzzle.id === prev)) return prev;
+        return nextPuzzles[0]?.id || "";
+      });
+    } catch (err) {
+      if (!silent) {
+        setStatus(err.message || L("유저 퍼즐을 불러오지 못했습니다.", "Failed to load user puzzles."));
+      }
+      setCommunityPuzzles([]);
+      setCommunitySelectedId("");
+    } finally {
+      if (!silent) setCommunityLoading(false);
+    }
+  }, [authHeaders, lang]);
+
+  const loadCommunityDiscussion = useCallback(async (puzzleId, { silent = false } = {}) => {
+    const targetId = String(puzzleId || "").trim();
+    if (!targetId) {
+      setCommunityDiscussion(null);
+      return;
+    }
+    if (!silent) setCommunityDiscussionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-community-puzzles/${encodeURIComponent(targetId)}/discussion`, {
+        headers: { ...authHeaders },
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !data.puzzle) {
+        throw new Error(data.error || "Failed to load puzzle discussion.");
+      }
+      const basePuzzle = createCreatorSample(data.puzzle.id, data.puzzle.titleKo, data.puzzle.titleEn, data.puzzle.rows || []);
+      setCommunityDiscussion({
+        ...basePuzzle,
+        ...data.puzzle,
+        isSolved: data.puzzle.isSolved === true,
+        comments: Array.isArray(data.comments) ? data.comments : [],
+      });
+    } catch (err) {
+      if (!silent) {
+        setStatus(err.message || L("댓글 정보를 불러오지 못했습니다.", "Failed to load discussion."));
+      }
+      setCommunityDiscussion(null);
+    } finally {
+      if (!silent) setCommunityDiscussionLoading(false);
+    }
+  }, [authHeaders, lang]);
+
+  const loadAdminCreatorPuzzles = useCallback(async ({ silent = false } = {}) => {
+    if (!isCreatorAdminUser) {
+      setAdminCreatorPuzzles([]);
+      if (!silent) {
+        setStatus(L("관리자 계정으로만 접근할 수 있습니다.", "This section is only available to the admin account."));
+      }
+      return;
+    }
+    if (!silent) setAdminCreatorLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/creator-puzzles`, { headers: { ...adminCreatorHeaders } });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !Array.isArray(data.puzzles)) {
+        throw new Error(data.error || "Failed to load admin creator puzzles.");
+      }
+      setAdminCreatorPuzzles(data.puzzles);
+    } catch (err) {
+      if (!silent) {
+        setStatus(err.message || L("관리자 검수 목록을 불러오지 못했습니다.", "Failed to load admin review list."));
+      }
+      setAdminCreatorPuzzles([]);
+    } finally {
+      if (!silent) setAdminCreatorLoading(false);
+    }
+  }, [adminCreatorHeaders, isCreatorAdminUser, lang]);
+
+  const markCommunityPuzzleSolved = useCallback((puzzleId) => {
+    const targetId = String(puzzleId || "").trim();
+    if (!targetId) return;
+    setCommunityPuzzles((prev) =>
+      prev.map((puzzle) => (String(puzzle.id || "") === targetId ? { ...puzzle, isSolved: true } : puzzle))
+    );
+    setCommunityDiscussion((prev) =>
+      prev && String(prev.id || "") === targetId ? { ...prev, isSolved: true } : prev
+    );
+  }, []);
+
+  const markCustomSampleSolved = useCallback((sampleId) => {
+    const targetId = String(sampleId || "").trim();
+    if (!targetId) return;
+    setCreatorSamples((prev) =>
+      prev.map((sample) => (String(sample.id || "") === targetId ? { ...sample, isSolved: true } : sample))
+    );
+  }, []);
+
+  const loadSingleCustomSample = (sample) => {
+    if (!sample) return;
+    const samplePuzzle = buildCreatorPuzzle(sample.width, sample.height, sample.cells, {
+      id: `custom-library-${sample.id}`,
+      isLibrary: true,
+      creatorPuzzleId: sample.id,
+      titleKo: sample.titleKo || "",
+      titleEn: sample.titleEn || "",
+    });
+    initializePuzzle(samplePuzzle, {
+      resume: false,
+      startTimer: true,
+      message:
+        lang === "ko"
+          ? `테마 퍼즐 "${sample.titleKo || sample.id}"을 불러왔습니다.`
+          : `Loaded themed puzzle "${sample.titleEn || sample.id}".`,
+    });
+    playSfx("ui");
+  };
+
+  const loadCommunityPuzzle = (sample) => {
+    if (!sample) return;
+    const communityPuzzle = buildCreatorPuzzle(sample.width, sample.height, sample.cells, {
+      id: `community-${sample.id}`,
+      isCommunity: true,
+      creatorPuzzleId: sample.id,
+      titleKo: sample.titleKo || "",
+      titleEn: sample.titleEn || "",
+      createdByNickname: sample.createdByNickname || "",
+    });
+    initializePuzzle(communityPuzzle, {
+      resume: true,
+      startTimer: true,
+      message:
+        lang === "ko"
+          ? `유저 퍼즐 "${sample.titleKo || sample.id}"을 불러왔습니다.`
+          : `Loaded user puzzle "${sample.titleEn || sample.id}".`,
+    });
+    setSingleSection("community");
+    void loadCommunityDiscussion(sample.id, { silent: true });
+    playSfx("ui");
+  };
+
+  const saveCreatorPuzzle = async () => {
+    if (!puzzle || !isModeCreate) return;
+    if (!isLoggedIn) {
+      setStatus(L("퍼즐 제출은 로그인 후 가능합니다.", "Please log in before submitting a puzzle."));
+      return;
+    }
+    const title = String(creatorTitleInput || "").trim();
+    if (!title) {
+      setStatus(L("퍼즐 이름을 입력해주세요.", "Please enter a puzzle title."));
+      return;
+    }
+    const width = puzzle.width;
+    const height = puzzle.height;
+    const cells = cellValuesRef.current.map((value) => (value === 1 ? 1 : 0));
+    if (!cells.some((value) => value === 1)) {
+      setStatus(L("먼저 그림을 그려주세요.", "Draw something first."));
+      return;
+    }
+
+    setCreatorSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-puzzles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ title, width, height, cells }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        if (data?.error === "Puzzle validation failed") {
+          throw new Error(
+            L(
+              "자동 검증을 통과하지 못했습니다. 유일한 해답이 있고 귀류법 없이 풀리도록 조금 더 다듬어주세요.",
+              "Automatic validation failed. Please make sure the puzzle has a unique solution and can be solved without guessing."
+            )
+          );
+        }
+        throw new Error(data.error || L("퍼즐 저장에 실패했습니다.", "Failed to save the puzzle."));
+      }
+      setStatus(
+        L(
+          `유효성 확인이 완료되었고 "${title}" 퍼즐은 관리자 승인 대기중입니다.`,
+          `"${title}" passed validation and is now waiting for admin approval.`
+        )
+      );
+      playSfx("ui");
+    } catch (err) {
+      setStatus(err.message || L("퍼즐 저장에 실패했습니다.", "Failed to save the puzzle."));
+    } finally {
+      setCreatorSaving(false);
+    }
+  };
+
+  const submitCommunityComment = async () => {
+    const puzzleId = String(communitySelectedId || "").trim();
+    const body = String(communityCommentInput || "").trim();
+    if (!puzzleId || !body) return;
+    if (!isLoggedIn) {
+      setStatus(L("댓글은 로그인 후 남길 수 있습니다.", "Please log in to leave a comment."));
+      return;
+    }
+    setCommunityCommentSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-puzzles/${encodeURIComponent(puzzleId)}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ body }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to post comment.");
+      }
+      setCommunityCommentInput("");
+      await loadCommunityDiscussion(puzzleId, { silent: true });
+      await loadCommunityPuzzles({ silent: true });
+      playSfx("ui");
+    } catch (err) {
+      setStatus(err.message || L("댓글 등록에 실패했습니다.", "Failed to post comment."));
+    } finally {
+      setCommunityCommentSending(false);
+    }
+  };
+
+  const submitCommunityReaction = async (reactionKey) => {
+    const puzzleId = String(communitySelectedId || "").trim();
+    if (!puzzleId) return;
+    if (!isLoggedIn) {
+      setStatus(L("리액션은 로그인 후 남길 수 있습니다.", "Please log in to leave a reaction."));
+      return;
+    }
+    const currentReaction = String(communityDiscussion?.viewerReaction || "");
+    const nextReaction = currentReaction === reactionKey ? "" : reactionKey;
+    setCommunityReactionSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/creator-puzzles/${encodeURIComponent(puzzleId)}/reaction`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ reactionKey: nextReaction }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok || !data.puzzle) {
+        throw new Error(data.error || "Failed to save reaction.");
+      }
+      setCommunityDiscussion((prev) =>
+        prev && String(prev.id || "") === puzzleId
+          ? {
+              ...prev,
+              reactionCounts: data.puzzle.reactionCounts || prev.reactionCounts,
+              viewerReaction: data.puzzle.viewerReaction || "",
+            }
+          : prev
+      );
+      setCommunityPuzzles((prev) =>
+        prev.map((puzzle) =>
+          String(puzzle.id || "") === puzzleId
+            ? {
+                ...puzzle,
+                reactionCounts: data.puzzle.reactionCounts || puzzle.reactionCounts,
+                viewerReaction: data.puzzle.viewerReaction || "",
+              }
+            : puzzle
+        )
+      );
+      playSfx("ui");
+    } catch (err) {
+      setStatus(err.message || L("리액션 저장에 실패했습니다.", "Failed to save reaction."));
+    } finally {
+      setCommunityReactionSending(false);
+    }
+  };
+
+  const reviewCreatorPuzzle = async (puzzleId, decision) => {
+    const targetId = String(puzzleId || "").trim();
+    if (!targetId) return;
+    if (!isCreatorAdminUser) {
+      setStatus(L("관리자 계정으로만 접근할 수 있습니다.", "This section is only available to the admin account."));
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE}/admin/creator-puzzles/${encodeURIComponent(targetId)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...adminCreatorHeaders },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to review puzzle.");
+      }
+      await loadAdminCreatorPuzzles({ silent: true });
+      await loadCommunityPuzzles({ silent: true });
+      setStatus(
+        decision === "approve"
+          ? L("퍼즐을 승인했습니다.", "The puzzle has been approved.")
+          : L("퍼즐을 반려했습니다.", "The puzzle has been rejected.")
+      );
+    } catch (err) {
+      setStatus(err.message || L("검수 처리에 실패했습니다.", "Failed to review puzzle."));
+    }
+  };
+
+  const submitCustomSampleSolve = async (sampleId) => {
+    const targetId = String(sampleId || "").trim();
+    if (!targetId || !isLoggedIn) return;
+    try {
+      const res = await fetch(`${API_BASE}/creator-samples/${encodeURIComponent(targetId)}/solve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to save custom solve.");
+      }
+    } catch (err) {
+      setStatus(err.message || L("테마 퍼즐 해제 저장에 실패했습니다.", "Failed to save themed puzzle unlock."));
+    }
+  };
+
+  const submitCommunityPuzzleSolve = async () => {
+    const puzzleId = String(puzzle?.creatorPuzzleId || "").trim();
+    if (!puzzleId || !puzzle?.isCommunityPuzzle) return;
+    markCommunityPuzzleSolved(puzzleId);
+    if (!isLoggedIn) return;
+    try {
+      const res = await fetch(`${API_BASE}/creator-puzzles/${encodeURIComponent(puzzleId)}/solve`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders },
+        body: JSON.stringify({ elapsedSec }),
+      });
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to save community solve.");
+      }
+      await loadCommunityPuzzles({ silent: true });
+      await loadCommunityDiscussion(puzzleId, { silent: true });
+    } catch {
+      // local solve unlock is enough for immediate UX
+    }
+  };
+
+  const shiftCreatorCanvas = (dx, dy) => {
+    if (!puzzle || !isModeCreate) return;
+    const width = puzzle.width;
+    const height = puzzle.height;
+    const next = new Array(width * height).fill(0);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const targetX = x + dx;
+        const targetY = y + dy;
+        if (targetX < 0 || targetX >= width || targetY < 0 || targetY >= height) continue;
+        next[targetY * width + targetX] = cellValuesRef.current[y * width + x] === 1 ? 1 : 0;
+      }
+    }
+    pushUndo(cellValuesRef.current.slice());
+    applySnapshot(next);
+    playSfx("ui");
+  };
+
+  const startCreatorSingleTest = () => {
+    if (!puzzle || !isModeCreate) return;
+    const width = puzzle.width;
+    const height = puzzle.height;
+    const draftCells = cellValuesRef.current.map((value) => (value === 1 ? 1 : 0));
+    if (!draftCells.some((value) => value === 1)) {
+      setStatus(L("먼저 그림을 그려주세요.", "Draw something first."));
+      return;
+    }
+    creatorDraftRef.current = { width, height, cells: draftCells.slice() };
+    const previewPuzzle = buildCreatorPuzzle(width, height, draftCells, {
+      id: `custom-preview-${width}x${height}`,
+      isPreview: true,
+    });
+    setPlayMode("single");
+    initializePuzzle(previewPuzzle, {
+      resume: false,
+      startTimer: true,
+      message: L("제작한 퍼즐을 테스트 중입니다.", "Testing your custom puzzle."),
+    });
+    playSfx("ui");
+  };
+
+  const backToCreateMode = () => {
+    const draft = creatorDraftRef.current;
+    setPlayMode("create");
+    if (draft) {
+      loadCreatorCanvas(draft.width, draft.height, draft.cells, L("편집 화면으로 돌아왔습니다.", "Returned to the editor."));
+    } else {
+      loadCreatorCanvas(12, 12);
+    }
+    playSfx("ui");
+  };
+
+  useEffect(() => {
+    void loadCreatorSamples({ silent: true });
+  }, [loadCreatorSamples, authToken, authUser?.id]);
+
+  useEffect(() => {
+    void loadCommunityPuzzles({ silent: true });
+  }, [loadCommunityPuzzles]);
+
+  useEffect(() => {
+    if (!communitySelectedId) {
+      setCommunityDiscussion(null);
+      return;
+    }
+    void loadCommunityDiscussion(communitySelectedId, { silent: true });
+  }, [communitySelectedId, loadCommunityDiscussion]);
+
+  useEffect(() => {
+    const visibleCommunityIds = new Set(
+      communityPuzzles.filter((sample) => sample.sizeGroup === communitySizeGroup).map((sample) => sample.id)
+    );
+    if (!visibleCommunityIds.size) {
+      if (communitySelectedId) setCommunitySelectedId("");
+      return;
+    }
+    if (!communitySelectedId || !visibleCommunityIds.has(communitySelectedId)) {
+      setCommunitySelectedId(communityPuzzles.find((sample) => sample.sizeGroup === communitySizeGroup)?.id || "");
+    }
+  }, [communityPuzzles, communitySelectedId, communitySizeGroup]);
 
   const goSingleMode = () => {
     if (pvpSearching && !isInRaceRoom) {
       void cancelPvpQueue({ silent: true });
     }
     if (!isInRaceRoom) clearPuzzleViewState();
+    setSingleSection("home");
     setPlayMode("single");
     setStatus("");
   };
+
+  const goSingleSection = (section, { clear = true } = {}) => {
+    if (section === "admin" && !isCreatorAdminUser) {
+      setStatus(L("관리자 계정으로만 접근할 수 있습니다.", "This section is only available to the admin account."));
+      setSingleSection("home");
+      setPlayMode("single");
+      playSfx("ui");
+      return;
+    }
+    if (!isInRaceRoom && clear) {
+      clearPuzzleViewState();
+    }
+    setSingleSection(section);
+    setPlayMode("single");
+    setStatus("");
+    if (section === "community") {
+      void loadCommunityPuzzles({ silent: true });
+    }
+    if (section === "admin") {
+      void loadAdminCreatorPuzzles({ silent: true });
+    }
+    playSfx("ui");
+  };
+
+  useEffect(() => {
+    if (singleSection === "admin" && !isCreatorAdminUser) {
+      setSingleSection("home");
+    }
+  }, [isCreatorAdminUser, singleSection]);
 
   const openAuthScreen = (tab = "login", returnMode = "menu") => {
     setAuthTab(tab);
@@ -4155,6 +4973,11 @@ function App() {
     setRaceState(room);
     const me = room?.players?.find((p) => p.playerId === playerIdOverride);
     if (me && Number.isInteger(me.elapsedSec)) {
+      const nextElapsedMs =
+        Number.isFinite(Number(me.elapsedMs)) && Number(me.elapsedMs) > 0
+          ? Number(me.elapsedMs)
+          : Number(me.elapsedSec) * 1000;
+      setElapsedMs(nextElapsedMs);
       setElapsedSec(me.elapsedSec);
     }
   };
@@ -4415,6 +5238,7 @@ function App() {
           roomCode: raceRoomCode,
           playerId: racePlayerId,
           elapsedSec,
+          elapsedMs,
         }),
       });
       const data = await parseJsonSafe(res);
@@ -4429,7 +5253,7 @@ function App() {
   };
 
   const submitSingleFinish = async () => {
-    if (!puzzle || isInRaceRoom || isModeTutorial) return;
+    if (!puzzle || puzzle.isCustom || isInRaceRoom || isModeTutorial) return;
     try {
       const res = await fetch(`${API_BASE}/single/finish`, {
         method: "POST",
@@ -4439,6 +5263,7 @@ function App() {
           width: Number(puzzle.width),
           height: Number(puzzle.height),
           elapsedSec,
+          elapsedMs,
         }),
       });
       const data = await parseJsonSafe(res);
@@ -4551,13 +5376,17 @@ function App() {
   const startPaint = (index, buttonType, options = {}) => {
     const current = cellValuesRef.current[index] ?? 0;
     const paintValue =
-      buttonType === "left"
+      isModeCreate
         ? current === 1
           ? 0
           : 1
-        : current === 2
-          ? 0
-          : 2;
+        : buttonType === "left"
+          ? current === 1
+            ? 0
+            : 1
+          : current === 2
+            ? 0
+            : 2;
 
     if (!dragRef.current) {
       strokeBaseRef.current = cellValuesRef.current.slice();
@@ -4655,6 +5484,8 @@ function App() {
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
+    const revealProgress = Math.max(0, Math.min(1, solvedRevealProgress));
+    const revealEase = 1 - (1 - revealProgress) ** 3;
 
     const palette = uiStyleVariant === "excel"
       ? {
@@ -4698,18 +5529,38 @@ function App() {
           ctx.fillStyle = palette.filled;
           ctx.fillRect(px, py, cellSize, cellSize);
           // Filled cells keep a subtle border so adjacent blacks remain distinguishable.
-          ctx.strokeStyle = palette.filledBorder;
-          ctx.lineWidth = 1;
-          ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
+          const filledBorderAlpha = 1 - revealEase * 0.72;
+          if (filledBorderAlpha > 0.02) {
+            ctx.save();
+            ctx.globalAlpha = filledBorderAlpha;
+            ctx.strokeStyle = palette.filledBorder;
+            ctx.lineWidth = 1;
+            ctx.strokeRect(px + 0.5, py + 0.5, cellSize - 1, cellSize - 1);
+            ctx.restore();
+          }
+          if (revealEase > 0.02) {
+            ctx.save();
+            ctx.globalAlpha = 0.16 * revealEase;
+            ctx.fillStyle = isDarkMode ? "#ffffff" : "#fffef8";
+            ctx.fillRect(px, py, cellSize, cellSize);
+            ctx.restore();
+          }
         } else if (v === 2) {
-          ctx.strokeStyle = palette.mark;
-          ctx.lineWidth = 1.8;
-          ctx.beginPath();
-          ctx.moveTo(px + 4, py + 4);
-          ctx.lineTo(px + cellSize - 4, py + cellSize - 4);
-          ctx.moveTo(px + cellSize - 4, py + 4);
-          ctx.lineTo(px + 4, py + cellSize - 4);
-          ctx.stroke();
+          const markAlpha = 1 - revealEase;
+          if (markAlpha > 0.01) {
+            const inset = 4 + revealEase * Math.min(6, cellSize * 0.18);
+            ctx.save();
+            ctx.globalAlpha = markAlpha;
+            ctx.strokeStyle = palette.mark;
+            ctx.lineWidth = Math.max(1.1, 1.8 - revealEase * 0.6);
+            ctx.beginPath();
+            ctx.moveTo(px + inset, py + inset);
+            ctx.lineTo(px + cellSize - inset, py + cellSize - inset);
+            ctx.moveTo(px + cellSize - inset, py + inset);
+            ctx.lineTo(px + inset, py + cellSize - inset);
+            ctx.stroke();
+            ctx.restore();
+          }
         }
       }
     }
@@ -4751,7 +5602,7 @@ function App() {
     ctx.strokeStyle = palette.border;
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
-  }, [puzzle, cells, cellSize, isDarkMode, uiStyleVariant]);
+  }, [puzzle, cells, cellSize, isDarkMode, uiStyleVariant, solvedRevealProgress]);
 
   useEffect(() => {
     const onWindowPointerMove = (event) => {
@@ -4794,9 +5645,11 @@ function App() {
     applySnapshot(new Array(puzzle.width * puzzle.height).fill(0));
     setActiveHints(new Set());
     autoSolvedShownRef.current = false;
+    puzzleStartedAtMsRef.current = !isModeCreate ? Date.now() : 0;
+    setElapsedMs(0);
     setElapsedSec(0);
-    setTimerRunning(true);
-    setStatus("Grid cleared.");
+    setTimerRunning(!isModeCreate);
+    setStatus(isModeCreate ? L("캔버스를 비웠습니다.", "Cleared the canvas.") : "Grid cleared.");
     playSfx("clear");
   };
 
@@ -4820,11 +5673,16 @@ function App() {
   useEffect(() => {
     if (!puzzle || !timerRunning) return undefined;
     if (isInRaceRoom) return undefined;
+    if (!puzzleStartedAtMsRef.current) {
+      puzzleStartedAtMsRef.current = Date.now() - Math.max(0, Number(elapsedMs || 0));
+    }
     const id = setInterval(() => {
-      setElapsedSec((s) => s + 1);
-    }, 1000);
+      const nextElapsedMs = Math.max(0, Date.now() - puzzleStartedAtMsRef.current);
+      setElapsedMs(nextElapsedMs);
+      setElapsedSec(Math.floor(nextElapsedMs / 1000));
+    }, 50);
     return () => clearInterval(id);
-  }, [puzzle, timerRunning, isInRaceRoom]);
+  }, [puzzle, timerRunning, isInRaceRoom, elapsedMs]);
 
   useEffect(() => {
     if (!isRacePlaying || !raceRoomCode || !racePlayerId) return;
@@ -4850,9 +5708,11 @@ function App() {
   useEffect(() => {
     if (!isInRaceRoom || !raceState?.gameStartAt) return;
     if (isRacePlaying) {
-      const sec = Math.max(0, Math.floor((nowMs - new Date(raceState.gameStartAt).getTime()) / 1000));
-      setElapsedSec(sec);
+      const nextElapsedMs = Math.max(0, nowMs - new Date(raceState.gameStartAt).getTime());
+      setElapsedMs(nextElapsedMs);
+      setElapsedSec(Math.floor(nextElapsedMs / 1000));
     } else if (isRaceCountdown || isRaceLobby) {
+      setElapsedMs(0);
       setElapsedSec(0);
     }
   }, [isInRaceRoom, isRacePlaying, isRaceCountdown, isRaceLobby, raceState, nowMs]);
@@ -4926,8 +5786,15 @@ function App() {
       autoSolvedShownRef.current = false;
       return;
     }
+    if (isModeCreate) {
+      autoSolvedShownRef.current = false;
+      return;
+    }
     if (isBoardCompleteByHints && !autoSolvedShownRef.current) {
       autoSolvedShownRef.current = true;
+      if (puzzle?.isCustom) {
+        startSolvedReveal();
+      }
       setTimerRunning(false);
       if (isModePlacementTest && !isInRaceRoom && placementRunning) {
         setStatus(L("단계 완료! 다음 퍼즐로 이동합니다.", "Stage cleared! Moving to next puzzle."));
@@ -4940,8 +5807,18 @@ function App() {
       } else {
         setStatus("Success! Puzzle solved.");
         if (isModeSingle && !isInRaceRoom) {
-          triggerVictoryFx("single");
-          submitSingleFinish();
+          if (puzzle?.isCustom) {
+            triggerVictoryFx("single");
+          }
+          if (puzzle?.isCustomLibrary) {
+            markCustomSampleSolved(puzzle?.creatorPuzzleId || puzzle?.id);
+            void submitCustomSampleSolve(puzzle?.creatorPuzzleId || puzzle?.id);
+          }
+          if (puzzle?.isCommunityPuzzle) {
+            void submitCommunityPuzzleSolve();
+          } else {
+            void submitSingleFinish();
+          }
         }
       }
     }
@@ -4957,6 +5834,11 @@ function App() {
     placementRunning,
     isModeTutorial,
     isModeSingle,
+    isModeCreate,
+    markCustomSampleSolved,
+    submitCommunityPuzzleSolve,
+    submitCustomSampleSolve,
+    startSolvedReveal,
     triggerVictoryFx,
   ]);
 
@@ -4964,9 +5846,6 @@ function App() {
     if (!isInRaceRoom || racePhase !== "finished" || !raceState?.winnerPlayerId || raceResultShownRef.current) return;
     raceResultShownRef.current = true;
     if (raceState.winnerPlayerId === racePlayerId) {
-      if (isModeMulti || isModePvp) {
-        triggerVictoryFx("multi");
-      }
       setStatus(L("승리하였습니다.", "Victory."));
       playSfx("win");
     } else {
@@ -4983,7 +5862,7 @@ function App() {
       setTimerRunning(false);
       playSfx("lose");
     }
-  }, [isInRaceRoom, racePhase, raceState, racePlayerId, myRacePlayer, isModeMulti, isModePvp, L, triggerVictoryFx]);
+  }, [isInRaceRoom, racePhase, raceState, racePlayerId, myRacePlayer, L]);
 
   useEffect(() => {
     if (!showMultiResultModal) return;
@@ -5331,14 +6210,14 @@ function App() {
       normalizeProfileAvatarKey(profileDraftAvatarKey);
 
   return (
-    <main className={`page ${isExcelMode ? "excelSkin" : ""} ${isDarkThemeActive ? "themeDark" : ""}`} style={excelMainStyle}>
+    <main className={`page ${isExcelMode ? "excelSkin" : ""} ${isDarkThemeActive ? "themeDark" : ""} ${isModeCreate ? "pageCreateMode" : ""}`} style={excelMainStyle}>
       <div className="bgGlow bgGlowA" />
       <div className="bgGlow bgGlowB" />
       <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""} ${lang === "en" ? "langEn" : "langKo"}`}
+        className={`panel ${isModeMenu || isModeAuth ? "panelMenu" : ""} ${isModeCreate ? "panelCreateMode" : ""} ${lang === "en" ? "langEn" : "langKo"}`}
       >
         <div className="topBar">
           <button type="button" className="brandWrap" onClick={backToMenu}>
@@ -6097,23 +6976,568 @@ function App() {
         {isModeSingle && (
           <div className="controls singleTopControls" data-tutorial="single-controls">
             {!isInRaceRoom && (
-              <>
-                <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
-                  <option value="5x5">5x5</option>
-                  <option value="10x10">10x10</option>
-                  <option value="15x15">15x15</option>
-                  <option value="20x20">20x20</option>
-                  <option value="25x25">25x25</option>
-                </select>
-                <button className="singleActionBtn" onClick={loadRandomBySize} disabled={isLoading}>
-                  {isLoading ? "LOADING..." : "RANDOM LOAD"}
+              isCustomPreviewPuzzle ? (
+                <button className="singleActionBtn" onClick={backToCreateMode}>
+                  {L("제작기로 돌아가기", "BACK TO CREATE")}
                 </button>
-              </>
+              ) : shouldShowPuzzleBoard && singleSection === "official" ? (
+                <>
+                  <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)} disabled={isLoading}>
+                    <option value="5x5">5x5</option>
+                    <option value="10x10">10x10</option>
+                    <option value="15x15">15x15</option>
+                    <option value="20x20">20x20</option>
+                    <option value="25x25">25x25</option>
+                  </select>
+                  <button className="singleActionBtn" onClick={loadRandomBySize} disabled={isLoading}>
+                    {isLoading ? "Loading..." : L("퍼즐 바꾸기", "Change Puzzle")}
+                  </button>
+                </>
+              ) : singleSection !== "home" ? (
+                <button className="singleSfxBtn" onClick={() => goSingleSection("home")}>
+                  {L("싱글 홈", "SINGLE HOME")}
+                </button>
+              ) : (
+                <>
+                  <span className="singleModeBadge">{L("싱글 플레이", "Single Play")}</span>
+                </>
+              )
             )}
             <button className="singleHomeBtn" onClick={backToMenu} disabled={isInRaceRoom}>
               HOME
             </button>
           </div>
+        )}
+
+        {isModeSingle && !isInRaceRoom && !isCustomPreviewPuzzle && !shouldShowPuzzleBoard && singleSection === "home" && (
+          <section className="singleMenuHub">
+            <div className="singleMenuGrid">
+              <button type="button" className="singleMenuCard official" onClick={() => goSingleSection("official")}>
+                <span className="singleMenuCardTitle">{L("공식 퍼즐", "Official")}</span>
+              </button>
+
+              <button type="button" className="singleMenuCard custom" onClick={() => goSingleSection("custom")}>
+                <span className="singleMenuCardTitle">{L("테마 퍼즐", "Theme Puzzles")}</span>
+              </button>
+
+              <button type="button" className="singleMenuCard community" onClick={() => goSingleSection("community")}>
+                <span className="singleMenuCardTitle">{L("유저 퍼즐", "User Puzzles")}</span>
+              </button>
+
+              <button type="button" className="singleMenuCard create" onClick={goCreateMode}>
+                <span className="singleMenuCardTitle">{L("퍼즐 만들기", "Create Puzzle")}</span>
+              </button>
+
+              {isCreatorAdminUser && (
+                <button type="button" className="singleMenuCard admin" onClick={() => goSingleSection("admin")}>
+                  <span className="singleMenuCardEyebrow">{L("관리 전용", "Admin")}</span>
+                  <span className="singleMenuCardTitle">{L("관리자 검수", "Admin Review")}</span>
+                </button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {isModeSingle && !isInRaceRoom && !isCustomPreviewPuzzle && !shouldShowPuzzleBoard && singleSection === "official" && (
+          <section className="singleSourcePanel">
+            <div className="singleSourceHeader">
+              <div>
+                <div className="singleSourceTitle">{L("공식 퍼즐", "Official")}</div>
+              </div>
+            </div>
+            <div className="singleSourceBody">
+              <select value={selectedSize} onChange={(e) => setSelectedSize(e.target.value)}>
+                <option value="5x5">5x5</option>
+                <option value="10x10">10x10</option>
+                <option value="15x15">15x15</option>
+                <option value="20x20">20x20</option>
+                <option value="25x25">25x25</option>
+              </select>
+              <button className="singleActionBtn" onClick={loadRandomBySize} disabled={isLoading}>
+                {isLoading ? "Loading..." : L("랜덤 불러오기", "Load Random")}
+              </button>
+            </div>
+          </section>
+        )}
+
+        {isModeSingle && !isInRaceRoom && !isCustomPreviewPuzzle && !shouldShowPuzzleBoard && singleSection === "custom" && (
+          <section className="singleSourcePanel singleCustomSourcePanel">
+            <div className="singleSourceHeader">
+              <div>
+                <div className="singleSourceTitle">{L("테마 퍼즐", "Theme Puzzles")}</div>
+              </div>
+              <span className="singleSourceCount">{creatorSamples.length}</span>
+            </div>
+
+            <div className="singleGroupTabs">
+              {CREATOR_SAMPLE_GROUP_ORDER.map((groupKey) => {
+                const label = lang === "ko" ? CREATOR_GROUP_LABELS[groupKey]?.ko || groupKey : CREATOR_GROUP_LABELS[groupKey]?.en || groupKey;
+                const count = creatorSamples.filter((sample) => sample.sizeGroup === groupKey).length;
+                return (
+                  <button
+                    key={`custom-tab-${groupKey}`}
+                    type="button"
+                    className={`singleGroupTab ${customSizeGroup === groupKey ? "active" : ""}`}
+                    onClick={() => setCustomSizeGroup(groupKey)}
+                  >
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="singleCustomSections">
+              {(() => {
+                const groupSamples = creatorSamples.filter((sample) => sample.sizeGroup === customSizeGroup);
+                if (!groupSamples.length) {
+                  return (
+                    <div className="singleCommunityEmpty">
+                      {L("이 사이즈에는 아직 퍼즐이 없습니다.", "There are no puzzles in this size yet.")}
+                    </div>
+                  );
+                }
+                const groupLabel =
+                  lang === "ko"
+                    ? groupSamples[0].groupTitleKo || CREATOR_GROUP_LABELS[customSizeGroup]?.ko || customSizeGroup
+                    : groupSamples[0].groupTitleEn || CREATOR_GROUP_LABELS[customSizeGroup]?.en || customSizeGroup;
+                return (
+                  <section className="createSampleSection singleSelectedGroupSection">
+                    <div className="createSampleSectionTitle">
+                      <span>{groupLabel}</span>
+                      <span className="createSampleSectionCount">{groupSamples.length}</span>
+                    </div>
+                    <div className="createSamplesGrid singleCustomGrid">
+                      {groupSamples.map((sample) => {
+                        const isSolved = sample.isSolved === true;
+                        return (
+                          <div key={`single-${sample.id}`} className="createSampleCard singleSampleCard singleSampleCardLarge">
+                            <button
+                              type="button"
+                              className="createSampleLoadBtn singleCustomListBtn singleCustomListBtnLarge"
+                              onClick={() => loadSingleCustomSample(sample)}
+                            >
+                              {isSolved ? (
+                                <div
+                                  className="createSamplePreview singleCustomThumbPreview singleCustomThumbPreviewLarge"
+                                  style={{
+                                    gridTemplateColumns: `repeat(${sample.width}, 1fr)`,
+                                    gridTemplateRows: `repeat(${sample.height}, 1fr)`,
+                                  }}
+                                >
+                                  {sample.cells.map((value, idx) => (
+                                    <span
+                                      key={`single-preview-${sample.id}-${idx}`}
+                                      className={`createSamplePixel ${value === 1 ? "filled" : ""}`}
+                                    />
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="singleCustomThumb locked singleCustomThumbLarge">
+                                  <span className="singleCustomThumbSize">{sample.width}x{sample.height}</span>
+                                  <span className="singleCustomThumbState">{L("미해결", "Unsolved")}</span>
+                                </div>
+                              )}
+                              <div className="createSampleMeta singleCustomMetaLarge">
+                                <div className="createSampleLabel">{lang === "ko" ? sample.titleKo : sample.titleEn}</div>
+                                <div className="createSampleSize">{sample.width}x{sample.height}</div>
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })()}
+            </div>
+          </section>
+        )}
+
+        {isModeSingle && !isInRaceRoom && !isCustomPreviewPuzzle && !shouldShowPuzzleBoard && singleSection === "community" && (
+          <section className="singleSourcePanel singleCommunityPanel">
+            <div className="singleSourceHeader">
+              <div>
+                <div className="singleSourceTitle">{L("유저 퍼즐", "User Puzzles")}</div>
+              </div>
+              <span className="singleSourceCount">{communityPuzzles.length}</span>
+            </div>
+
+            <div className="singleGroupTabs">
+              {CREATOR_SAMPLE_GROUP_ORDER.map((groupKey) => {
+                const label = lang === "ko" ? CREATOR_GROUP_LABELS[groupKey]?.ko || groupKey : CREATOR_GROUP_LABELS[groupKey]?.en || groupKey;
+                const count = communityPuzzles.filter((sample) => sample.sizeGroup === groupKey).length;
+                return (
+                  <button
+                    key={`community-tab-${groupKey}`}
+                    type="button"
+                    className={`singleGroupTab ${communitySizeGroup === groupKey ? "active" : ""}`}
+                    onClick={() => setCommunitySizeGroup(groupKey)}
+                  >
+                    <span>{label}</span>
+                    <strong>{count}</strong>
+                  </button>
+                );
+              })}
+            </div>
+
+            {!communityPuzzles.length ? (
+              <div className="singleCommunityEmpty">
+                {communityLoading
+                  ? L("유저 퍼즐을 불러오는 중입니다...", "Loading user puzzles...")
+                  : L("아직 승인된 유저 퍼즐이 없습니다.", "There are no approved user puzzles yet.")}
+              </div>
+            ) : (
+              <div className="communityHub">
+                <div className="communityBrowserPanel">
+                  {(() => {
+                    const groupPuzzles = communityPuzzles.filter((sample) => sample.sizeGroup === communitySizeGroup);
+                    if (!groupPuzzles.length) {
+                      return (
+                        <div className="singleCommunityEmpty">
+                          {L("이 사이즈에는 아직 유저 퍼즐이 없습니다.", "There are no user puzzles in this size yet.")}
+                        </div>
+                      );
+                    }
+                    const groupLabel =
+                      lang === "ko"
+                        ? groupPuzzles[0].groupTitleKo || CREATOR_GROUP_LABELS[communitySizeGroup]?.ko || communitySizeGroup
+                        : groupPuzzles[0].groupTitleEn || CREATOR_GROUP_LABELS[communitySizeGroup]?.en || communitySizeGroup;
+                    return (
+                      <section className="communityGroupSection communitySelectedGroupSection">
+                        <div className="communityGroupTitle">
+                          <span>{groupLabel}</span>
+                          <span className="createSampleSectionCount">{groupPuzzles.length}</span>
+                        </div>
+                        <div className="communityGroupList communityGroupListLarge">
+                          {groupPuzzles.map((sample) => {
+                            const isSolved = sample.isSolved === true;
+                            const isSelected = communitySelectedId === sample.id;
+                            return (
+                              <button
+                                key={`community-${sample.id}`}
+                                type="button"
+                                className={`communityListCard communityListCardLarge ${isSelected ? "selected" : ""}`}
+                                onClick={() => setCommunitySelectedId(sample.id)}
+                              >
+                                {isSolved ? (
+                                  <div
+                                    className="createSamplePreview communitySamplePreview communityListPreview communityListPreviewLarge"
+                                    style={{
+                                      gridTemplateColumns: `repeat(${sample.width}, 1fr)`,
+                                      gridTemplateRows: `repeat(${sample.height}, 1fr)`,
+                                    }}
+                                  >
+                                    {sample.cells.map((value, idx) => (
+                                      <span
+                                        key={`community-${sample.id}-${idx}`}
+                                        className={`createSamplePixel ${value === 1 ? "filled" : ""}`}
+                                      />
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="singleCustomThumb locked communityLockedThumb communityLockedThumbLarge">
+                                    <span className="singleCustomThumbSize">{sample.width}x{sample.height}</span>
+                                    <span className="singleCustomThumbState">{L("미해결", "Unsolved")}</span>
+                                  </div>
+                                )}
+                                <div className="communityListCardBody communityListCardBodyLarge">
+                                  <div className="createSampleLabel">{lang === "ko" ? sample.titleKo : sample.titleEn}</div>
+                                  <div className="createSampleSize">{sample.width}x{sample.height}</div>
+                                  <div className="communitySampleMetaRow">
+                                    <span>{sample.createdByNickname || L("익명", "Anonymous")}</span>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })()}
+                </div>
+
+                <div className="communityDetailColumn">
+                  {communityDiscussion ? (
+                    <section className="communityDiscussionPanel">
+                      <div className="communityDetailHero">
+                        {communityDiscussion.isSolved ? (
+                          <div
+                            className="createSamplePreview communitySamplePreview communityDetailPreview"
+                            style={{
+                              gridTemplateColumns: `repeat(${communityDiscussion.width}, 1fr)`,
+                              gridTemplateRows: `repeat(${communityDiscussion.height}, 1fr)`,
+                            }}
+                          >
+                            {communityDiscussion.cells.map((value, idx) => (
+                              <span
+                                key={`community-detail-${communityDiscussion.id}-${idx}`}
+                                className={`createSamplePixel ${value === 1 ? "filled" : ""}`}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="communityDetailHiddenThumb">
+                            <span className="communityDetailHiddenSize">
+                              {communityDiscussion.width}x{communityDiscussion.height}
+                            </span>
+                            <span className="communityDetailHiddenState">{L("미해결", "Unsolved")}</span>
+                          </div>
+                        )}
+
+                        <div className="communityDetailInfo">
+                          <div className="singleSourceTitle">
+                            {lang === "ko" ? communityDiscussion.titleKo : communityDiscussion.titleEn}
+                          </div>
+                          <div className="communityDetailMetaRow">
+                            <span className="communityMetaChip">{communityDiscussion.width}x{communityDiscussion.height}</span>
+                            <span className="communityMetaChip">
+                              {L("제작자", "Creator")}: {communityDiscussion.createdByNickname || L("익명", "Anonymous")}
+                            </span>
+                          </div>
+                          <button className="singleActionBtn communityPlayBtn" onClick={() => loadCommunityPuzzle(communityDiscussion)}>
+                            {L("퍼즐 풀기", "Play")}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="communityReactionRow">
+                        {CREATOR_REACTION_OPTIONS.map((reaction) => {
+                          const count = Number(communityDiscussion.reactionCounts?.[reaction.key] || 0);
+                          const active = communityDiscussion.viewerReaction === reaction.key;
+                          return (
+                            <button
+                              key={reaction.key}
+                              type="button"
+                              className={`communityReactionBtn ${active ? "active" : ""}`}
+                              onClick={() => submitCommunityReaction(reaction.key)}
+                              disabled={communityReactionSending}
+                            >
+                              <span>{reaction.emoji}</span>
+                              <span>{lang === "ko" ? reaction.labelKo : reaction.labelEn}</span>
+                              <strong>{count}</strong>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="communityCommentComposer">
+                        <textarea
+                          value={communityCommentInput}
+                          onChange={(e) => setCommunityCommentInput(e.target.value)}
+                          placeholder={L("퍼즐을 풀어본 느낌이나 힌트를 남겨보세요.", "Leave a comment or a hint for this puzzle.")}
+                          maxLength={500}
+                        />
+                        <button className="singleActionBtn" onClick={submitCommunityComment} disabled={communityCommentSending}>
+                          {communityCommentSending ? L("등록 중...", "Posting...") : L("댓글 남기기", "Comment")}
+                        </button>
+                      </div>
+
+                      <div className="communityCommentsList">
+                        {(communityDiscussion.comments || []).length ? (
+                          communityDiscussion.comments.map((comment) => (
+                            <article key={`community-comment-${comment.id}`} className="communityCommentItem">
+                              <div className="communityCommentHead">
+                                <strong>{comment.nickname}</strong>
+                                <span>{comment.createdAt ? new Date(comment.createdAt).toLocaleString() : ""}</span>
+                              </div>
+                              <p>{comment.body}</p>
+                            </article>
+                          ))
+                        ) : (
+                          <div className="singleCommunityEmpty">
+                            {L("아직 댓글이 없습니다.", "No comments yet.")}
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  ) : (
+                    <div className="singleCommunityEmpty">
+                      {L("왼쪽 목록에서 퍼즐을 하나 선택해보세요.", "Pick a puzzle from the list on the left.")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {isModeSingle && !isInRaceRoom && !isCustomPreviewPuzzle && !shouldShowPuzzleBoard && isCreatorAdminUser && singleSection === "admin" && (
+          <section className="singleSourcePanel singleAdminPanel">
+            <div className="singleSourceHeader">
+              <div>
+                <div className="singleSourceTitle">{L("관리자 검수", "Admin Review")}</div>
+                <div className="singleSourceSubtitle">
+                  {L("자동 검증을 통과한 제출 퍼즐을 승인하거나 반려합니다.", "Approve or reject submitted puzzles after automatic validation.")}
+                </div>
+              </div>
+            </div>
+            <div className="adminCreatorControls">
+              <input
+                type="password"
+                value={adminCreatorKey}
+                onChange={(e) => setAdminCreatorKey(e.target.value)}
+                placeholder={L("관리자 키 입력", "Enter admin key")}
+              />
+              <button className="singleActionBtn" onClick={() => loadAdminCreatorPuzzles()} disabled={adminCreatorLoading}>
+                {adminCreatorLoading ? L("불러오는 중...", "Loading...") : L("검수 목록 불러오기", "Load List")}
+              </button>
+            </div>
+            <div className="adminCreatorList">
+              {adminCreatorPuzzles.length ? (
+                adminCreatorPuzzles.map((puzzleItem) => (
+                  <article key={`admin-creator-${puzzleItem.id}`} className="adminCreatorCard">
+                    <div className="adminCreatorCardBody">
+                      <div
+                        className="createSamplePreview adminCreatorPreview"
+                        style={{
+                          gridTemplateColumns: `repeat(${puzzleItem.width}, 1fr)`,
+                          gridTemplateRows: `repeat(${puzzleItem.height}, 1fr)`,
+                        }}
+                      >
+                        {(Array.isArray(puzzleItem.rows) ? puzzleItem.rows : []).flatMap((row, rowIndex) =>
+                          Array.from(String(row || "")).map((cell, colIndex) => (
+                            <span
+                              key={`admin-preview-${puzzleItem.id}-${rowIndex}-${colIndex}`}
+                              className={`createSamplePixel ${cell === "#" ? "filled" : ""}`}
+                            />
+                          ))
+                        )}
+                      </div>
+
+                      <div className="adminCreatorCardContent">
+                        <div className="adminCreatorCardTop">
+                          <div>
+                            <strong>{lang === "ko" ? puzzleItem.titleKo : puzzleItem.titleEn}</strong>
+                            <div className="adminCreatorMeta">
+                              <span>{puzzleItem.width}x{puzzleItem.height}</span>
+                              <span>{puzzleItem.createdByNickname || L("익명", "Anonymous")}</span>
+                              <span>{puzzleItem.approvalStatus}</span>
+                            </div>
+                          </div>
+                          <div className="adminCreatorActions">
+                            <button className="singleActionBtn" onClick={() => reviewCreatorPuzzle(puzzleItem.id, "approve")}>
+                              {L("승인", "Approve")}
+                            </button>
+                            <button className="singleActionBtn danger" onClick={() => reviewCreatorPuzzle(puzzleItem.id, "reject")}>
+                              {L("반려", "Reject")}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="adminCreatorValidation">
+                          <span className={puzzleItem.unique ? "ok" : "bad"}>{L("유일해", "Unique")}: {puzzleItem.unique ? "OK" : "NO"}</span>
+                          <span className={!puzzleItem.needsGuess ? "ok" : "bad"}>{L("귀류법", "Guessing")}: {puzzleItem.needsGuess ? "Yes" : "No"}</span>
+                          <span>{L("해답 수", "Solutions")}: {puzzleItem.validationSolutionCount}</span>
+                          <span>{L("논리 풀이", "Logical solve")}: {puzzleItem.validationLogicalSolved ? "OK" : "NO"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="singleCommunityEmpty">
+                  {L("검수할 퍼즐이 없습니다. 관리자 키를 입력하고 불러오기를 눌러주세요.", "There are no submissions to review yet. Enter the admin key and load the list.")}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {isModeCreate && (
+          <section className="createPuzzleScreen">
+            <div className="controls singleTopControls createTopControls">
+              <label className="createTitleField">
+                <span>{L("퍼즐 이름", "Puzzle Title")}</span>
+                <input
+                  type="text"
+                  maxLength={60}
+                  value={creatorTitleInput}
+                  onChange={(e) => setCreatorTitleInput(e.target.value)}
+                />
+              </label>
+              <div className="createSizeInputs">
+                <label className="createSizeField">
+                  <span>{L("가로", "Width")}</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="40"
+                    value={creatorWidthInput}
+                    onChange={(e) => setCreatorWidthInput(e.target.value)}
+                  />
+                </label>
+                <label className="createSizeField">
+                  <span>{L("세로", "Height")}</span>
+                  <input
+                    type="number"
+                    min="5"
+                    max="40"
+                    value={creatorHeightInput}
+                    onChange={(e) => setCreatorHeightInput(e.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="createValidationNote">
+                {L(
+                  "제출후 검증을 거쳐, 실제로 풀 수 있는 퍼즐만 등록됩니다.",
+                  "After submission, only puzzles that pass validation and can actually be solved will be listed."
+                )}
+              </div>
+              <button className="singleSfxBtn" onClick={generateCreatorCanvas}>
+                {L("생성", "Create")}
+              </button>
+              <button className="singleActionBtn" onClick={saveCreatorPuzzle} disabled={creatorSaving || !puzzle}>
+                {creatorSaving ? L("제출 중...", "Submitting...") : L("제출", "Submit")}
+              </button>
+              <button className="singleActionBtn" onClick={startCreatorSingleTest} disabled={!puzzle}>
+                {L("싱글 테스트", "Test Play")}
+              </button>
+              <button className="singleHomeBtn" onClick={backToMenu}>
+                HOME
+              </button>
+            </div>
+
+            {!puzzle && (
+              <div className="createBlankState">
+                <div className="createBlankArt" aria-hidden="true" />
+                <div className="createBlankText">
+                  <strong>{L("새 퍼즐 캔버스를 만들어 시작하세요.", "Create a puzzle canvas to start.")}</strong>
+                  <span>{L("가로와 세로를 정한 뒤 생성하면 바로 그릴 수 있습니다.", "Set the width and height, then create the board.")}</span>
+                </div>
+              </div>
+            )}
+
+            {puzzle && (
+              <div className="createEditorToolbar">
+                <div className="createIconGroup">
+                  <button type="button" className="createIconBtn" onClick={undo} disabled={!canUndo} aria-label={L("되돌리기", "Undo")} title={L("되돌리기", "Undo")}>
+                    <Undo2 size={18} />
+                  </button>
+                  <button type="button" className="createIconBtn" onClick={redo} disabled={!canRedo} aria-label={L("다시하기", "Redo")} title={L("다시하기", "Redo")}>
+                    <Redo2 size={18} />
+                  </button>
+                </div>
+                <div className="createIconGroup">
+                  <button type="button" className="createIconBtn" onClick={() => shiftCreatorCanvas(0, -1)} aria-label={L("위로 1칸", "Move Up")} title={L("위로 1칸", "Move Up")}>
+                    <ArrowUp size={18} />
+                  </button>
+                  <button type="button" className="createIconBtn" onClick={() => shiftCreatorCanvas(0, 1)} aria-label={L("아래로 1칸", "Move Down")} title={L("아래로 1칸", "Move Down")}>
+                    <ArrowDown size={18} />
+                  </button>
+                  <button type="button" className="createIconBtn" onClick={() => shiftCreatorCanvas(-1, 0)} aria-label={L("왼쪽으로 1칸", "Move Left")} title={L("왼쪽으로 1칸", "Move Left")}>
+                    <ArrowLeft size={18} />
+                  </button>
+                  <button type="button" className="createIconBtn" onClick={() => shiftCreatorCanvas(1, 0)} aria-label={L("오른쪽으로 1칸", "Move Right")} title={L("오른쪽으로 1칸", "Move Right")}>
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+                <button type="button" className="singleSfxBtn" onClick={resetGrid}>
+                  {L("전체 지우기", "Clear")}
+                </button>
+              </div>
+            )}
+          </section>
         )}
 
         {isModeTutorial && (
@@ -6161,8 +7585,8 @@ function App() {
                 <div className="pvpQueueDescRow">
                   <div className="pvpQueueDesc">
                     {L(
-                      "실버 티어까지는 5x5·10x10·15x15, 골드 티어부터는 10x10·15x15·20x20·25x25 퍼즐이 등장합니다.",
-                      "Up to Silver tier, 5x5/10x10/15x15 puzzles appear. From Gold tier, 10x10/15x15/20x20/25x25 puzzles appear."
+                      "실버 티어까지는 5x5·10x10·15x15, 골드 티어는 10x10·15x15·20x20, 다이아 티어부터는 10x10·15x15·20x20·25x25 퍼즐이 등장합니다.",
+                      "Up to Silver tier, 5x5/10x10/15x15 puzzles appear. Gold tier uses 10x10/15x15/20x20, and Diamond+ uses 10x10/15x15/20x20/25x25."
                     )}
                   </div>
                   <button
@@ -6797,10 +8221,10 @@ function App() {
           </section>
         )}
 
-        {shouldShowPuzzleBoard && !isSingleSoloMode && !isInRaceRoom && (
+        {shouldShowPuzzleBoard && !isSingleSoloMode && !isModeCreate && !isInRaceRoom && (
           <div className={`timerBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimer" : ""}`}>TIME {formattedTime}</div>
         )}
-        {shouldShowPuzzleBoard && !isSingleSoloMode && !isInRaceRoom && (
+        {shouldShowPuzzleBoard && !isSingleSoloMode && !isModeCreate && !isInRaceRoom && (
           <div className={`gameTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusGameTools" : ""}`} role="toolbar" aria-label="Board tools">
             <button
               className="iconBtn"
@@ -7045,7 +8469,7 @@ function App() {
                             row.nickname
                           )}
                         </td>
-                        <td>{formatRaceElapsedSec(row.elapsedSec)}</td>
+                        <td>{formatRaceElapsedMs(row.elapsedMs, row.elapsedSec)}</td>
                         <td>{formatRaceStatusLabel(row.status)}</td>
                       </tr>
                     ))}
@@ -7185,6 +8609,29 @@ function App() {
                 >
                   {L("로그인하러 가기", "Go to Login")}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showPatchNotesModal && (
+          <div className="modalBackdrop" onClick={closePatchNotesModal}>
+            <div className="modalCard patchNotesModal" onClick={(e) => e.stopPropagation()}>
+              <div className="patchNotesHeader">
+                <div className="patchNotesEyebrow">{L("패치 노트", "Patch Notes")}</div>
+                <h2>{L("퍼즐 메뉴가 업데이트되었습니다", "Puzzle menus have been updated")}</h2>
+                <p>
+                  {L(
+                    "싱글 플레이에서 테마 퍼즐, 유저 퍼즐, 퍼즐 만들기를 바로 이용할 수 있습니다.",
+                    "You can now access Theme Puzzles, User Puzzles, and Create Puzzle from Single Player."
+                  )}
+                </p>
+              </div>
+
+              <div className="modalActions">
+                <button onClick={closePatchNotesModal}>{L("닫기", "Close")}</button>
+                <button onClick={dismissPatchNotesForever}>{L("다신 보지 않기", "Don't show again")}</button>
+                <button onClick={openThemePuzzlesFromPatchNotes}>{L("싱글 플레이 열기", "Open Single Player")}</button>
               </div>
             </div>
           </div>

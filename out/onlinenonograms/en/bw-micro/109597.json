@@ -1,0 +1,305 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 109597,
+  "title": "Skull",
+  "width": 7,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/109597",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/109597.webp",
+  "previewAlt": "#109597",
+  "likes": 45,
+  "dislikes": 3,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #109597",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/109597",
+  "publishedText": "December 25, 2025",
+  "decodedTitle": "Skull",
+  "payload": {
+    "sx": 7,
+    "sy": 10,
+    "p": "q2bKzS9LVbKKjrbUMYRDCNsyVic1wr1EicBFE1qgLLgokn4kUexq0c3F5oZYH1XSohwlK6XkjNSi2IL4UgtTU0szJRalotL4ksySHKDjlWJKDUyMzEGksSmINDFAsI3TgGpT8+Bqg7NLc3KAQsn5OflFxUpW2UqGQFFlAzBQqq0FAA==",
+    "id": 109597,
+    "agurl": "picross",
+    "url": "cherep_u85596",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        9,
+        9,
+        1,
+        1,
+        9,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        9,
+        1,
+        1,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9
+      ]
+    ],
+    "url": "cherep_u85596",
+    "ru_title": "Череп",
+    "en_title": "Skull",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0111110",
+    "1011111",
+    "1111111",
+    "1001001",
+    "1011101",
+    "1110111",
+    "0111110",
+    "1011101",
+    "1100011",
+    "0011100"
+  ],
+  "rowHints": [
+    [
+      5
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      7
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      3,
+      1
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      5
+    ],
+    [
+      1,
+      3,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      3
+    ]
+  ],
+  "colHints": [
+    [
+      5,
+      2
+    ],
+    [
+      1,
+      1,
+      2,
+      1
+    ],
+    [
+      3,
+      4,
+      1
+    ],
+    [
+      5,
+      2,
+      1
+    ],
+    [
+      3,
+      4,
+      1
+    ],
+    [
+      3,
+      2,
+      1
+    ],
+    [
+      5,
+      2
+    ]
+  ]
+}

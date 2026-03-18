@@ -1,0 +1,155 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 106217,
+  "title": "Candle ",
+  "width": 5,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/106217",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/106217.webp",
+  "previewAlt": "#106217",
+  "likes": 25,
+  "dislikes": 2,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #106217",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/106217",
+  "publishedText": "August 2, 2025",
+  "decodedTitle": "Candle ",
+  "payload": {
+    "sx": 5,
+    "sy": 5,
+    "p": "q2bKzS9LVbKKjrbUgUDDWJ2oQxANgkAasjiUhcKajI3VUSotylGyUiouS03OSIxX0lEqKo0vySzJARqsFFNqYGJkCCKNjcCkKYg0MQezDRSAilPz4IqdE/NSclJBgsn5OflFxUpW2UqGQHFlAzBQqq0FAA==",
+    "id": 106217,
+    "agurl": "picross",
+    "url": "svecha_",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        9
+      ]
+    ],
+    "url": "svecha_",
+    "ru_title": "Свеча ",
+    "en_title": "Candle ",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "01000",
+    "00000",
+    "01000",
+    "01011",
+    "11110"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      0
+    ],
+    [
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      4
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      1
+    ],
+    [
+      2
+    ],
+    [
+      1
+    ]
+  ]
+}

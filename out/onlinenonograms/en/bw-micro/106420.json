@@ -1,0 +1,213 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 106420,
+  "title": "Footprint",
+  "width": 6,
+  "height": 7,
+  "detailUrl": "https://onlinenonograms.com/en/id/106420",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/106420.webp",
+  "previewAlt": "#106420",
+  "likes": 17,
+  "dislikes": 4,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #106420",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/106420",
+  "publishedText": "August 17, 2025",
+  "decodedTitle": "Footprint",
+  "payload": {
+    "sx": 6,
+    "sy": 7,
+    "p": "RU5BDsIwDPuLufbQwA60D+ATZZoGGtKkskyl5TLt74QGlVixnNiKsuHJ7wk+BGdI4BS9CT+lW5nV21bmk6L5/3zT9V5vUFKERxzXcSjnY0cOBqkMec5RHsC2aI5uXz7Zyg/VkpqWlrow5zXNS5b2nSOnF/wGEudg1aHfPw==",
+    "id": 106420,
+    "agurl": "picross",
+    "url": "lapa_u82419",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        9,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "lapa_u82419",
+    "ru_title": "Лапа",
+    "en_title": "Footprint",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "001010",
+    "101010",
+    "100001",
+    "001101",
+    "010110",
+    "011110",
+    "001100"
+  ],
+  "rowHints": [
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      4
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      2,
+      1,
+      2
+    ],
+    [
+      4
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2
+    ]
+  ]
+}

@@ -1,0 +1,206 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 108946,
+  "title": "Car light bulb",
+  "width": 5,
+  "height": 8,
+  "detailUrl": "https://onlinenonograms.com/en/id/108946",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/108946.webp",
+  "previewAlt": "#108946",
+  "likes": 36,
+  "dislikes": 8,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #108946",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/108946",
+  "publishedText": "November 27, 2025",
+  "decodedTitle": "Car light bulb",
+  "payload": {
+    "sx": 5,
+    "sy": 8,
+    "p": "XY7BCoMwEER/RbbXHEwNtHrtZ2iRxGqVrk2JE6GI/95kU2S1JS9DZhhahlFPLRRlmbM4PL4VK4PeJvysOt5dJl8z/z0VAacQCpCT21NWAz7lR9Yox5du+ocEBsbVdrDo24CrSwVPA7NjoCBmLbHZ1U48ExUlo3sjUoPoksaOX7+KbisSJ9IyZvwy7XNd5iJNgsO9t4lyqLzX1NTmDcUM3NuHlA4syxc=",
+    "id": 108946,
+    "agurl": "picross",
+    "url": "avtomobilnaya_lampochka",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        9,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "avtomobilnaya_lampochka",
+    "ru_title": "Автомобильная лампочка",
+    "en_title": "Car light bulb",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "00100",
+    "01110",
+    "01110",
+    "01110",
+    "11001",
+    "01110",
+    "01010",
+    "00100"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      6
+    ],
+    [
+      4,
+      1,
+      1
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      1
+    ]
+  ]
+}

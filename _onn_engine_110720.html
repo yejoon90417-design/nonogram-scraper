@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="/sdk/embed.js"></script>
+    <title>Picross</title>
+    <script type="module" crossorigin src="./assets/index-BxRaiCjX.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-B51XwnF_.css">
+  </head>
+  <body>
+    <div id="game-root">
+      <div id="loading-spinner"></div>
+      <div class="app-screen" id="game-screen">
+        <div id="game-field-cont">
+          <canvas id="game-field" oncontextmenu="return false"></canvas>
+          <canvas id="top-canvas" oncontextmenu="return false"></canvas>
+          <div id="game-scrollbar-v" class="game-scrollbar game-scrollbar-v">
+            <div id="game-scrollbar-v-thumb" class="game-scrollbar-thumb"></div>
+          </div>
+          <div id="game-scrollbar-h" class="game-scrollbar game-scrollbar-h">
+            <div id="game-scrollbar-h-thumb" class="game-scrollbar-thumb"></div>
+          </div>
+        </div>
+        <div id="color-select-cont"></div>
+        <div class="hidden" id="game-settings">
+          <div id="game-settings-inner">
+            <div class="settings-sections-container">
+              <div class="settings-section">
+                <h2 id="settings-gameplay-title" class="translate">
+                  settings-gameplay
+                </h2>
+                <div class="line-control">
+                  <span id="game-button-auto-cross-text"
+                    >Cross out empty cells when all blocks are filled</span
+                  >
+                  <select
+                    id="game-button-auto-cross"
+                    rel="game-button-auto-cross-text"
+                  >
+                    <option value="0" class="translate">if-no-errors</option>
+                    <option value="1" class="translate">always-cross</option>
+                    <option value="2" class="translate">never-cross</option>
+                  </select>
+                </div>
+
+                <div class="line-control nowrap">
+                  <button
+                    class="settings-button"
+                    title="How to designate a found block"
+                    id="game-button-numbers-cross"
+                  >
+                    <img
+                      id="game-button-numbers-cross-image"
+                      src="./img/icons/numbers-cross-0.png"
+                      alt="Numbers cross"
+                    />
+                  </button>
+
+                  <div>
+                    <span id="game-button-auto-mark-numbers-text"
+                      >Automatically mark numbers in panels</span
+                    ><br />
+                    <select
+                      id="game-button-auto-mark-numbers"
+                      rel="game-button-auto-mark-numbers-text"
+                    >
+                      <option value="0" class="translate">
+                        if-all-blocks-filled
+                      </option>
+                      <option value="1" class="translate">
+                        single-number-block
+                      </option>
+                      <option value="2" class="translate">never-mark</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="line-control nowrap">
+                  <button
+                    class="settings-button"
+                    id="game-button-user-numbers-cross"
+                  >
+                    <img
+                      id="game-button-user-numbers-cross-image"
+                      src="./img/icons/user-cross/u0.png"
+                      alt="User numbers cross"
+                    />
+                  </button>
+                  <div>
+                    <div class="translate">user numbers cross style</div>
+
+                    <button
+                      class="color-setting-button"
+                      id="game-button-user-cross-color"
+                      title="User cross color"
+                    ></button>
+                  </div>
+                </div>
+
+                <div class="line-control">
+                  <span
+                    class="translate"
+                    id="game-button-user-cross-action-text"
+                  >
+                    user-cross
+                  </span>
+
+                  <select
+                    id="game-button-user-cross-action"
+                    rel="game-button-user-cross-action-text"
+                  >
+                    <option value="0" class="translate">
+                      user-cross-relevant
+                    </option>
+                    <option value="1" class="translate">user-cross-all</option>
+                    <option value="2" class="translate">no-action</option>
+                  </select>
+                </div>
+
+                <div class="line-control">
+                  <label
+                    ><input
+                      id="game-button-help"
+                      type="checkbox"
+                      rel="game-button-help-text"
+                    /><span id="game-button-help-text"
+                      >Show valid block location when clicking on a number</span
+                    ></label
+                  >
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      type="checkbox"
+                      id="game-button-auto-error-check"
+                      rel="game-button-auto-error-check-text"
+                      checked
+                    />
+                    <span id="game-button-auto-error-check-text"
+                      >Automatically show errors after a few seconds of
+                      inactivity</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-instant-error-check"
+                      type="checkbox"
+                      rel="game-button-instant-error-check-text"
+                    />
+                    <span id="game-button-instant-error-check-text"
+                      >Instantly show error if filled cells don't match numbers
+                      in row/column</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <span class="translate">super-help</span>
+                  <select id="game-button-super-help">
+                    <option value="0" class="translate">long-time</option>
+                    <option value="1" class="translate">short-time</option>
+                    <option value="2" class="translate">
+                      permanently-show
+                    </option>
+                    <option value="3" class="translate">never</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="settings-section">
+                <h2 id="settings-interface-title" class="translate">
+                  settings-interface
+                </h2>
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-pin-field"
+                      type="checkbox"
+                      rel="game-button-pin-field-text"
+                      checked
+                    /><span id="game-button-pin-field-text"
+                      >Pin field to top-left corner</span
+                    ></label
+                  >
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-show-block-size"
+                      type="checkbox"
+                      rel="game-button-show-block-size-text"
+                    />
+                    <span id="game-button-show-block-size-text"
+                      >Show block size when hovering and drawing</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-show-distance"
+                      type="checkbox"
+                      rel="game-button-show-distance-text"
+                    />
+                    <span id="game-button-show-distance-text"
+                      >Show distance to field edges from current cell</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-show-preview"
+                      type="checkbox"
+                      rel="game-button-show-preview-text"
+                    />
+                    <span id="game-button-show-preview-text"
+                      >Show preview image in corner</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-show-color-indicator"
+                      type="checkbox"
+                      rel="game-button-show-color-indicator-text"
+                      checked
+                    />
+                    <span id="game-button-show-color-indicator-text"
+                      >Show color indicator in corner</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-show-row-numbers"
+                      type="checkbox"
+                      rel="game-button-show-row-numbers-text"
+                    />
+                    <span id="game-button-show-row-numbers-text"
+                      >Show row numbers</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-draw-legend-grid"
+                      type="checkbox"
+                      rel="game-button-draw-legend-grid-text"
+                      checked
+                    /><span id="game-button-draw-legend-grid-text"
+                      >Draw grid on number panels</span
+                    ></label
+                  >
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-scrollbar"
+                      type="checkbox"
+                      rel="game-button-scrollbar-text"
+                    /><span id="game-button-scrollbar-text"
+                      >Show vertical scrollbar</span
+                    ></label
+                  >
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      id="game-button-scrollbar-h"
+                      type="checkbox"
+                      rel="game-button-scrollbar-h-text"
+                    /><span id="game-button-scrollbar-h-text"
+                      >Show horizontal scrollbar</span
+                    ></label
+                  >
+                </div>
+
+                <div class="line-control">
+                  <span id="game-button-lines-text"
+                    >Show lines with numbers near cursor</span
+                  >
+                  <select id="game-button-lines" rel="game-button-lines-text">
+                    <option value="0" class="translate">never</option>
+                    <option value="1" class="translate">always</option>
+                    <option value="2" class="translate">auto</option>
+                  </select>
+                </div>
+
+                <div class="line-control">
+                  <span id="game-button-highlight-text">Highlight</span>
+
+                  <button
+                    class="color-setting-button"
+                    id="game-button-hl-legend-color"
+                    rel="game-button-hl-legend-color-text"
+                  ></button>
+
+                  <select
+                    id="game-button-highlight"
+                    rel="game-button-highlight-text"
+                  >
+                    <option value="0" class="translate">only numbers</option>
+                    <option value="1" class="translate">full line</option>
+                    <option value="2" class="translate">off</option>
+                    <option value="3" class="translate">
+                      black border on numbers
+                    </option>
+                  </select>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      type="checkbox"
+                      id="game-button-cell-border"
+                      rel="game-button-cell-border-text"
+                    />
+                    <span id="game-button-cell-border-text"
+                      >Cell border under cursor</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <label>
+                    <input
+                      type="checkbox"
+                      id="game-button-line-segments"
+                      rel="game-button-line-segments-text"
+                      checked
+                    />
+                    <span id="game-button-line-segments-text"
+                      >Highlight current row and column with segments</span
+                    >
+                  </label>
+                </div>
+
+                <div class="line-control">
+                  <span id="game-button-cell-border-color-text"
+                    >Cell border color</span
+                  >
+                  <button
+                    class="color-setting-button"
+                    id="game-button-cell-border-color"
+                    rel="game-button-cell-border-color-text"
+                  ></button>
+
+                  <span id="game-button-bold-cell-border-color-text"
+                    >Bold cell border color</span
+                  >
+                  <button
+                    class="color-setting-button"
+                    id="game-button-bold-cell-border-color"
+                    rel="game-button-bold-cell-border-color-text"
+                  ></button>
+                </div>
+
+                <div class="line-control">
+                  <span id="game-button-cross-size-text"
+                    >Cross size in cells</span
+                  >
+                  <select
+                    id="game-button-cross-size"
+                    rel="game-button-cross-size-text"
+                  >
+                    <option value="2" class="translate">small</option>
+                    <option value="1" class="translate">medium</option>
+                    <option value="0" class="translate">big</option>
+                  </select>
+                </div>
+
+                <div class="line-control nowrap">
+                  <button
+                    class="settings-button"
+                    id="game-button-font-size"
+                    title="Font size"
+                  >
+                    <img
+                      id="game-button-font-size-image"
+                      src="./img/icons/font-size-0.png"
+                      alt="Font size"
+                    />
+                  </button>
+                  <div>
+                    <span id="game-button-font-text">Font</span><br />
+                    <select
+                      id="game-button-font"
+                      rel="game-button-font-text"
+                      style="width: 200px"
+                    >
+                      <option value="-1" class="translate">
+                        standart-font
+                      </option>
+                      <option value="0">Arial</option>
+                      <option value="1">Times New Roman</option>
+                      <option value="2">Courier New</option>
+                      <option value="3">Verdana</option>
+                      <option value="4">Georgia</option>
+                      <option value="5">Comic Sans MS</option>
+                      <option value="6">Trebuchet MS</option>
+                      <option value="7">Arial Black</option>
+                      <option value="8">Impact</option>
+                      <option value="9">Lucida Console</option>
+                      <option value="10">Tahoma</option>
+                      <option value="11">Roboto</option>
+                      <option value="12">Calibri</option>
+                      <option value="13">Helvetica</option>
+                      <option value="14">Roboto Condensed</option>
+                      <option value="15">system-ui</option>
+                      <option value="16">monospace</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="line-control nowrap">
+                  <button
+                    class="settings-button"
+                    id="game-button-line-size"
+                    title="Size of lines"
+                  >
+                    <img
+                      id="game-button-line-size-image"
+                      src="./img/icons/line-size-1.png"
+                      alt="Line Size"
+                    />
+                  </button>
+                  <div>
+                    <span class="translate">bold-line-scale</span> <br />
+                    <select
+                      id="game-button-bold-line-scale"
+                      style="width: 200px"
+                    >
+                      <option value="0" class="translate">x1</option>
+                      <option value="1" class="translate">x2</option>
+                      <option value="2" class="translate">x3</option>
+                      <option value="3" class="translate">x4</option>
+                      <option value="4" class="translate">x5</option>
+                    </select>
+                  </div>
+                </div>
+
+                <hr />
+
+                <button
+                  class="settings-button"
+                  id="game-button-bg"
+                  title="Screen background"
+                >
+                  <img
+                    id="game-button-bg-image"
+                    src="./img/icons/bg/0.png"
+                    alt=""
+                  />
+                </button>
+
+                <button
+                  class="settings-button"
+                  id="game-button-bg-cross"
+                  title="Nonogram background"
+                >
+                  <img
+                    id="game-button-bg-cross-image"
+                    src="./img/icons/bgc-0.png"
+                    alt=""
+                  />
+                </button>
+
+                <hr />
+
+                <button id="game-button-reset-settings" class="translate">
+                  reset-to-default
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="game-buttons">
+          <button id="game-button-down-panel" title="">
+            <img src="./img/icons/down-panel.png" alt="" />
+          </button>
+          <button class="game-button-menu" id="game-button-menu">
+            <img src="./img/svg/menu.svg" alt="Menu" />
+          </button>
+          <button class="game-button-color" id="game-button-moving">
+            <img src="./img/icons/moving.png" alt="Moving" />
+          </button>
+          <button class="game-button-color" id="game-button-color-0">
+            <img src="./img/svg/cross.svg" alt="X" />
+          </button>
+          <button class="game-button-color" id="game-button-color-9"></button>
+          <button id="game-button-select-color" title="Change color">
+            <img src="./img/icons/color-select.png" alt="" />
+          </button>
+          <input
+            id="game-button-select-color-input"
+            type="color"
+            value="#ffffff"
+            style="display: none"
+          />
+          <button
+            id="game-button-add-color"
+            title="Add color"
+            class="hidden"
+            style="display: none"
+          >
+            <img src="./img/icons/add_color.png" alt="+" />
+          </button>
+          <input
+            id="game-button-add-color-input"
+            type="color"
+            value="#ffffff"
+            style="display: none"
+          />
+          <button id="game-button-undo" title="Undo">
+            <img src="./img/icons/undo.png" alt="Undo" />
+          </button>
+          <button id="game-button-redo" title="Redo">
+            <img src="./img/icons/redo.png" alt="Redo" />
+          </button>
+          <button id="game-button-clear" title="Clear">
+            <img src="./img/icons/clear.png" alt="Clear" />
+          </button>
+          <button id="game-button-fullscreen" title="Full Screen">
+            <img
+              id="game-button-fullscreen-image"
+              src="./img/icons/fullscreen.png"
+              alt="Full-Screen"
+            />
+          </button>
+          <button id="game-button-zoom-out" title="Zoom Out">
+            <img src="./img/icons/minus.png" alt="Zoom Out" />
+          </button>
+          <button id="game-button-zoom-in" title="Zoom In">
+            <img src="./img/icons/plus.png" alt="Zoom In" />
+          </button>
+          <button id="game-button-cursor" title="Change cursor mode">
+            <img
+              id="game-button-cursor-image"
+              src="./img/icons/no-cursor.png"
+              alt="Cursor"
+            />
+          </button>
+          <button id="game-button-tip" title="Tip">
+            <img src="./img/icons/tip.png" alt="Tip" />
+          </button>
+          <button id="game-button-draw-mode" title="Change draw mode">
+            <img
+              id="game-button-draw-mode-image"
+              src="./img/icons/draw-mode-0.png"
+              alt="Draw mode"
+            />
+          </button>
+          <button id="game-button-save" title="Save">
+            <img
+              id="game-button-save-image"
+              src="./img/icons/save.png"
+              alt="Save"
+            />
+          </button>
+          <button id="game-button-load" title="Load">
+            <img
+              id="game-button-load-image"
+              src="./img/icons/load.png"
+              alt="Load"
+            />
+          </button>
+
+          <button id="game-button-settings" title="Settings">
+            <img src="./img/icons/setting.png" alt="Settings" />
+          </button>
+          <button id="game-button-info" title="Info">
+            <img src="./img/icons/info.png" alt="Info" />
+          </button>
+        </div>
+      </div>
+      <div id="fs-cont">
+        <div id="fs-box">
+          <div id="fs-close">&#10060;</div>
+          <div id="fs-content"></div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="hl-legend-color-picker"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+      "
+    ></div>
+    <div
+      id="help-modal"
+      style="
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1000;
+        background-color: rgba(0, 0, 0, 0.5);
+      "
+    >
+      <div
+        id="help-modal-content"
+        style="
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background-color: white;
+          border-radius: 8px;
+          padding: 20px;
+          width: 90vw;
+          max-width: 600px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        "
+      >
+        <h2
+          id="help-title"
+          style="
+            margin: 0 0 20px 0;
+            font-family: Arial, sans-serif;
+            color: #333;
+            font-size: 24px;
+            text-align: center;
+          "
+        ></h2>
+        <div
+          id="help-text"
+          style="
+            white-space: pre-line;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+          "
+        ></div>
+        <button
+          id="help-close"
+          style="
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+          "
+        >
+          OK
+        </button>
+      </div>
+    </div>
+    <button id="game-button-up-panel" title="">
+      <img src="./img/icons/up-panel.png" alt="" />
+    </button>
+  </body>
+</html>
+

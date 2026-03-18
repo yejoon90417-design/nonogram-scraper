@@ -1,0 +1,278 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 105303,
+  "title": "Jug",
+  "width": 7,
+  "height": 9,
+  "detailUrl": "https://onlinenonograms.com/en/id/105303",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/105303.webp",
+  "previewAlt": "#105303",
+  "likes": 20,
+  "dislikes": 0,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #105303",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/105303",
+  "publishedText": "May 31, 2025",
+  "decodedTitle": "Jug",
+  "payload": {
+    "sx": 7,
+    "sy": 9,
+    "p": "ZY5BDoMgEEXvMtayYMSFcIRegRLTtKY2pZqg48Z4945DQazKTz6fl/nACu9x6cB5b2UWijgF5fFLChWGZUZaZv1XCMNymz20/984nLJCUEApgoMXLdOzH2pq0OgKFCRq536O/F+4kK7xunttdjeV5EZy9js3uqE0zvRgcBvjmCZwKyCzk5YFa/YB",
+    "id": 105303,
+    "agurl": "picross",
+    "url": "kuvshin_u81302",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        9,
+        9,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "kuvshin_u81302",
+    "ru_title": "Кувшин",
+    "en_title": "Jug",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0110110",
+    "0011001",
+    "0011001",
+    "0111101",
+    "1010110",
+    "1101010",
+    "1111110",
+    "0111100",
+    "0011000"
+  ],
+  "rowHints": [
+    [
+      2,
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      1,
+      1,
+      2
+    ],
+    [
+      2,
+      1,
+      1
+    ],
+    [
+      6
+    ],
+    [
+      4
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      3
+    ],
+    [
+      1,
+      1,
+      3
+    ],
+    [
+      5,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      1,
+      2,
+      2
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      3
+    ]
+  ]
+}

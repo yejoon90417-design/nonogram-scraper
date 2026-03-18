@@ -1,0 +1,154 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 104865,
+  "title": "A piece of the puzzle",
+  "width": 5,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/104865",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/104865.webp",
+  "previewAlt": "#104865",
+  "likes": 19,
+  "dislikes": 8,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #104865",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/104865",
+  "publishedText": "May 19, 2025",
+  "decodedTitle": "A piece of the puzzle",
+  "payload": {
+    "sx": 5,
+    "sy": 5,
+    "p": "TY3BCoMwDIZfpWTXHCw6ht7aHE6kKxHFbia23UHx3dfGs1aBLx9/Q7LBw74Imr1tUWKdq0NaruQf42z+5b+ZDiF6Aw3McbF6pLl31jWqLwHBxz5Mw1QLcItFJVVmVTJlZknsF/YzUwluA7NgHt/3I0lr6fldexVuIk3CDiKMJFxc25Qj1GusX6DZQK1pU8EP9v0N",
+    "id": 104865,
+    "agurl": "picross",
+    "url": "kusochek_pazla_3",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1
+      ]
+    ],
+    "url": "kusochek_pazla_3",
+    "ru_title": "Кусочек пазла",
+    "en_title": "A piece of the puzzle",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      1
+    ]
+  ],
+  "solutionStrings": [
+    "00110",
+    "11111",
+    "01111",
+    "01111",
+    "01011"
+  ],
+  "rowHints": [
+    [
+      2
+    ],
+    [
+      5
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ],
+    [
+      1,
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      4
+    ],
+    [
+      4
+    ],
+    [
+      5
+    ],
+    [
+      4
+    ]
+  ]
+}

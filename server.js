@@ -1,3 +1,5 @@
+﻿const fs = require("fs");
+const path = require("path");
 const crypto = require("crypto");
 const cors = require("cors");
 const express = require("express");
@@ -69,7 +71,7 @@ const PVP_BOT_EXCLUDE_EASY = process.env.PVP_BOT_EXCLUDE_EASY !== "false";
 const PVP_BOT_LADDER_ENABLED = process.env.PVP_BOT_LADDER_ENABLED !== "false";
 const PVP_BOT_LADDER_INTERVAL_MS = Math.max(
   10000,
-  Number(process.env.PVP_BOT_LADDER_INTERVAL_MS || 420000)
+  Number(process.env.PVP_BOT_LADDER_INTERVAL_MS || 1800000)
 );
 const PVP_BOT_LADDER_RECENT_PAIR_TTL_MS = Math.max(
   PVP_BOT_LADDER_INTERVAL_MS * 4,
@@ -79,6 +81,12 @@ const PVP_BOT_LADDER_RECENT_PAIR_LIMIT = Math.max(
   4,
   Number(process.env.PVP_BOT_LADDER_RECENT_PAIR_LIMIT || 24)
 );
+const CREATOR_SAMPLES_PATH = path.join(__dirname, "creator-samples.generated.json");
+const CREATOR_SIZE_GROUPS = {
+  small: { titleKo: "스몰", titleEn: "Small", maxSide: 14 },
+  medium: { titleKo: "미디엄", titleEn: "Medium", maxSide: 20 },
+  large: { titleKo: "라지", titleEn: "Large", maxSide: Infinity },
+};
 const PVP_BOT_RECENT_APPEARANCE_TTL_MS = Math.max(
   1000 * 60 * 45,
   Number(process.env.PVP_BOT_RECENT_APPEARANCE_TTL_MS || 1000 * 60 * 90)
@@ -130,7 +138,12 @@ const PVP_SIZE_OPTIONS_LOW_TIER = [
   [10, 10],
   [15, 15],
 ];
-const PVP_SIZE_OPTIONS_HIGH_TIER = [
+const PVP_SIZE_OPTIONS_GOLD_TIER = [
+  [10, 10],
+  [15, 15],
+  [20, 20],
+];
+const PVP_SIZE_OPTIONS_DIAMOND_PLUS = [
   [10, 10],
   [15, 15],
   [20, 20],
@@ -234,9 +247,10 @@ const PVP_BOT_NAME_POOL = [
   "Leo", "Nico", "Jude", "Evan", "Kira", "Ryu", "Dami", "Suji",
 ];
 const BOT_DIFFICULTY_WEIGHTS = [
-  ["easy", 25],
+  ["easy", 20],
   ["normal", 25],
-  ["hard", 50],
+  ["hard", 40],
+  ["expert", 15],
 ];
 const BOT_DIFFICULTY_CONFIG = {
   easy: {
@@ -266,6 +280,15 @@ const BOT_DIFFICULTY_CONFIG = {
     targetMinMul: 1.45,
     targetMaxMul: 2.0,
   },
+  expert: {
+    acceptMin: 1600,
+    acceptMax: 3400,
+    banMin: 1800,
+    banMax: 3600,
+    skipBanRate: 0.22,
+    targetMinMul: 1.12,
+    targetMaxMul: 1.55,
+  },
 };
 const BOT_SPAWN_WEIGHT_MIN = 1;
 const BOT_SPAWN_WEIGHT_MAX = 9;
@@ -279,26 +302,31 @@ const BOT_SOLVE_TIME_RANGE_SEC = {
     easy: [120, 180],
     normal: [45, 108],
     hard: [14, 28],
+    expert: [7, 14],
   },
   "10x10": {
     easy: [300, 360],
     normal: [108, 216],
     hard: [57, 85],
+    expert: [54, 67],
   },
   "15x15": {
     easy: [960, 1500],
     normal: [540, 810],
     hard: [285, 399],
+    expert: [145, 260],
   },
   "20x20": {
     easy: [1500, 1800],
     normal: [810, 1080],
     hard: [399, 570],
+    expert: [290, 540],
   },
   "25x25": {
     easy: [2700, 3000],
     normal: [1134, 1890],
     hard: [855, 1140],
+    expert: [650, 1000],
   },
 };
 const ELO_DEFAULT_RATING = 1500;
@@ -595,7 +623,7 @@ function normalizeChatText(raw) {
 
 function normalizeReactionEmoji(raw) {
   const s = String(raw || "").trim();
-  if (s === "💩" || s === "👍" || s === "❤️") return s;
+  if (s === "?뮝" || s === "?몟" || s === "?ㅿ툘") return s;
   return null;
 }
 
@@ -665,6 +693,7 @@ async function getAuthUserFromReq(req) {
     `SELECT u.id, u.username, u.nickname, u.rating, u.rating_games, u.rating_wins, u.rating_losses,
             u.win_streak_current, u.win_streak_best, u.profile_avatar_key,
             u.ui_lang, u.ui_theme, u.ui_sound_on, u.ui_sound_volume,
+            u.patch_notes_dismissed_version,
             u.email, u.email_verified,
             u.placement_done, u.placement_rating, u.placement_tier_key, u.placement_version,
             u.placement_completed_at_ms, u.placement_solved_sequential, u.placement_elapsed_sec
@@ -913,6 +942,375 @@ async function requireAuth(req, res, next) {
   }
 }
 
+function readCreatorSampleSeedRows() {
+  if (!fs.existsSync(CREATOR_SAMPLES_PATH)) return [];
+  try {
+    const raw = fs.readFileSync(CREATOR_SAMPLES_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    console.error("failed to read creator sample seed file:", err.message || err);
+    return [];
+  }
+}
+
+const creatorLinePatternCache = new Map();
+
+function getCreatorSizeGroup(width, height) {
+  const maxSide = Math.max(Number(width) || 0, Number(height) || 0);
+  if (maxSide <= CREATOR_SIZE_GROUPS.small.maxSide) return "small";
+  if (maxSide <= CREATOR_SIZE_GROUPS.medium.maxSide) return "medium";
+  return "large";
+}
+
+function getCreatorGroupTitles(sizeGroup) {
+  const info = CREATOR_SIZE_GROUPS[sizeGroup] || CREATOR_SIZE_GROUPS.medium;
+  return { titleKo: info.titleKo, titleEn: info.titleEn };
+}
+
+function getCreatorRunsFromBinaryLine(line) {
+  const runs = [];
+  let count = 0;
+  for (const cell of line) {
+    if (cell === 1) count += 1;
+    else if (count > 0) {
+      runs.push(count);
+      count = 0;
+    }
+  }
+  if (count > 0) runs.push(count);
+  return runs;
+}
+
+function buildCreatorCluesFromCells(width, height, cells) {
+  const rowClues = Array.from({ length: height }, (_, y) =>
+    getCreatorRunsFromBinaryLine(cells.slice(y * width, (y + 1) * width))
+  );
+  const colClues = Array.from({ length: width }, (_, x) => {
+    const col = [];
+    for (let y = 0; y < height; y += 1) col.push(cells[y * width + x]);
+    return getCreatorRunsFromBinaryLine(col);
+  });
+  return { rowClues, colClues };
+}
+
+function getCreatorLinePatterns(length, clues) {
+  const key = `${length}|${(Array.isArray(clues) ? clues : []).join(",")}`;
+  if (creatorLinePatternCache.has(key)) return creatorLinePatternCache.get(key);
+
+  const runs = Array.isArray(clues) ? clues.filter((value) => Number.isInteger(value) && value > 0) : [];
+  const patterns = [];
+  if (!runs.length) {
+    const pattern = new Array(length).fill(0);
+    patterns.push(pattern);
+    creatorLinePatternCache.set(key, patterns);
+    return patterns;
+  }
+
+  function place(clueIndex, position, line) {
+    if (clueIndex >= runs.length) {
+      for (let i = position; i < length; i += 1) line[i] = 0;
+      patterns.push(line.slice());
+      return;
+    }
+
+    const remainingRuns = runs.slice(clueIndex);
+    const remainingFilled = remainingRuns.reduce((sum, clue) => sum + clue, 0);
+    const remainingGaps = remainingRuns.length - 1;
+    const maxStart = length - (remainingFilled + remainingGaps);
+    for (let start = position; start <= maxStart; start += 1) {
+      const next = line.slice();
+      for (let i = position; i < start; i += 1) next[i] = 0;
+      for (let i = 0; i < runs[clueIndex]; i += 1) next[start + i] = 1;
+      const nextPos = start + runs[clueIndex];
+      if (clueIndex < runs.length - 1) {
+        next[nextPos] = 0;
+        place(clueIndex + 1, nextPos + 1, next);
+      } else {
+        place(clueIndex + 1, nextPos, next);
+      }
+    }
+  }
+
+  place(0, 0, new Array(length).fill(0));
+  creatorLinePatternCache.set(key, patterns);
+  return patterns;
+}
+
+function creatorPatternMatchesLine(pattern, line) {
+  for (let i = 0; i < line.length; i += 1) {
+    const cell = line[i];
+    if (cell !== -1 && cell !== pattern[i]) return false;
+  }
+  return true;
+}
+
+function transposeCreatorGrid(grid, width, height) {
+  return Array.from({ length: width }, (_, x) =>
+    Array.from({ length: height }, (_, y) => grid[y * width + x])
+  );
+}
+
+function logicalSolveCreatorPuzzle(width, height, rowClues, colClues, initialGrid = null) {
+  const grid = Array.isArray(initialGrid) ? initialGrid.slice() : new Array(width * height).fill(-1);
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (let y = 0; y < height; y += 1) {
+      const line = grid.slice(y * width, (y + 1) * width);
+      const validPatterns = getCreatorLinePatterns(width, rowClues[y]).filter((pattern) => creatorPatternMatchesLine(pattern, line));
+      if (!validPatterns.length) return { valid: false, solved: false, grid };
+      for (let x = 0; x < width; x += 1) {
+        const value = validPatterns[0][x];
+        if (validPatterns.every((pattern) => pattern[x] === value) && grid[y * width + x] !== value) {
+          grid[y * width + x] = value;
+          changed = true;
+        }
+      }
+    }
+
+    const cols = transposeCreatorGrid(grid, width, height);
+    for (let x = 0; x < width; x += 1) {
+      const line = cols[x];
+      const validPatterns = getCreatorLinePatterns(height, colClues[x]).filter((pattern) => creatorPatternMatchesLine(pattern, line));
+      if (!validPatterns.length) return { valid: false, solved: false, grid };
+      for (let y = 0; y < height; y += 1) {
+        const value = validPatterns[0][y];
+        if (validPatterns.every((pattern) => pattern[y] === value) && grid[y * width + x] !== value) {
+          grid[y * width + x] = value;
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return { valid: true, solved: grid.every((cell) => cell !== -1), grid };
+}
+
+function countCreatorPuzzleSolutions(width, height, rowClues, colClues, initialGrid = null, limit = 2) {
+  const state = logicalSolveCreatorPuzzle(width, height, rowClues, colClues, initialGrid);
+  if (!state.valid) return 0;
+  if (state.solved) return 1;
+
+  const pivot = state.grid.findIndex((cell) => cell === -1);
+  if (pivot < 0) return 1;
+
+  let solutions = 0;
+  for (const guess of [1, 0]) {
+    const nextGrid = state.grid.slice();
+    nextGrid[pivot] = guess;
+    solutions += countCreatorPuzzleSolutions(width, height, rowClues, colClues, nextGrid, limit - solutions);
+    if (solutions >= limit) return limit;
+  }
+  return solutions;
+}
+
+function analyzeCreatorPuzzleCells(width, height, cells) {
+  const { rowClues, colClues } = buildCreatorCluesFromCells(width, height, cells);
+  const logical = logicalSolveCreatorPuzzle(width, height, rowClues, colClues);
+  if (!logical.valid || !logical.solved) {
+    return {
+      rowClues,
+      colClues,
+      unique: false,
+      needsGuess: true,
+      logicalSolved: false,
+      solutionCount: 0,
+    };
+  }
+
+  const solutionCount = countCreatorPuzzleSolutions(width, height, rowClues, colClues, logical.grid, 2);
+  return {
+    rowClues,
+    colClues,
+    unique: solutionCount === 1,
+    needsGuess: !logical.solved,
+    logicalSolved: logical.solved,
+    solutionCount,
+  };
+}
+
+async function ensureCreatorSampleTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_sample_puzzles (
+      id VARCHAR(128) PRIMARY KEY,
+      title_ko VARCHAR(128) NOT NULL,
+      title_en VARCHAR(128) NOT NULL,
+      size_group VARCHAR(16) NOT NULL,
+      group_title_ko VARCHAR(32) NOT NULL,
+      group_title_en VARCHAR(32) NOT NULL,
+      license VARCHAR(32) NOT NULL DEFAULT '',
+      target_size INTEGER NOT NULL DEFAULT 0,
+      source_url TEXT NOT NULL DEFAULT '',
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      rows_json JSONB NOT NULL,
+      is_unique BOOLEAN NOT NULL DEFAULT false,
+      needs_guess BOOLEAN NOT NULL DEFAULT false,
+      sort_index INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_sample_deletions (
+      id VARCHAR(128) PRIMARY KEY,
+      deleted_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_sample_solves (
+      sample_id VARCHAR(128) NOT NULL REFERENCES creator_sample_puzzles(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      solved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (sample_id, user_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_user_puzzles (
+      id VARCHAR(128) PRIMARY KEY,
+      created_by_user_id BIGINT REFERENCES users(id) ON DELETE SET NULL,
+      title_ko VARCHAR(128) NOT NULL,
+      title_en VARCHAR(128) NOT NULL,
+      size_group VARCHAR(16) NOT NULL,
+      group_title_ko VARCHAR(32) NOT NULL,
+      group_title_en VARCHAR(32) NOT NULL,
+      width INTEGER NOT NULL,
+      height INTEGER NOT NULL,
+      rows_json JSONB NOT NULL,
+      is_unique BOOLEAN NOT NULL DEFAULT false,
+      needs_guess BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS approval_status VARCHAR(16) NOT NULL DEFAULT 'pending'`
+  );
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS approval_note TEXT NOT NULL DEFAULT ''`
+  );
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS approval_reviewed_at TIMESTAMPTZ`
+  );
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS validation_solution_count INTEGER NOT NULL DEFAULT 0`
+  );
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS validation_logical_solved BOOLEAN NOT NULL DEFAULT false`
+  );
+  await pool.query(
+    `ALTER TABLE creator_user_puzzles ADD COLUMN IF NOT EXISTS validation_checked_at TIMESTAMPTZ`
+  );
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_puzzle_comments (
+      id BIGSERIAL PRIMARY KEY,
+      puzzle_id VARCHAR(128) NOT NULL REFERENCES creator_user_puzzles(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_puzzle_reactions (
+      puzzle_id VARCHAR(128) NOT NULL REFERENCES creator_user_puzzles(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reaction_key VARCHAR(16) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      PRIMARY KEY (puzzle_id, user_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS creator_puzzle_solves (
+      puzzle_id VARCHAR(128) NOT NULL REFERENCES creator_user_puzzles(id) ON DELETE CASCADE,
+      user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      solved_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      best_elapsed_sec INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY (puzzle_id, user_id)
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_sample_puzzles_group_sort ON creator_sample_puzzles (size_group, sort_index, id);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_sample_solves_user_id ON creator_sample_solves (user_id, solved_at DESC);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_user_puzzles_group_created ON creator_user_puzzles (size_group, created_at DESC, id ASC);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_user_puzzles_status_created ON creator_user_puzzles (approval_status, created_at DESC, id ASC);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_puzzle_comments_puzzle_created ON creator_puzzle_comments (puzzle_id, created_at DESC, id DESC);`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_creator_puzzle_reactions_puzzle_key ON creator_puzzle_reactions (puzzle_id, reaction_key);`
+  );
+
+  const seedRows = readCreatorSampleSeedRows();
+  if (!seedRows.length) return;
+
+  const { rows: deletedRows } = await pool.query(`SELECT id FROM creator_sample_deletions`);
+  const deletedIds = new Set(deletedRows.map((row) => String(row.id || "")));
+  const activeSeedRows = seedRows.filter((row) => !deletedIds.has(String(row.id || "")));
+  if (!activeSeedRows.length) return;
+
+  const values = [];
+  const placeholders = [];
+  activeSeedRows.forEach((sample, index) => {
+    const base = index * 15;
+    placeholders.push(
+      `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}::jsonb, $${base + 13}, $${base + 14}, $${base + 15})`
+    );
+    values.push(
+      String(sample.id || ""),
+      String(sample.titleKo || sample.titleEn || ""),
+      String(sample.titleEn || sample.titleKo || ""),
+      String(sample.sizeGroup || "medium"),
+      String(sample.groupTitleKo || "\uBBF8\uB514\uC5C4"),
+      String(sample.groupTitleEn || "Medium"),
+      String(sample.license || ""),
+      Number.isInteger(Number(sample.targetSize)) ? Number(sample.targetSize) : 0,
+      String(sample.sourceUrl || ""),
+      Number(sample.width || 0),
+      Number(sample.height || 0),
+      JSON.stringify(Array.isArray(sample.rows) ? sample.rows : []),
+      sample.unique === true,
+      sample.needsGuess === true,
+      index
+    );
+  });
+
+  const activeSeedIds = activeSeedRows.map((sample) => String(sample.id || "")).filter(Boolean);
+  if (activeSeedIds.length) {
+    await pool.query(`DELETE FROM creator_sample_puzzles WHERE NOT (id = ANY($1::varchar[]))`, [activeSeedIds]);
+  }
+
+  await pool.query(
+    `INSERT INTO creator_sample_puzzles (
+      id, title_ko, title_en, size_group, group_title_ko, group_title_en, license, target_size, source_url,
+      width, height, rows_json, is_unique, needs_guess, sort_index
+    ) VALUES ${placeholders.join(", ")}
+    ON CONFLICT (id) DO UPDATE SET
+      title_ko = EXCLUDED.title_ko,
+      title_en = EXCLUDED.title_en,
+      size_group = EXCLUDED.size_group,
+      group_title_ko = EXCLUDED.group_title_ko,
+      group_title_en = EXCLUDED.group_title_en,
+      license = EXCLUDED.license,
+      target_size = EXCLUDED.target_size,
+      source_url = EXCLUDED.source_url,
+      width = EXCLUDED.width,
+      height = EXCLUDED.height,
+      rows_json = EXCLUDED.rows_json,
+      is_unique = EXCLUDED.is_unique,
+      needs_guess = EXCLUDED.needs_guess,
+      sort_index = EXCLUDED.sort_index`,
+    values
+  );
+}
+
 async function ensureAuthTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
@@ -939,6 +1337,7 @@ async function ensureAuthTables() {
       ADD COLUMN IF NOT EXISTS ui_theme VARCHAR(8) NOT NULL DEFAULT 'light',
       ADD COLUMN IF NOT EXISTS ui_sound_on BOOLEAN NOT NULL DEFAULT true,
       ADD COLUMN IF NOT EXISTS ui_sound_volume INTEGER,
+      ADD COLUMN IF NOT EXISTS patch_notes_dismissed_version VARCHAR(64),
       ADD COLUMN IF NOT EXISTS email VARCHAR(320),
       ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ,
@@ -1183,8 +1582,21 @@ function pickRandomBotDifficulty() {
 
 function normalizeBotDifficulty(raw) {
   const v = String(raw || "").trim().toLowerCase();
-  if (v === "pro") return "hard";
+  if (v === "pro") return "expert";
   return BOT_DIFFICULTY_CONFIG[v] ? v : "normal";
+}
+
+function getEffectiveBotDifficulty(rawDifficulty, rawRating = 0) {
+  const difficulty = normalizeBotDifficulty(rawDifficulty);
+  const rating = normalizeRatingValue(rawRating);
+  if (rating >= 2500) {
+    if (difficulty === "normal") return "hard";
+    if (difficulty === "hard" || difficulty === "expert") return "expert";
+  }
+  if (rating >= 2000) {
+    if (difficulty === "hard" || difficulty === "expert") return "expert";
+  }
+  return difficulty;
 }
 
 function normalizeBotSpawnWeight(raw) {
@@ -1283,6 +1695,7 @@ function buildClientUser(user) {
     ui_theme: user.ui_theme,
     ui_sound_on: user.ui_sound_on,
     ui_sound_volume: user.ui_sound_volume,
+    patch_notes_dismissed_version: String(user.patch_notes_dismissed_version || ""),
     placement_done: placementActive,
     placement_rating: placementActive ? Number(user.placement_rating || 0) : null,
     placement_tier_key: placementActive ? String(user.placement_tier_key || "") : "",
@@ -1555,10 +1968,19 @@ function pvpSizeKey(width, height) {
 function getPvpSizeOptionsForTickets(ticketA, ticketB) {
   const tierA = String(getTierByRating(ticketA?.rating)?.key || "");
   const tierB = String(getTierByRating(ticketB?.rating)?.key || "");
-  const bothGoldOrHigher =
-    ["gold", "diamond", "master"].includes(tierA) &&
-    ["gold", "diamond", "master"].includes(tierB);
-  return bothGoldOrHigher ? PVP_SIZE_OPTIONS_HIGH_TIER : PVP_SIZE_OPTIONS_LOW_TIER;
+  const bracketPriority = { low: 0, gold: 1, diamond_plus: 2 };
+  const getBracket = (tierKey) => {
+    if (tierKey === "diamond" || tierKey === "master") return "diamond_plus";
+    if (tierKey === "gold") return "gold";
+    return "low";
+  };
+  const lowestBracket = [getBracket(tierA), getBracket(tierB)].reduce(
+    (current, next) => (bracketPriority[next] < bracketPriority[current] ? next : current),
+    "diamond_plus"
+  );
+  if (lowestBracket === "diamond_plus") return PVP_SIZE_OPTIONS_DIAMOND_PLUS;
+  if (lowestBracket === "gold") return PVP_SIZE_OPTIONS_GOLD_TIER;
+  return PVP_SIZE_OPTIONS_LOW_TIER;
 }
 
 function createPvpBotTicket(botUser, now = Date.now()) {
@@ -1566,7 +1988,7 @@ function createPvpBotTicket(botUser, now = Date.now()) {
   const userId = Number(botUser?.id);
   if (!Number.isInteger(userId)) return null;
   const nickname = String(botUser?.nickname || "").trim() || `Player${randomInt(100, 999)}`;
-  const botSkill = normalizeBotDifficulty(botUser?.bot_skill);
+  const botSkill = getEffectiveBotDifficulty(botUser?.bot_skill, botUser?.rating);
   const botSpawnWeight = normalizeBotSpawnWeight(botUser?.bot_spawn_weight) || 3;
   const rating = normalizeRatingValue(botUser?.rating);
   const ratingRank = normalizeRatingRank(botUser?.rating_rank);
@@ -1740,10 +2162,14 @@ async function fetchAvailablePvpBotTicket(now = Date.now(), targetTicket = null)
     return false;
   };
 
+  const targetTierIndex = targetTicket ? getTierIndexByRating(targetTicket?.rating) : null;
+  const shouldExcludeEasyForTarget =
+    PVP_BOT_EXCLUDE_EASY &&
+    (targetTierIndex == null || targetTierIndex >= getTierIndexByRating(1500));
   const candidates = [];
   for (const row of rows) {
-    const difficulty = normalizeBotDifficulty(row?.bot_skill);
-    if (PVP_BOT_EXCLUDE_EASY && difficulty === "easy") continue;
+    const difficulty = getEffectiveBotDifficulty(row?.bot_skill, row?.rating);
+    if (shouldExcludeEasyForTarget && difficulty === "easy") continue;
     const botId = Number(row.id);
     if (!Number.isInteger(botId)) continue;
     if (isUserInAnyRoom(botId)) continue;
@@ -1797,7 +2223,7 @@ async function fetchUserRatingSnapshot(userId) {
 }
 
 function pickBotTargetSec(width, height, rawDifficulty = "normal", rawRating = 0) {
-  const difficulty = normalizeBotDifficulty(rawDifficulty);
+  const difficulty = getEffectiveBotDifficulty(rawDifficulty, rawRating);
   const key = `${width}x${height}`;
   const bySize = BOT_SOLVE_TIME_RANGE_SEC[key];
   const getTierSpeedMultiplier = (rawRating) => {
@@ -2260,7 +2686,9 @@ function runBotActionsForMatch(match, now = Date.now()) {
     if (!player.isBot) continue;
     if (match.state === "accept" && !player.accepted) {
       if (!player.botAcceptAt) {
-        const conf = BOT_DIFFICULTY_CONFIG[normalizeBotDifficulty(player.botDifficulty)] || BOT_DIFFICULTY_CONFIG.normal;
+        const conf =
+          BOT_DIFFICULTY_CONFIG[getEffectiveBotDifficulty(player.botDifficulty, player.rating)] ||
+          BOT_DIFFICULTY_CONFIG.normal;
         player.botAcceptAt = now + randomInt(conf.acceptMin, conf.acceptMax);
       }
       if (now < player.botAcceptAt) continue;
@@ -2270,7 +2698,9 @@ function runBotActionsForMatch(match, now = Date.now()) {
       continue;
     }
     if (match.state === "ban" && !player.banSubmitted) {
-      const conf = BOT_DIFFICULTY_CONFIG[normalizeBotDifficulty(player.botDifficulty)] || BOT_DIFFICULTY_CONFIG.normal;
+      const conf =
+        BOT_DIFFICULTY_CONFIG[getEffectiveBotDifficulty(player.botDifficulty, player.rating)] ||
+        BOT_DIFFICULTY_CONFIG.normal;
       if (!player.botBanAt) {
         player.botBanAt = now + randomInt(conf.banMin, conf.banMax);
       }
@@ -2359,11 +2789,12 @@ async function createPvpRoomForMatch(match) {
       userId: p.userId,
       nickname: p.nickname,
       isBot: p.isBot === true,
-      botDifficulty: p.isBot ? normalizeBotDifficulty(p.botDifficulty) : null,
+      botDifficulty: p.isBot ? getEffectiveBotDifficulty(p.botDifficulty, p.rating) : null,
       botTargetSec: p.isBot ? pickBotTargetSec(puzzle.width, puzzle.height, p.botDifficulty, p.rating) : null,
       joinedAt: nowIso,
       finishedAt: null,
       elapsedSec: null,
+      elapsedMs: null,
       isReady: true,
       disconnectedAt: null,
       correctAnswerCells: 0,
@@ -2633,7 +3064,13 @@ function getFinishedPlayers(room) {
       const aForfeit = Boolean(a.loseReason);
       const bForfeit = Boolean(b.loseReason);
       if (aForfeit !== bForfeit) return aForfeit ? 1 : -1;
-      if (a.elapsedSec !== b.elapsedSec) return a.elapsedSec - b.elapsedSec;
+      const aElapsedMs = Number.isFinite(Number(a.elapsedMs)) && Number(a.elapsedMs) > 0
+        ? Number(a.elapsedMs)
+        : Number(a.elapsedSec || 0) * 1000;
+      const bElapsedMs = Number.isFinite(Number(b.elapsedMs)) && Number(b.elapsedMs) > 0
+        ? Number(b.elapsedMs)
+        : Number(b.elapsedSec || 0) * 1000;
+      if (aElapsedMs !== bElapsedMs) return aElapsedMs - bElapsedMs;
       if (a.finishedAt && b.finishedAt) return a.finishedAt > b.finishedAt ? 1 : -1;
       return 0;
     });
@@ -2645,6 +3082,7 @@ function buildRankings(room) {
     playerId: p.playerId,
     nickname: p.nickname,
     elapsedSec: p.elapsedSec,
+    elapsedMs: Number.isFinite(Number(p.elapsedMs)) && Number(p.elapsedMs) > 0 ? Number(p.elapsedMs) : Number(p.elapsedSec || 0) * 1000,
     status: p.loseReason === "inactive_timeout" ? "timeout" : "finished",
   }));
 
@@ -2655,6 +3093,7 @@ function buildRankings(room) {
       playerId: p.playerId,
       nickname: p.nickname,
       elapsedSec: null,
+      elapsedMs: null,
       status: p.disconnectedAt ? "left" : "dnf",
     }))
     .sort((a, b) => (a.nickname > b.nickname ? 1 : -1));
@@ -3245,6 +3684,168 @@ function isAdminToggleAuthorized(req) {
   return key === ADMIN_API_KEY;
 }
 
+const CREATOR_ADMIN_USERNAME = "kyurea";
+
+function isCreatorReviewAdminAuthorized(req) {
+  const username = String(req.authUser?.username || "").trim().toLowerCase();
+  return isAdminToggleAuthorized(req) && username === CREATOR_ADMIN_USERNAME;
+}
+
+const CREATOR_REACTION_KEYS = ["like", "love", "wow"];
+
+function normalizeCreatorReactionKey(raw) {
+  const key = String(raw || "").trim().toLowerCase();
+  return CREATOR_REACTION_KEYS.includes(key) ? key : "";
+}
+
+function mapCreatorPuzzleRows(rowsJson) {
+  return Array.isArray(rowsJson) ? rowsJson.map((line) => String(line || "")) : [];
+}
+
+function mapCreatorSampleRow(row) {
+  return {
+    id: String(row.id || ""),
+    titleKo: String(row.title_ko || row.title_en || ""),
+    titleEn: String(row.title_en || row.title_ko || ""),
+    sizeGroup: String(row.size_group || "medium"),
+    groupTitleKo: String(row.group_title_ko || "미디엄"),
+    groupTitleEn: String(row.group_title_en || "Medium"),
+    license: String(row.license || ""),
+    targetSize: Number(row.target_size || 0),
+    sourceUrl: String(row.source_url || ""),
+    width: Number(row.width || 0),
+    height: Number(row.height || 0),
+    rows: mapCreatorPuzzleRows(row.rows_json),
+    unique: row.is_unique === true,
+    needsGuess: row.needs_guess === true,
+    isSolved: row.viewer_solved === true,
+    sourceType: String(row.source_kind || "sample"),
+  };
+}
+
+function mapCreatorCommunityPuzzleRow(row) {
+  return {
+    id: String(row.id || ""),
+    titleKo: String(row.title_ko || row.title_en || ""),
+    titleEn: String(row.title_en || row.title_ko || ""),
+    sizeGroup: String(row.size_group || "medium"),
+    groupTitleKo: String(row.group_title_ko || "미디엄"),
+    groupTitleEn: String(row.group_title_en || "Medium"),
+    width: Number(row.width || 0),
+    height: Number(row.height || 0),
+    rows: mapCreatorPuzzleRows(row.rows_json),
+    unique: row.is_unique === true,
+    needsGuess: row.needs_guess === true,
+    approvalStatus: String(row.approval_status || "pending"),
+    validationSolutionCount: Number(row.validation_solution_count || 0),
+    validationLogicalSolved: row.validation_logical_solved === true,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
+    createdByNickname: String(row.created_by_nickname || "익명"),
+    commentCount: Number(row.comment_count || 0),
+    reactionCounts: {
+      like: Number(row.like_count || 0),
+      love: Number(row.love_count || 0),
+      wow: Number(row.wow_count || 0),
+    },
+    viewerReaction: String(row.viewer_reaction || ""),
+    isSolved: row.viewer_solved === true,
+    approvalNote: String(row.approval_note || ""),
+  };
+}
+
+async function fetchCreatorCommunityPuzzleRows(viewerUserId = null) {
+  const numericViewerId =
+    Number.isInteger(Number(viewerUserId)) && Number(viewerUserId) > 0 ? Number(viewerUserId) : 0;
+  const { rows } = await pool.query(
+    `SELECT
+       p.*,
+       COALESCE(u.nickname, '익명') AS created_by_nickname,
+       COALESCE(comment_stats.comment_count, 0) AS comment_count,
+       COALESCE(reaction_stats.like_count, 0) AS like_count,
+       COALESCE(reaction_stats.love_count, 0) AS love_count,
+       COALESCE(reaction_stats.wow_count, 0) AS wow_count,
+       viewer_reaction.reaction_key AS viewer_reaction,
+       (viewer_solve.user_id IS NOT NULL) AS viewer_solved
+     FROM creator_user_puzzles p
+     LEFT JOIN users u
+       ON u.id = p.created_by_user_id
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS comment_count
+       FROM creator_puzzle_comments c
+       WHERE c.puzzle_id = p.id
+     ) comment_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) FILTER (WHERE reaction_key = 'like')::int AS like_count,
+         COUNT(*) FILTER (WHERE reaction_key = 'love')::int AS love_count,
+         COUNT(*) FILTER (WHERE reaction_key = 'wow')::int AS wow_count
+       FROM creator_puzzle_reactions r
+       WHERE r.puzzle_id = p.id
+     ) reaction_stats ON TRUE
+     LEFT JOIN creator_puzzle_reactions viewer_reaction
+       ON viewer_reaction.puzzle_id = p.id
+      AND viewer_reaction.user_id = $1
+     LEFT JOIN creator_puzzle_solves viewer_solve
+       ON viewer_solve.puzzle_id = p.id
+      AND viewer_solve.user_id = $1
+     WHERE p.approval_status = 'approved'
+     ORDER BY
+       CASE p.size_group
+         WHEN 'small' THEN 1
+         WHEN 'medium' THEN 2
+         WHEN 'large' THEN 3
+         ELSE 99
+       END,
+       p.created_at DESC,
+       p.id ASC`,
+    [numericViewerId]
+  );
+  return rows;
+}
+
+async function fetchCreatorCommunityPuzzleRowById(puzzleId, viewerUserId = null) {
+  const numericViewerId =
+    Number.isInteger(Number(viewerUserId)) && Number(viewerUserId) > 0 ? Number(viewerUserId) : 0;
+  const { rows } = await pool.query(
+    `SELECT
+       p.*,
+       COALESCE(u.nickname, '익명') AS created_by_nickname,
+       COALESCE(comment_stats.comment_count, 0) AS comment_count,
+       COALESCE(reaction_stats.like_count, 0) AS like_count,
+       COALESCE(reaction_stats.love_count, 0) AS love_count,
+       COALESCE(reaction_stats.wow_count, 0) AS wow_count,
+       viewer_reaction.reaction_key AS viewer_reaction,
+       (viewer_solve.user_id IS NOT NULL) AS viewer_solved
+     FROM creator_user_puzzles p
+     LEFT JOIN users u
+       ON u.id = p.created_by_user_id
+     LEFT JOIN LATERAL (
+       SELECT COUNT(*)::int AS comment_count
+       FROM creator_puzzle_comments c
+       WHERE c.puzzle_id = p.id
+     ) comment_stats ON TRUE
+     LEFT JOIN LATERAL (
+       SELECT
+         COUNT(*) FILTER (WHERE reaction_key = 'like')::int AS like_count,
+         COUNT(*) FILTER (WHERE reaction_key = 'love')::int AS love_count,
+         COUNT(*) FILTER (WHERE reaction_key = 'wow')::int AS wow_count
+       FROM creator_puzzle_reactions r
+       WHERE r.puzzle_id = p.id
+     ) reaction_stats ON TRUE
+     LEFT JOIN creator_puzzle_reactions viewer_reaction
+       ON viewer_reaction.puzzle_id = p.id
+      AND viewer_reaction.user_id = $2
+     LEFT JOIN creator_puzzle_solves viewer_solve
+       ON viewer_solve.puzzle_id = p.id
+      AND viewer_solve.user_id = $2
+     WHERE p.id = $1
+       AND p.approval_status = 'approved'
+     LIMIT 1`,
+    [String(puzzleId || ""), numericViewerId]
+  );
+  return rows[0] || null;
+}
+
 app.get("/health", async (_req, res) => {
   try {
     await pool.query("SELECT 1");
@@ -3306,6 +3907,7 @@ app.post("/auth/signup", async (req, res) => {
        RETURNING id, username, nickname, rating, rating_games, rating_wins, rating_losses,
                  win_streak_current, win_streak_best, profile_avatar_key,
                  ui_lang, ui_theme, ui_sound_on, ui_sound_volume,
+                 patch_notes_dismissed_version,
                  email, email_verified,
                  placement_done, placement_rating, placement_tier_key, placement_version,
                  placement_completed_at_ms, placement_solved_sequential, placement_elapsed_sec`,
@@ -3336,6 +3938,7 @@ app.post("/auth/login", async (req, res) => {
       `SELECT id, username, nickname, password_hash, rating, rating_games, rating_wins, rating_losses,
               win_streak_current, win_streak_best, profile_avatar_key,
               ui_lang, ui_theme, ui_sound_on, ui_sound_volume,
+              patch_notes_dismissed_version,
               email, email_verified,
               placement_done, placement_rating, placement_tier_key, placement_version,
               placement_completed_at_ms, placement_solved_sequential, placement_elapsed_sec
@@ -3402,6 +4005,34 @@ app.post("/vote/current", requireAuth, async (req, res) => {
   }
 });
 
+app.post("/auth/patch-notes/dismiss", requireAuth, async (req, res) => {
+  const version = String(req.body?.version || "").trim().slice(0, 64);
+  if (!version) {
+    return res.status(400).json({ ok: false, error: "version is required" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE users
+       SET patch_notes_dismissed_version = $2
+       WHERE id = $1
+       RETURNING id, username, nickname, rating, rating_games, rating_wins, rating_losses,
+                 win_streak_current, win_streak_best, profile_avatar_key,
+                 ui_lang, ui_theme, ui_sound_on, ui_sound_volume,
+                 patch_notes_dismissed_version,
+                 email, email_verified,
+                 placement_done, placement_rating, placement_tier_key, placement_version,
+                 placement_completed_at_ms, placement_solved_sequential, placement_elapsed_sec`,
+      [Number(req.authUser.id), version]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "User not found" });
+    }
+    return res.json({ ok: true, user: buildClientUser(rows[0]) });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 const updateAuthPreferences = async (req, res) => {
   const uiLang = normalizeUiLang(req.body?.ui_lang);
   const uiTheme = normalizeUiTheme(req.body?.ui_theme);
@@ -3421,6 +4052,7 @@ const updateAuthPreferences = async (req, res) => {
        RETURNING id, username, nickname, rating, rating_games, rating_wins, rating_losses,
                  win_streak_current, win_streak_best, profile_avatar_key,
                  ui_lang, ui_theme, ui_sound_on, ui_sound_volume,
+                 patch_notes_dismissed_version,
                  email, email_verified,
                  placement_done, placement_rating, placement_tier_key, placement_version,
                  placement_completed_at_ms, placement_solved_sequential, placement_elapsed_sec`,
@@ -3871,6 +4503,422 @@ app.get("/replays/hall/record/:recordId", async (req, res) => {
   }
 });
 
+app.get("/creator-samples", async (req, res) => {
+  try {
+    let authUser = null;
+    try {
+      authUser = await getAuthUserFromReq(req);
+    } catch {
+      authUser = null;
+    }
+    const viewerUserId =
+      Number.isInteger(Number(authUser?.id)) && Number(authUser.id) > 0 ? Number(authUser.id) : 0;
+    const { rows } = await pool.query(
+      `SELECT
+         id,
+         title_ko,
+         title_en,
+         size_group,
+         group_title_ko,
+         group_title_en,
+         license,
+         target_size,
+         source_url,
+         width,
+         height,
+         rows_json,
+         is_unique,
+         needs_guess,
+         (viewer_solve.user_id IS NOT NULL) AS viewer_solved,
+         sort_index,
+         created_at,
+         'sample'::text AS source_kind
+       FROM creator_sample_puzzles
+       LEFT JOIN creator_sample_solves viewer_solve
+         ON viewer_solve.sample_id = creator_sample_puzzles.id
+        AND viewer_solve.user_id = $1
+       ORDER BY
+         CASE size_group
+           WHEN 'small' THEN 1
+           WHEN 'medium' THEN 2
+           WHEN 'large' THEN 3
+           ELSE 99
+         END,
+         sort_index ASC,
+         id ASC`,
+      [viewerUserId]
+    );
+    return res.json({
+      ok: true,
+      samples: rows.map(mapCreatorSampleRow),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/creator-community-puzzles", async (req, res) => {
+  try {
+    let authUser = null;
+    try {
+      authUser = await getAuthUserFromReq(req);
+    } catch {
+      authUser = null;
+    }
+    const rows = await fetchCreatorCommunityPuzzleRows(authUser?.id || null);
+    return res.json({
+      ok: true,
+      puzzles: rows.map(mapCreatorCommunityPuzzleRow),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/creator-community-puzzles/:id/discussion", async (req, res) => {
+  try {
+    let authUser = null;
+    try {
+      authUser = await getAuthUserFromReq(req);
+    } catch {
+      authUser = null;
+    }
+    const puzzleRow = await fetchCreatorCommunityPuzzleRowById(req.params.id, authUser?.id || null);
+    if (!puzzleRow) {
+      return res.status(404).json({ ok: false, error: "Puzzle not found" });
+    }
+    const { rows: comments } = await pool.query(
+      `SELECT
+         c.id,
+         c.body,
+         c.created_at,
+         u.id AS user_id,
+         COALESCE(u.nickname, '알 수 없음') AS nickname
+       FROM creator_puzzle_comments c
+       LEFT JOIN users u
+         ON u.id = c.user_id
+       WHERE c.puzzle_id = $1
+       ORDER BY c.created_at DESC, c.id DESC
+       LIMIT 100`,
+      [String(req.params.id || "")]
+    );
+    return res.json({
+      ok: true,
+      puzzle: mapCreatorCommunityPuzzleRow(puzzleRow),
+      comments: comments.map((row) => ({
+        id: Number(row.id || 0),
+        body: String(row.body || ""),
+        createdAt: row.created_at ? new Date(row.created_at).toISOString() : "",
+        userId: Number(row.user_id || 0),
+        nickname: String(row.nickname || ""),
+      })),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/creator-puzzles", requireAuth, async (req, res) => {
+  try {
+    const titleRaw = String(req.body?.title || "").trim();
+    const width = Number(req.body?.width);
+    const height = Number(req.body?.height);
+    const cellsRaw = Array.isArray(req.body?.cells) ? req.body.cells : [];
+
+    if (!titleRaw) {
+      return res.status(400).json({ ok: false, error: "Title is required" });
+    }
+    if (!Number.isInteger(width) || !Number.isInteger(height) || width < 5 || width > 40 || height < 5 || height > 40) {
+      return res.status(400).json({ ok: false, error: "Invalid puzzle size" });
+    }
+
+    const total = width * height;
+    if (cellsRaw.length !== total) {
+      return res.status(400).json({ ok: false, error: "Invalid puzzle cells" });
+    }
+
+    const cells = cellsRaw.map((value) => (value === 1 ? 1 : 0));
+    if (!cells.some((value) => value === 1)) {
+      return res.status(400).json({ ok: false, error: "Draw something first" });
+    }
+
+    const analysis = analyzeCreatorPuzzleCells(width, height, cells);
+    if (!analysis.unique || analysis.needsGuess) {
+      return res.status(400).json({ ok: false, error: "Puzzle validation failed", analysis });
+    }
+
+    const sizeGroup = getCreatorSizeGroup(width, height);
+    const groupTitles = getCreatorGroupTitles(sizeGroup);
+    const rows = Array.from({ length: height }, (_, y) =>
+      cells
+        .slice(y * width, (y + 1) * width)
+        .map((cell) => (cell === 1 ? "#" : "."))
+        .join("")
+    );
+
+    const puzzleId = `user-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+    await pool.query(
+      `INSERT INTO creator_user_puzzles (
+        id, created_by_user_id, title_ko, title_en, size_group, group_title_ko, group_title_en,
+        width, height, rows_json, is_unique, needs_guess,
+        approval_status, validation_solution_count, validation_logical_solved, validation_checked_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10::jsonb, $11, $12,
+        $13, $14, $15, now()
+      )`,
+      [
+        puzzleId,
+        req.authUser.id,
+        titleRaw,
+        titleRaw,
+        sizeGroup,
+        groupTitles.titleKo,
+        groupTitles.titleEn,
+        width,
+        height,
+        JSON.stringify(rows),
+        true,
+        false,
+        "pending",
+        Number(analysis.solutionCount || 0),
+        analysis.logicalSolved === true,
+      ]
+    );
+
+    return res.json({
+      ok: true,
+      submission: {
+        id: puzzleId,
+        approvalStatus: "pending",
+      },
+      analysis,
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.get("/admin/creator-puzzles", requireAuth, async (req, res) => {
+  if (!isCreatorReviewAdminAuthorized(req)) {
+    return res.status(403).json({ ok: false, error: "Admin account required" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT
+         p.*,
+         COALESCE(u.nickname, '익명') AS created_by_nickname,
+         0::int AS comment_count,
+         0::int AS like_count,
+         0::int AS love_count,
+         0::int AS wow_count,
+         ''::text AS viewer_reaction,
+         false AS viewer_solved
+       FROM creator_user_puzzles p
+       LEFT JOIN users u
+         ON u.id = p.created_by_user_id
+       ORDER BY
+         CASE p.approval_status
+           WHEN 'pending' THEN 1
+           WHEN 'approved' THEN 2
+           WHEN 'rejected' THEN 3
+           ELSE 99
+         END,
+         p.created_at DESC,
+         p.id ASC`
+    );
+    return res.json({
+      ok: true,
+      puzzles: rows.map(mapCreatorCommunityPuzzleRow),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/admin/creator-puzzles/:id/review", requireAuth, async (req, res) => {
+  if (!isCreatorReviewAdminAuthorized(req)) {
+    return res.status(403).json({ ok: false, error: "Admin account required" });
+  }
+  const puzzleId = String(req.params.id || "").trim();
+  const decision = String(req.body?.decision || "").trim().toLowerCase();
+  const note = String(req.body?.note || "").trim().slice(0, 1000);
+  const nextStatus = decision === "approve" ? "approved" : decision === "reject" ? "rejected" : "";
+  if (!puzzleId || !nextStatus) {
+    return res.status(400).json({ ok: false, error: "Invalid review request" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `UPDATE creator_user_puzzles
+       SET approval_status = $2,
+           approval_note = $3,
+           approval_reviewed_at = now()
+       WHERE id = $1
+       RETURNING *, '익명'::text AS created_by_nickname, 0::int AS comment_count, 0::int AS like_count, 0::int AS love_count, 0::int AS wow_count, ''::text AS viewer_reaction, false AS viewer_solved`,
+      [puzzleId, nextStatus, note]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "Puzzle not found" });
+    }
+    return res.json({ ok: true, puzzle: mapCreatorCommunityPuzzleRow(rows[0]) });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/creator-puzzles/:id/comments", requireAuth, async (req, res) => {
+  const puzzleId = String(req.params.id || "").trim();
+  const body = String(req.body?.body || "").trim();
+  if (!puzzleId || !body) {
+    return res.status(400).json({ ok: false, error: "Comment is required" });
+  }
+  if (body.length > 500) {
+    return res.status(400).json({ ok: false, error: "Comment is too long" });
+  }
+  try {
+    const puzzle = await fetchCreatorCommunityPuzzleRowById(puzzleId, req.authUser.id);
+    if (!puzzle) {
+      return res.status(404).json({ ok: false, error: "Puzzle not found" });
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO creator_puzzle_comments (puzzle_id, user_id, body)
+       VALUES ($1, $2, $3)
+       RETURNING id, body, created_at`,
+      [puzzleId, req.authUser.id, body]
+    );
+    return res.json({
+      ok: true,
+      comment: {
+        id: Number(rows[0]?.id || 0),
+        body: String(rows[0]?.body || body),
+        createdAt: rows[0]?.created_at ? new Date(rows[0].created_at).toISOString() : "",
+        userId: Number(req.authUser.id || 0),
+        nickname: String(req.authUser.nickname || ""),
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/creator-puzzles/:id/reaction", requireAuth, async (req, res) => {
+  const puzzleId = String(req.params.id || "").trim();
+  const reactionKey = normalizeCreatorReactionKey(req.body?.reactionKey);
+  if (!puzzleId) {
+    return res.status(400).json({ ok: false, error: "Invalid puzzle id" });
+  }
+  try {
+    const puzzle = await fetchCreatorCommunityPuzzleRowById(puzzleId, req.authUser.id);
+    if (!puzzle) {
+      return res.status(404).json({ ok: false, error: "Puzzle not found" });
+    }
+    if (!reactionKey) {
+      await pool.query(`DELETE FROM creator_puzzle_reactions WHERE puzzle_id = $1 AND user_id = $2`, [puzzleId, req.authUser.id]);
+    } else {
+      await pool.query(
+        `INSERT INTO creator_puzzle_reactions (puzzle_id, user_id, reaction_key)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (puzzle_id, user_id) DO UPDATE SET
+           reaction_key = EXCLUDED.reaction_key,
+           created_at = now()`,
+        [puzzleId, req.authUser.id, reactionKey]
+      );
+    }
+    const updated = await fetchCreatorCommunityPuzzleRowById(puzzleId, req.authUser.id);
+    return res.json({ ok: true, puzzle: updated ? mapCreatorCommunityPuzzleRow(updated) : null });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/creator-puzzles/:id/solve", requireAuth, async (req, res) => {
+  const puzzleId = String(req.params.id || "").trim();
+  const elapsedSec = Math.max(0, Math.floor(Number(req.body?.elapsedSec || 0)));
+  if (!puzzleId) {
+    return res.status(400).json({ ok: false, error: "Invalid puzzle id" });
+  }
+  try {
+    const puzzle = await fetchCreatorCommunityPuzzleRowById(puzzleId, req.authUser.id);
+    if (!puzzle) {
+      return res.status(404).json({ ok: false, error: "Puzzle not found" });
+    }
+    await pool.query(
+      `INSERT INTO creator_puzzle_solves (puzzle_id, user_id, solved_at, best_elapsed_sec)
+       VALUES ($1, $2, now(), $3)
+       ON CONFLICT (puzzle_id, user_id) DO UPDATE SET
+         solved_at = now(),
+         best_elapsed_sec = CASE
+           WHEN creator_puzzle_solves.best_elapsed_sec <= 0 THEN EXCLUDED.best_elapsed_sec
+           WHEN EXCLUDED.best_elapsed_sec <= 0 THEN creator_puzzle_solves.best_elapsed_sec
+           ELSE LEAST(creator_puzzle_solves.best_elapsed_sec, EXCLUDED.best_elapsed_sec)
+         END`,
+      [puzzleId, req.authUser.id, elapsedSec]
+    );
+    return res.json({ ok: true, puzzleId, isSolved: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/creator-samples/:id/solve", requireAuth, async (req, res) => {
+  const sampleId = String(req.params.id || "").trim();
+  if (!sampleId) {
+    return res.status(400).json({ ok: false, error: "Invalid sample id" });
+  }
+  try {
+    const { rows } = await pool.query(
+      `SELECT id FROM creator_sample_puzzles WHERE id = $1 LIMIT 1`,
+      [sampleId]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ ok: false, error: "Sample not found" });
+    }
+    await pool.query(
+      `INSERT INTO creator_sample_solves (sample_id, user_id, solved_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (sample_id, user_id) DO UPDATE SET
+         solved_at = now()`,
+      [sampleId, req.authUser.id]
+    );
+    return res.json({ ok: true, sampleId, isSolved: true });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete("/creator-samples/:id", async (req, res) => {
+  const sampleId = String(req.params.id || "").trim();
+  if (!sampleId) {
+    return res.status(400).json({ ok: false, error: "Invalid sample id" });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const userResult = await client.query(`DELETE FROM creator_user_puzzles WHERE id = $1 RETURNING id`, [sampleId]);
+    if (userResult.rows.length) {
+      await client.query("COMMIT");
+      return res.json({ ok: true, deletedId: sampleId, sourceType: "user" });
+    }
+    const result = await client.query(`DELETE FROM creator_sample_puzzles WHERE id = $1 RETURNING id`, [sampleId]);
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ ok: false, error: "Sample not found" });
+    }
+    await client.query(
+      `INSERT INTO creator_sample_deletions (id) VALUES ($1)
+       ON CONFLICT (id) DO UPDATE SET deleted_at = now()`,
+      [sampleId]
+    );
+    await client.query("COMMIT");
+    return res.json({ ok: true, deletedId: sampleId, sourceType: "sample" });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    return res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
 app.get("/puzzles/:id", async (req, res) => {
   const puzzleId = Number(req.params.id);
   if (!Number.isInteger(puzzleId)) {
@@ -4055,9 +5103,9 @@ function createPvpMatch(ticketA, ticketB) {
   const sizeOptions = getPvpSizeOptionsForTickets(ticketA, ticketB);
   const players = [ticketA, ticketB].map((ticket) => {
     const isBot = ticket?.isBot === true;
-    const botDifficulty = isBot ? normalizeBotDifficulty(ticket?.botSkill) : null;
+    const botDifficulty = isBot ? getEffectiveBotDifficulty(ticket?.botSkill, ticket?.rating) : null;
     const botConf = isBot
-      ? BOT_DIFFICULTY_CONFIG[normalizeBotDifficulty(botDifficulty)] || BOT_DIFFICULTY_CONFIG.normal
+      ? BOT_DIFFICULTY_CONFIG[botDifficulty] || BOT_DIFFICULTY_CONFIG.normal
       : null;
     const ticketRating = normalizeRatingValue(ticket?.rating);
     const ticketRank = normalizeRatingRank(ticket?.ratingRank);
@@ -4498,6 +5546,7 @@ app.post("/race/create", requireAuth, async (req, res) => {
       joinedAt: nowIso,
       finishedAt: null,
       elapsedSec: null,
+      elapsedMs: null,
       isReady: false,
       disconnectedAt: null,
       correctAnswerCells: 0,
@@ -4570,6 +5619,7 @@ app.post("/race/join", requireAuth, async (req, res) => {
       joinedAt: new Date().toISOString(),
       finishedAt: null,
       elapsedSec: null,
+      elapsedMs: null,
       isReady: false,
       disconnectedAt: null,
       correctAnswerCells: 0,
@@ -5170,6 +6220,7 @@ app.post("/verify", async (req, res) => {
 
 async function startServer() {
   await ensureAuthTables();
+  await ensureCreatorSampleTables();
   await ensureBotUsers();
   startPvpBotLadderLoop();
   app.listen(PORT, () => {

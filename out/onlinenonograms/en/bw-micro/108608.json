@@ -1,0 +1,379 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 108608,
+  "title": "Luminaire",
+  "width": 10,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/108608",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/108608.webp",
+  "previewAlt": "#108608",
+  "likes": 29,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #108608",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/108608",
+  "publishedText": "November 15, 2025",
+  "decodedTitle": "Luminaire",
+  "payload": {
+    "sx": 10,
+    "sy": 10,
+    "p": "Xc9RDoMgDADQu3S/fChzyeAMu4Ezxjk+yBASFH+Mdx90lhFpUsor1WCDy10KZNsKlqI+Ak8d10s7HDXfIT9U5CClm8We9T+VVBRCmuuTitNcUSj20ns7BsEbkDCv1tHG6k/PgYEP/1IXEz8Pz2A2vE75yjHfUm5+9R3zCaXE+l34ECcpmyc9wqTtoLaKPDrj/AxygzpaLhUuaPcv",
+    "id": 108608,
+    "agurl": "picross",
+    "url": "svetilnik_2",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        1,
+        9,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9
+      ]
+    ],
+    "url": "svetilnik_2",
+    "ru_title": "Светильник",
+    "en_title": "Luminaire",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0000111000",
+    "0011110100",
+    "0110001000",
+    "1100011100",
+    "1100111110",
+    "1100110010",
+    "1110011100",
+    "0111000001",
+    "0011111110",
+    "0000111100"
+  ],
+  "rowHints": [
+    [
+      3
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      2,
+      2,
+      1
+    ],
+    [
+      3,
+      3
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      7
+    ],
+    [
+      4
+    ]
+  ],
+  "colHints": [
+    [
+      4
+    ],
+    [
+      6
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      2,
+      4,
+      2
+    ],
+    [
+      1,
+      3,
+      1,
+      2
+    ],
+    [
+      1,
+      2,
+      1,
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

@@ -1,0 +1,177 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 110682,
+  "title": "House",
+  "width": 5,
+  "height": 6,
+  "detailUrl": "https://onlinenonograms.com/en/id/110682",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/110682.webp",
+  "previewAlt": "#110682",
+  "likes": 26,
+  "dislikes": 5,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #110682",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/110682",
+  "publishedText": "March 9, 2026",
+  "decodedTitle": "House",
+  "payload": {
+    "sx": 5,
+    "sy": 6,
+    "p": "q2bKzS9LVbKKjrbUsdQxhMBYHSDPEMgHQyAPxsYmh6wvVkeptChHyUopI7+0OFVJR6moNL4ksyQH1IESkJe1B+d5QBUk5+fkFxUrWVUrGQJFlQ3AQKmaFgA=",
+    "id": 110682,
+    "agurl": "picross",
+    "url": "110682_house",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ]
+    ],
+    "url": "house",
+    "ru_title": "",
+    "en_title": "House",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      1,
+      0,
+      1,
+      0,
+      1
+    ]
+  ],
+  "solutionStrings": [
+    "00100",
+    "01010",
+    "10001",
+    "10001",
+    "10101",
+    "10101"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      4
+    ],
+    [
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1
+    ],
+    [
+      4
+    ]
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 105169,
+  "title": "Adidas logo",
+  "width": 8,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/105169",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/105169.webp",
+  "previewAlt": "#105169",
+  "likes": 10,
+  "dislikes": 9,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #105169",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/105169",
+  "publishedText": "May 25, 2025",
+  "decodedTitle": "Adidas logo",
+  "payload": {
+    "sx": 8,
+    "sy": 5,
+    "p": "ZU7LDoIwEPwVMl57YIWYapvfAYSAVNOkWlN1L4R/tyaNmLibzM7OPhc8zFtCNMaZbU4dy5wyDzHmW1esZ/Wnh/569p0dg7c1AtrcjVOv3nOiEweD9b2TTocf0PqypjFiJRNWO6+PifOEt+IyqWmYw7h8fsc3rYgXQuFqtLEzxAIKtUOZDOv6AQ==",
+    "id": 105169,
+    "agurl": "picross",
+    "url": "logotip_u81168",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1
+      ]
+    ],
+    "url": "logotip_u81168",
+    "ru_title": "Логотип Adidas",
+    "en_title": "Adidas logo",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1
+    ]
+  ],
+  "solutionStrings": [
+    "00001000",
+    "00101100",
+    "00110110",
+    "01010110",
+    "11011011"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      1,
+      1,
+      2
+    ],
+    [
+      2,
+      2,
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      1
+    ]
+  ]
+}

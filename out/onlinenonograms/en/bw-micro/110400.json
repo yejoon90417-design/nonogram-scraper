@@ -1,0 +1,172 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 110400,
+  "title": "Bird",
+  "width": 6,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/110400",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/110400.webp",
+  "previewAlt": "#110400",
+  "likes": 65,
+  "dislikes": 9,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #110400",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/110400",
+  "publishedText": "January 29, 2026",
+  "decodedTitle": "Bird",
+  "payload": {
+    "sx": 6,
+    "sy": 5,
+    "p": "VY3BCoMwEET/ZXrdQ7ZKMDnaN2KR0loQ0qZE40X89a5iEbsDsa+HgV3wCnMP6xyTIc5qyZUttxEaB96Ifawa/XFLSNHD4jMN03jrUqMro0GIqZPEyytck6r5mb0+Z6+1wrqwkm7/3ruXIT4kuQcf4gi7gCU8qTJY2y8=",
+    "id": 110400,
+    "agurl": "picross",
+    "url": "ptitsa_u86396",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        1,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        9,
+        1,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "ptitsa_u86396",
+    "ru_title": "Птица",
+    "en_title": "Bird",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      1,
+      1,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "110111",
+    "011100",
+    "111000",
+    "100100",
+    "100000"
+  ],
+  "rowHints": [
+    [
+      2,
+      3
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1,
+      3
+    ],
+    [
+      3
+    ],
+    [
+      2
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

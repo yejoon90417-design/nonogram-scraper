@@ -15,11 +15,11 @@ const WIN_STREAK_BONUS_TABLE = [
 ];
 
 const BOT_SOLVE_TIME_RANGE_SEC = {
-  "5x5": { easy: [120, 180], normal: [45, 108], hard: [14, 28] },
-  "10x10": { easy: [300, 360], normal: [108, 216], hard: [57, 85] },
-  "15x15": { easy: [960, 1500], normal: [540, 810], hard: [285, 399] },
-  "20x20": { easy: [1500, 1800], normal: [810, 1080], hard: [399, 570] },
-  "25x25": { easy: [2700, 3000], normal: [1134, 1890], hard: [855, 1140] },
+  "5x5": { easy: [120, 180], normal: [45, 108], hard: [14, 28], expert: [7, 14] },
+  "10x10": { easy: [300, 360], normal: [108, 216], hard: [57, 85], expert: [54, 67] },
+  "15x15": { easy: [960, 1500], normal: [540, 810], hard: [285, 399], expert: [145, 260] },
+  "20x20": { easy: [1500, 1800], normal: [810, 1080], hard: [399, 570], expert: [290, 540] },
+  "25x25": { easy: [2700, 3000], normal: [1134, 1890], hard: [855, 1140], expert: [650, 1000] },
 };
 const SIZES = ["5x5", "10x10", "15x15", "20x20", "25x25"];
 
@@ -35,12 +35,26 @@ function clamp(v, lo, hi) {
 
 function normalizeBotDifficulty(rawDifficulty = "normal") {
   const v = String(rawDifficulty || "").trim().toLowerCase();
-  if (v === "easy" || v === "hard") return v;
+  if (v === "pro") return "expert";
+  if (v === "easy" || v === "hard" || v === "expert") return v;
   return "normal";
 }
 
-function pickBotTargetSec(sizeKey, rawDifficulty = "normal", rawRating = 0) {
+function getEffectiveBotDifficulty(rawDifficulty = "normal", rawRating = 0) {
   const difficulty = normalizeBotDifficulty(rawDifficulty);
+  const rating = Number(rawRating || 0);
+  if (rating >= 2500) {
+    if (difficulty === "normal") return "hard";
+    if (difficulty === "hard" || difficulty === "expert") return "expert";
+  }
+  if (rating >= 2000) {
+    if (difficulty === "hard" || difficulty === "expert") return "expert";
+  }
+  return difficulty;
+}
+
+function pickBotTargetSec(sizeKey, rawDifficulty = "normal", rawRating = 0) {
+  const difficulty = getEffectiveBotDifficulty(rawDifficulty, rawRating);
   const bySize = BOT_SOLVE_TIME_RANGE_SEC[sizeKey];
   const getTierSpeedMultiplier = (ratingRaw) => {
     const rating = Number(ratingRaw || 0);
@@ -150,7 +164,7 @@ async function main() {
       rating_losses: Number(b.rating_losses || 0),
       win_streak_current: Number(b.win_streak_current || 0),
       win_streak_best: Number(b.win_streak_best || 0),
-      bot_skill: normalizeBotDifficulty(b.bot_skill),
+      bot_skill: getEffectiveBotDifficulty(b.bot_skill, b.rating),
       bot_spawn_weight: Math.max(1, Number(b.bot_spawn_weight || 1)),
     }));
     const botById = new Map(bots.map((b) => [b.id, b]));

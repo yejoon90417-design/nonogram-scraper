@@ -1,0 +1,349 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 107350,
+  "title": "Coffee maker",
+  "width": 8,
+  "height": 11,
+  "detailUrl": "https://onlinenonograms.com/en/id/107350",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/107350.webp",
+  "previewAlt": "#107350",
+  "likes": 15,
+  "dislikes": 2,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #107350",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/107350",
+  "publishedText": "October 1, 2025",
+  "decodedTitle": "Coffee maker",
+  "payload": {
+    "sx": 8,
+    "sy": 11,
+    "p": "bU/LDoIwEPwVsl571KXGlKufgYQ0ujXKo0kFEiX8u7C8CrGTzG5nJ7NtC4VtEKI4VkwxwdQWCYtHVRDmKiZ9xegfdM+2YvFPvjlrl7PPV3/fozY7Rz2hULscInjg64uu2B+dZtZgo2amgYGr0+pZ5f2P4VpzKcKBwxOxIj6viuTU34mply1giyZGkqQXcfSs3HPyfjWWy+qLNQYxKHSGrp/cbG7dG6IWRD88cDrQdT8=",
+    "id": 107350,
+    "agurl": "picross",
+    "url": "gejzernaya_kofevarka",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "gejzernaya_kofevarka",
+    "ru_title": "Гейзерная кофеварка",
+    "en_title": "Coffee maker",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "00010000",
+    "01101110",
+    "10111101",
+    "01110101",
+    "01110101",
+    "01110100",
+    "00111000",
+    "01011100",
+    "01010100",
+    "01011100",
+    "01111100"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      1,
+      4,
+      1
+    ],
+    [
+      3,
+      1,
+      1
+    ],
+    [
+      3,
+      1,
+      1
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      5
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1,
+      3,
+      4
+    ],
+    [
+      6,
+      1
+    ],
+    [
+      1,
+      9
+    ],
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      5,
+      4
+    ],
+    [
+      1
+    ],
+    [
+      3
+    ]
+  ]
+}

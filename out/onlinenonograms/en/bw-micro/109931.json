@@ -1,0 +1,303 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 109931,
+  "title": "Circumflex above the letter",
+  "width": 7,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/109931",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/109931.webp",
+  "previewAlt": "#109931",
+  "likes": 40,
+  "dislikes": 16,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #109931",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/109931",
+  "publishedText": "January 10, 2026",
+  "decodedTitle": "Circumflex above the letter",
+  "payload": {
+    "sx": 7,
+    "sy": 10,
+    "p": "XVDLDoMgEPwVs72yEKVN9drPsMb4oKkVJUEwTYz/XlwqJWXDMEyGZWCFUS4c8qLIyK+oLbuWpHC7Y6KOKvWuL7MqJYfbY+D9V8O+me8b3u8ylASMEpCDnns2mPEh+DBXU92VjRkW+QICylS628I+A+4mZsllx/S6I4uR28hT5C2yhrxBPAceGuGmQ3SHmZNo0AO91YLIETObg08+x62XLWZ9R3VjfzjSTx4JrjVX2thKIdUM+QrUek8xDtiaDw==",
+    "id": 109931,
+    "agurl": "picross",
+    "url": "tsirkumfleks_nad_bukvoj",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        1,
+        9,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        1,
+        9,
+        9,
+        1,
+        9,
+        9,
+        1,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        9,
+        9,
+        1,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        9,
+        1,
+        9,
+        1,
+        9,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        1,
+        9,
+        9
+      ]
+    ],
+    "url": "tsirkumfleks_nad_bukvoj",
+    "ru_title": "Циркумфлекс над буквой",
+    "en_title": "Circumflex above the letter",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0001000",
+    "0010100",
+    "0100010",
+    "0011100",
+    "0110011",
+    "0000001",
+    "1111110",
+    "1100001",
+    "0110010",
+    "0011100"
+  ],
+  "rowHints": [
+    [
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      1
+    ],
+    [
+      6
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      3
+    ]
+  ],
+  "colHints": [
+    [
+      2
+    ],
+    [
+      1,
+      1,
+      3
+    ],
+    [
+      1,
+      2,
+      1,
+      2
+    ],
+    [
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      2,
+      1
+    ]
+  ]
+}

@@ -1,0 +1,315 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 107757,
+  "title": "Часы",
+  "width": 9,
+  "height": 9,
+  "detailUrl": "https://onlinenonograms.com/en/id/107757",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/107757.webp",
+  "previewAlt": "#107757",
+  "likes": 23,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #107757",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/107757",
+  "publishedText": "October 21, 2025",
+  "decodedTitle": "Часы",
+  "payload": {
+    "sx": 9,
+    "sy": 9,
+    "p": "q2bKzS9LVbKKjrbUsdQxhEMgL2YnGlkELAoUM0QTM8QjZqmDZCqSOkJiaOzFdF+sjlJpUY6SlVJyRmJxZryRkZKOUlFpfElmSQ7QR0oxpQYmRuYg0tgARJoYgskkoKrUPGJUJefn5BcVK2lVKxkCFSobgIFSbS0A",
+    "id": 107757,
+    "agurl": "picross",
+    "url": "chasi_22",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ]
+    ],
+    "url": "chasi_22",
+    "ru_title": "Часы",
+    "en_title": "Часы",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "001111100",
+    "011111110",
+    "111101111",
+    "111101111",
+    "111100011",
+    "111111111",
+    "111111111",
+    "011111110",
+    "001111100"
+  ],
+  "rowHints": [
+    [
+      5
+    ],
+    [
+      7
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      9
+    ],
+    [
+      9
+    ],
+    [
+      7
+    ],
+    [
+      5
+    ]
+  ],
+  "colHints": [
+    [
+      5
+    ],
+    [
+      7
+    ],
+    [
+      9
+    ],
+    [
+      9
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      4,
+      4
+    ],
+    [
+      7
+    ],
+    [
+      5
+    ]
+  ]
+}

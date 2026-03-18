@@ -1,0 +1,154 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 108366,
+  "title": "Dinosaur ",
+  "width": 5,
+  "height": 5,
+  "detailUrl": "https://onlinenonograms.com/en/id/108366",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/108366.webp",
+  "previewAlt": "#108366",
+  "likes": 39,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #108366",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/108366",
+  "publishedText": "November 8, 2025",
+  "decodedTitle": "Dinosaur ",
+  "payload": {
+    "sx": 5,
+    "sy": 5,
+    "p": "TYzBCsIwEER/RcZrDlkN1HLaLaoJRYMU0gSSpgil/a6ySnEHHsPszq6Y4uJguk6Lr6gX7Knpz+vqSdCe0+9e972ASR4GwxTDy5Zs2VtBIBU7j7Ov33EvUpFqPF+ZT6ZjXpiSeWpU8lDrLuz2axhiHkpq8SP6mDLMCqqbo+TBtn0A",
+    "id": 108366,
+    "agurl": "picross",
+    "url": "among_us_4x4",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "among_us_4x4",
+    "ru_title": "Динозавр ",
+    "en_title": "Dinosaur ",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      0,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "00011",
+    "00010",
+    "01110",
+    "01110",
+    "11010"
+  ],
+  "rowHints": [
+    [
+      2
+    ],
+    [
+      1
+    ],
+    [
+      3
+    ],
+    [
+      3
+    ],
+    [
+      2,
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      3
+    ],
+    [
+      2
+    ],
+    [
+      5
+    ],
+    [
+      1
+    ]
+  ]
+}

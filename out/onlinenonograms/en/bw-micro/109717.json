@@ -1,0 +1,375 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 109717,
+  "title": "Electric insulator",
+  "width": 10,
+  "height": 10,
+  "detailUrl": "https://onlinenonograms.com/en/id/109717",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/109717.webp",
+  "previewAlt": "#109717",
+  "likes": 34,
+  "dislikes": 12,
+  "scrapedAt": "2026-03-17T11:05:37.642Z",
+  "detailTitle": "Nonogram #109717",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/109717",
+  "publishedText": "December 30, 2025",
+  "decodedTitle": "Electric insulator",
+  "payload": {
+    "sx": 10,
+    "sy": 10,
+    "p": "fZBNDoIwEE1vYsZtFy0W+dlzCiQEsS1NlS1lNVHC3S2DRIFIJ3mL2+l8k3Zw2w8B1Z4zkiyrIHlCVn6ybKrRflyysHPnuWHnk7fS/maa8kVBwBkFKQglbtZo+dLqWVltSheHETsCAeNKK63yHwEnR3lwGXg4I0NkNZAHSIpGIGNk9GPwFb9++0fPqc8RzZSTKVFbI+udbFqnhnX8f1aVNiakHTDfsqd4oO/f",
+    "id": 109717,
+    "agurl": "picross",
+    "url": "elektroizolyator_u85716",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "elektroizolyator_u85716",
+    "ru_title": "Электроизолятор",
+    "en_title": "Electric insulator",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      1,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0,
+      1
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "1001111000",
+    "0110110110",
+    "0001111001",
+    "0011000100",
+    "0010111100",
+    "0011111100",
+    "0011111100",
+    "0011001100",
+    "0000110000",
+    "0000110000"
+  ],
+  "rowHints": [
+    [
+      1,
+      4
+    ],
+    [
+      2,
+      2,
+      2
+    ],
+    [
+      4,
+      1
+    ],
+    [
+      2,
+      1
+    ],
+    [
+      1,
+      4
+    ],
+    [
+      6
+    ],
+    [
+      6
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      2
+    ],
+    [
+      2
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      1,
+      2,
+      3
+    ],
+    [
+      3,
+      3,
+      2
+    ],
+    [
+      3,
+      3,
+      2
+    ],
+    [
+      1,
+      1,
+      4
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      1
+    ],
+    [
+      1
+    ]
+  ]
+}

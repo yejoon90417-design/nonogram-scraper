@@ -1,0 +1,212 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 104812,
+  "title": "House",
+  "width": 7,
+  "height": 6,
+  "detailUrl": "https://onlinenonograms.com/en/id/104812",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/104812.webp",
+  "previewAlt": "#104812",
+  "likes": 15,
+  "dislikes": 1,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #104812",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/104812",
+  "publishedText": "May 5, 2025",
+  "decodedTitle": "House",
+  "payload": {
+    "sx": 7,
+    "sy": 6,
+    "p": "q2bKzS9LVbKKjrbUAUFDEBmrEw2hgyGYBaFbgnmGeOWgbKgcwsxYH1XSohwlK6WU/NzM7PhSCwMLQ0MlH1Wi0viSzJIcoBuUYkoNTAxNQKRxKphMBpMWYDIRqDY2D67WI7+0OBUolJyfk29UrGRVrWQIFFUaAAOlaloA",
+    "id": 104812,
+    "agurl": "picross",
+    "url": "domik_u80811",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        1,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        9,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        9,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1
+      ],
+      [
+        9,
+        9,
+        9,
+        1,
+        9,
+        9
+      ]
+    ],
+    "url": "domik_u80811",
+    "ru_title": "Домик",
+    "en_title": "House",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      0,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      0,
+      1,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      1,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "0001010",
+    "0010110",
+    "0111110",
+    "1111101",
+    "0101010",
+    "0111110"
+  ],
+  "rowHints": [
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      5
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      1,
+      1,
+      1
+    ],
+    [
+      5
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      4
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      1,
+      4
+    ],
+    [
+      3,
+      1
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      1
+    ]
+  ]
+}

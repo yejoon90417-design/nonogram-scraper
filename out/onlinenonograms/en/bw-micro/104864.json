@@ -1,0 +1,313 @@
+{
+  "source": "onlinenonograms",
+  "lang": "en",
+  "category": "bw/micro",
+  "pageNumber": 1,
+  "puzzleId": 104864,
+  "title": "Star",
+  "width": 9,
+  "height": 9,
+  "detailUrl": "https://onlinenonograms.com/en/id/104864",
+  "previewUrl": "https://onlinenonograms.com/storage/preview/104864.webp",
+  "previewAlt": "#104864",
+  "likes": 12,
+  "dislikes": 6,
+  "scrapedAt": "2026-03-17T11:05:37.643Z",
+  "detailTitle": "Nonogram #104864",
+  "canonicalUrl": "https://onlinenonograms.com/en/id/104864",
+  "publishedText": "May 12, 2025",
+  "decodedTitle": "Star",
+  "payload": {
+    "sx": 9,
+    "sy": 9,
+    "p": "q2bKzS9LVbKKjrbUgUFDCBarEa0IF0EWg/CQxSA8QzQxZFFDDHVgCDcPUy+6vZjui9VRKi3KUbJSqipLrUpJjDc0VdJRKiqNL8ksyQF6SSmm2MDE0BxEGhuBSVMwCRExAZMGQBapeXAdwSWJRUCR5Pyc/KJiJ1tqJUOgoLIBGCjV2gIA",
+    "id": 104864,
+    "agurl": "picross",
+    "url": "zvezda_15",
+    "state": null,
+    "createMode": false
+  },
+  "decodedPuzzle": {
+    "move": [
+      [
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        1,
+        1,
+        1,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9
+      ],
+      [
+        9,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        1,
+        1,
+        9,
+        9,
+        9
+      ],
+      [
+        9,
+        9,
+        9,
+        9,
+        9,
+        1,
+        9,
+        9,
+        9
+      ]
+    ],
+    "url": "zvezda_15",
+    "ru_title": "Звезда",
+    "en_title": "Star",
+    "colors": {
+      "1": "#000000"
+    }
+  },
+  "solutionRows": [
+    [
+      0,
+      1,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      0,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      0,
+      0
+    ],
+    [
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0
+    ],
+    [
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      1,
+      1,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0
+    ]
+  ],
+  "solutionStrings": [
+    "011000100",
+    "001101100",
+    "001111100",
+    "000111100",
+    "011111110",
+    "111111111",
+    "000011000",
+    "000011000",
+    "000001000"
+  ],
+  "rowHints": [
+    [
+      2,
+      1
+    ],
+    [
+      2,
+      2
+    ],
+    [
+      5
+    ],
+    [
+      4
+    ],
+    [
+      7
+    ],
+    [
+      9
+    ],
+    [
+      2
+    ],
+    [
+      2
+    ],
+    [
+      1
+    ]
+  ],
+  "colHints": [
+    [
+      1
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      2
+    ],
+    [
+      5
+    ],
+    [
+      6
+    ],
+    [
+      8
+    ],
+    [
+      6
+    ],
+    [
+      2
+    ],
+    [
+      1
+    ]
+  ]
+}
