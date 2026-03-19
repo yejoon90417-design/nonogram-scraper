@@ -1919,26 +1919,6 @@ function App() {
   }, [playMode, authToken, authUser?.id, authUser?.patch_notes_dismissed_version, patchNotesSessionHidden]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    const isAuthPage = playMode === "auth";
-    const existing = document.getElementById(ADSENSE_SCRIPT_ID);
-
-    if (isAuthPage) {
-      if (existing) existing.remove();
-      return;
-    }
-
-    if (existing) return;
-
-    const script = document.createElement("script");
-    script.id = ADSENSE_SCRIPT_ID;
-    script.async = true;
-    script.src = ADSENSE_SRC;
-    script.crossOrigin = "anonymous";
-    document.head.appendChild(script);
-  }, [playMode]);
-
-  useEffect(() => {
     const players = Array.isArray(raceState?.players) ? raceState.players : [];
     if (!players.length) return;
     const targetIds = Array.from(
@@ -2318,6 +2298,39 @@ function App() {
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const isRacePreStartMasked = isInRaceRoom && (isRaceLobby || isRaceCountdown);
   const canAutoOpenVoteModal = false;
+  const shouldEnableAds =
+    isModeRanking ||
+    isModeLegacyRanking ||
+    isModeReplayHall ||
+    (isModeSingle && shouldShowPuzzleBoard && !isCustomPreviewPuzzle && !isInRaceRoom);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const existing = document.getElementById(ADSENSE_SCRIPT_ID);
+    const removeAdsArtifacts = () => {
+      document.querySelectorAll("ins.adsbygoogle").forEach((node) => node.remove());
+      document
+        .querySelectorAll(
+          'iframe[id^="aswift_"], iframe[id^="google_ads_iframe"], iframe[src*="googleads"], iframe[src*="doubleclick"]'
+        )
+        .forEach((node) => node.remove());
+    };
+
+    if (!shouldEnableAds) {
+      if (existing) existing.remove();
+      removeAdsArtifacts();
+      return;
+    }
+
+    if (existing) return;
+
+    const script = document.createElement("script");
+    script.id = ADSENSE_SCRIPT_ID;
+    script.async = true;
+    script.src = ADSENSE_SRC;
+    script.crossOrigin = "anonymous";
+    document.head.appendChild(script);
+  }, [shouldEnableAds]);
 
   useEffect(() => {
     if (isMobileBoardUi) return;
