@@ -9,6 +9,34 @@ const GROUPS = {
   xlarge: { targetSize: 36, titleKo: '\uC5D1\uC2A4\uB77C\uC9C0', titleEn: 'XLarge' },
 };
 const TARGET_PER_GROUP = 50;
+const XLARGE_REJECT_SOURCE_NAMES = new Set([
+  'album',
+  'disc-album',
+  'book-heart',
+  'book-headphones',
+  'book-image',
+  'book-marked',
+  'book-open-check',
+  'book-open-text',
+  'book-user',
+  'credit-card',
+  'file-heart',
+  'gamepad',
+  'gamepad-2',
+  'gamepad-directional',
+  'keyboard-music',
+  'message-circle-heart',
+  'message-square-heart',
+  'music',
+  'music-2',
+  'notebook-pen',
+  'notebook-tabs',
+  'notebook-text',
+  'shopping-cart',
+  'camera-off',
+  'calendar-heart',
+  'blocks',
+]);
 
 const PHOSPHOR_FRIENDLY_POOL = [
   'airplane',
@@ -1025,6 +1053,27 @@ function analyzePuzzle(rows) {
   };
 }
 
+function getFillRatio(rows) {
+  const height = rows.length;
+  const width = rows[0]?.length || 0;
+  if (!width || !height) return 0;
+  let filled = 0;
+  for (const row of rows) {
+    for (const cell of row) {
+      if (cell === '#') filled += 1;
+    }
+  }
+  return filled / (width * height);
+}
+
+function isAcceptableForGroup(icon, rows) {
+  if (icon.sizeGroup !== 'xlarge') return true;
+  const fillRatio = getFillRatio(rows);
+  if (fillRatio > 0.82) return false;
+  if (XLARGE_REJECT_SOURCE_NAMES.has(icon.sourceName)) return false;
+  return true;
+}
+
 async function renderIconRows(page, svgText, targetSize = 14) {
   return page.evaluate(async ({ svgText, targetSize }) => {
     function waitForImage(img) {
@@ -1136,7 +1185,19 @@ async function renderIconRows(page, svgText, targetSize = 14) {
       }
     }
 
-    return rows.slice(top, bottom + 1).map((row) => row.slice(left, right + 1));
+    const trimmedRows = rows.slice(top, bottom + 1).map((row) => row.slice(left, right + 1));
+    if (targetSize >= 36 && trimmedRows.length) {
+      const pad = 2;
+      const paddedWidth = trimmedRows[0].length + pad * 2;
+      const emptyRow = '.'.repeat(paddedWidth);
+      return [
+        ...Array.from({ length: pad }, () => emptyRow),
+        ...trimmedRows.map((row) => `${'.'.repeat(pad)}${row}${'.'.repeat(pad)}`),
+        ...Array.from({ length: pad }, () => emptyRow),
+      ];
+    }
+
+    return trimmedRows;
   }, { svgText, targetSize });
 }
 
@@ -1160,6 +1221,10 @@ async function renderIconRows(page, svgText, targetSize = 14) {
     const rows = await renderIconRows(page, svgText, icon.targetSize || 14);
     if (!rows.length) {
       console.log(icon.id, icon.sizeGroup, 'SKIP empty');
+      continue;
+    }
+    if (!isAcceptableForGroup(icon, rows)) {
+      console.log(icon.id, icon.sizeGroup, `${rows[0]?.length || 0}x${rows.length}`, 'SKIP xlarge-filter');
       continue;
     }
     const analysis = analyzePuzzle(rows);
