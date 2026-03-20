@@ -39,10 +39,8 @@ const SOUND_MASTER_GAIN_MAX = 0.34;
 const CREATOR_REACTION_OPTIONS = [
   { key: "like", emoji: "👍", labelKo: "좋아요", labelEn: "Like" },
 ];
-const ADSENSE_CLIENT = "ca-pub-1492932683312516";
-const ADSENSE_SCRIPT_ID = "adsense-manual-script";
-const ADSENSE_SRC = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
-const ADSENSE_GAME_RAIL_SLOT = String(import.meta.env.VITE_ADSENSE_GAME_RAIL_SLOT || "").trim();
+const ADSENSE_SCRIPT_ID = "adsense-auto-script";
+const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1492932683312516";
 const MODE_TO_PATH = {
   menu: "/",
   single: "/single",
@@ -307,41 +305,6 @@ function normalizeUiTheme(raw) {
 
 function normalizeUiStyleVariant(raw) {
   return "default";
-}
-
-function GameplayAdRail({ slot, label }) {
-  const adRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !slot) return;
-    const node = adRef.current;
-    if (!node) return;
-    if (node.dataset.adsbygoogleStatus === "done") return;
-    try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (err) {
-      console.error("adsense push failed:", err);
-    }
-  }, [slot]);
-
-  if (!slot) return null;
-
-  return (
-    <aside className="gameplayAdRail" aria-label={label}>
-      <div className="gameplayAdRailInner">
-        <div className="gameplayAdRailLabel">{label}</div>
-        <ins
-          ref={adRef}
-          className="adsbygoogle gameplayAdSlot"
-          style={{ display: "block" }}
-          data-ad-client={ADSENSE_CLIENT}
-          data-ad-slot={slot}
-          data-ad-format="vertical"
-          data-full-width-responsive="false"
-        />
-      </div>
-    </aside>
-  );
 }
 
 function getTierInfoByRating(ratingRaw, rankRaw = null) {
@@ -1172,7 +1135,6 @@ function App() {
   const [mobilePaintMode, setMobilePaintMode] = useState("fill"); // fill | mark
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
-  const [isDesktopAdViewport, setIsDesktopAdViewport] = useState(false);
   const [mobileBoardScale, setMobileBoardScale] = useState(1);
   const [mobileBoardFocus, setMobileBoardFocus] = useState(false);
   const [mobileControlsCollapsed, setMobileControlsCollapsed] = useState(false);
@@ -2111,21 +2073,6 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(min-width: 1380px)");
-    const apply = () => setIsDesktopAdViewport(Boolean(mq.matches));
-    apply();
-    if (typeof mq.addEventListener === "function") {
-      mq.addEventListener("change", apply);
-      return () => mq.removeEventListener("change", apply);
-    }
-    if (typeof mq.addListener === "function") {
-      mq.addListener(apply);
-      return () => mq.removeListener(apply);
-    }
-  }, []);
-
-  useEffect(() => {
     cellValuesRef.current = cells;
   }, [cells]);
 
@@ -2352,14 +2299,7 @@ function App() {
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const isRacePreStartMasked = isInRaceRoom && (isRaceLobby || isRaceCountdown);
   const canAutoOpenVoteModal = false;
-  const hasGameplayAdSlot = ADSENSE_GAME_RAIL_SLOT.length > 0;
-  const shouldShowDesktopGameplayAdRail =
-    hasGameplayAdSlot &&
-    shouldShowPuzzleBoard &&
-    !isModeCreate &&
-    !isMobileBoardUi &&
-    isDesktopAdViewport;
-  const shouldLoadAdsenseScript = shouldShowDesktopGameplayAdRail;
+  const shouldEnableAds = isModeRanking || isModeLegacyRanking || isModeReplayHall;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -2373,7 +2313,7 @@ function App() {
         .forEach((node) => node.remove());
     };
 
-    if (!shouldLoadAdsenseScript) {
+    if (!shouldEnableAds) {
       if (existing) existing.remove();
       removeAdsArtifacts();
       return;
@@ -2387,7 +2327,7 @@ function App() {
     script.src = ADSENSE_SRC;
     script.crossOrigin = "anonymous";
     document.head.appendChild(script);
-  }, [shouldLoadAdsenseScript]);
+  }, [shouldEnableAds]);
 
   useEffect(() => {
     if (isMobileBoardUi) return;
@@ -8146,7 +8086,6 @@ function App() {
         )}
 
         {(isModeMulti || isModePvp) && isLoggedIn && raceRoomCode && shouldShowPuzzleBoard && (
-          <div className={`gameplayDesktopLayout ${shouldShowDesktopGameplayAdRail ? "withRail" : ""}`}>
           <section
             className={`raceMatchLayout ${isMobileBoardUi ? "mobileBoardLayout" : ""} ${
               isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusLayout" : ""
@@ -8430,13 +8369,6 @@ function App() {
               </div>
             </aside>
           </section>
-          {shouldShowDesktopGameplayAdRail && (
-            <GameplayAdRail
-              slot={ADSENSE_GAME_RAIL_SLOT}
-              label={L("광고", "Advertisement")}
-            />
-          )}
-          </div>
         )}
 
         {shouldShowPuzzleBoard && !isSingleSoloMode && !isModeCreate && !isInRaceRoom && (
@@ -8471,6 +8403,24 @@ function App() {
             >
               <Eraser size={16} />
             </button>
+          </div>
+        )}
+        {shouldShowPuzzleBoard && isSingleSoloMode && (
+          <div className={`singleBottomBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusBottomBar" : ""}`}>
+            <div className={`singleTimer ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimerReadout" : ""}`}>
+              {isModePlacementTest ? L("남은 시간", "Time Left") : "TIMER"}: {isModePlacementTest ? placementTimerText : formattedTime}
+            </div>
+            <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`} data-tutorial="single-tools">
+              <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
+                UNDO
+              </button>
+              <button className="toolBtn toolRedo" onClick={redo} disabled={!canRedo || !canInteractBoard}>
+                REDO
+              </button>
+              <button className="toolBtn toolClear" onClick={resetGrid} disabled={!canInteractBoard}>
+                CLEAR
+              </button>
+            </div>
           </div>
         )}
         {status && !isModeAuth && <div className="status">{status}</div>}
@@ -9175,9 +9125,7 @@ function App() {
         )}
 
         {shouldShowPuzzleBoard && !isInRaceRoom && (
-          <div className={`gameplayDesktopLayout ${shouldShowDesktopGameplayAdRail ? "withRail" : ""}`}>
-            <div className="gameplayBoardColumn">
-              <div
+          <div
                 ref={isMobileBoardUi ? mobileBoardViewportRef : null}
                 className={`boardWrap ${isMobileBoardUi ? "mobileBoardEnabled" : ""} ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocus" : ""}`}
                 onContextMenu={(e) => e.preventDefault()}
@@ -9339,32 +9287,6 @@ function App() {
                   </div>
                 </div>
                 </div>
-              </div>
-              {isSingleSoloMode && (
-                <div className={`singleBottomBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusBottomBar" : ""}`}>
-                  <div className={`singleTimer ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimerReadout" : ""}`}>
-                    {isModePlacementTest ? L("남은 시간", "Time Left") : "TIMER"}: {isModePlacementTest ? placementTimerText : formattedTime}
-                  </div>
-                  <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`} data-tutorial="single-tools">
-                    <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
-                      UNDO
-                    </button>
-                    <button className="toolBtn toolRedo" onClick={redo} disabled={!canRedo || !canInteractBoard}>
-                      REDO
-                    </button>
-                    <button className="toolBtn toolClear" onClick={resetGrid} disabled={!canInteractBoard}>
-                      CLEAR
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            {shouldShowDesktopGameplayAdRail && (
-              <GameplayAdRail
-                slot={ADSENSE_GAME_RAIL_SLOT}
-                label={L("광고", "Advertisement")}
-              />
-            )}
           </div>
         )}
       </motion.section>
