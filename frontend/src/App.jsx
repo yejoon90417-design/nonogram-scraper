@@ -39,8 +39,10 @@ const SOUND_MASTER_GAIN_MAX = 0.34;
 const CREATOR_REACTION_OPTIONS = [
   { key: "like", emoji: "👍", labelKo: "좋아요", labelEn: "Like" },
 ];
-const ADSENSE_SCRIPT_ID = "adsense-auto-script";
-const ADSENSE_SRC = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1492932683312516";
+const ADSENSE_CLIENT = "ca-pub-1492932683312516";
+const ADSENSE_SCRIPT_ID = "adsense-manual-script";
+const ADSENSE_SRC = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`;
+const ADSENSE_GAME_RAIL_SLOT = String(import.meta.env.VITE_ADSENSE_GAME_RAIL_SLOT || "").trim();
 const MODE_TO_PATH = {
   menu: "/",
   single: "/single",
@@ -305,6 +307,41 @@ function normalizeUiTheme(raw) {
 
 function normalizeUiStyleVariant(raw) {
   return "default";
+}
+
+function GameplayAdRail({ slot, label }) {
+  const adRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !slot) return;
+    const node = adRef.current;
+    if (!node) return;
+    if (node.dataset.adsbygoogleStatus === "done") return;
+    try {
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (err) {
+      console.error("adsense push failed:", err);
+    }
+  }, [slot]);
+
+  if (!slot) return null;
+
+  return (
+    <aside className="gameplayAdRail" aria-label={label}>
+      <div className="gameplayAdRailInner">
+        <div className="gameplayAdRailLabel">{label}</div>
+        <ins
+          ref={adRef}
+          className="adsbygoogle gameplayAdSlot"
+          style={{ display: "block" }}
+          data-ad-client={ADSENSE_CLIENT}
+          data-ad-slot={slot}
+          data-ad-format="vertical"
+          data-full-width-responsive="false"
+        />
+      </div>
+    </aside>
+  );
 }
 
 function getTierInfoByRating(ratingRaw, rankRaw = null) {
@@ -1135,6 +1172,7 @@ function App() {
   const [mobilePaintMode, setMobilePaintMode] = useState("fill"); // fill | mark
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const [isNarrowViewport, setIsNarrowViewport] = useState(false);
+  const [isDesktopAdViewport, setIsDesktopAdViewport] = useState(false);
   const [mobileBoardScale, setMobileBoardScale] = useState(1);
   const [mobileBoardFocus, setMobileBoardFocus] = useState(false);
   const [mobileControlsCollapsed, setMobileControlsCollapsed] = useState(false);
@@ -2073,6 +2111,21 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(min-width: 1380px)");
+    const apply = () => setIsDesktopAdViewport(Boolean(mq.matches));
+    apply();
+    if (typeof mq.addEventListener === "function") {
+      mq.addEventListener("change", apply);
+      return () => mq.removeEventListener("change", apply);
+    }
+    if (typeof mq.addListener === "function") {
+      mq.addListener(apply);
+      return () => mq.removeListener(apply);
+    }
+  }, []);
+
+  useEffect(() => {
     cellValuesRef.current = cells;
   }, [cells]);
 
@@ -2299,11 +2352,14 @@ function App() {
   const isRaceFinished = isInRaceRoom && racePhase === "finished";
   const isRacePreStartMasked = isInRaceRoom && (isRaceLobby || isRaceCountdown);
   const canAutoOpenVoteModal = false;
-  const shouldEnableAds =
-    isModeRanking ||
-    isModeLegacyRanking ||
-    isModeReplayHall ||
-    (isModeSingle && shouldShowPuzzleBoard && !isCustomPreviewPuzzle && !isInRaceRoom);
+  const hasGameplayAdSlot = ADSENSE_GAME_RAIL_SLOT.length > 0;
+  const shouldShowDesktopGameplayAdRail =
+    hasGameplayAdSlot &&
+    shouldShowPuzzleBoard &&
+    !isModeCreate &&
+    !isMobileBoardUi &&
+    isDesktopAdViewport;
+  const shouldLoadAdsenseScript = shouldShowDesktopGameplayAdRail;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -2317,7 +2373,7 @@ function App() {
         .forEach((node) => node.remove());
     };
 
-    if (!shouldEnableAds) {
+    if (!shouldLoadAdsenseScript) {
       if (existing) existing.remove();
       removeAdsArtifacts();
       return;
@@ -2331,7 +2387,7 @@ function App() {
     script.src = ADSENSE_SRC;
     script.crossOrigin = "anonymous";
     document.head.appendChild(script);
-  }, [shouldEnableAds]);
+  }, [shouldLoadAdsenseScript]);
 
   useEffect(() => {
     if (isMobileBoardUi) return;
@@ -8090,6 +8146,7 @@ function App() {
         )}
 
         {(isModeMulti || isModePvp) && isLoggedIn && raceRoomCode && shouldShowPuzzleBoard && (
+          <div className={`gameplayDesktopLayout ${shouldShowDesktopGameplayAdRail ? "withRail" : ""}`}>
           <section
             className={`raceMatchLayout ${isMobileBoardUi ? "mobileBoardLayout" : ""} ${
               isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusLayout" : ""
@@ -8373,6 +8430,13 @@ function App() {
               </div>
             </aside>
           </section>
+          {shouldShowDesktopGameplayAdRail && (
+            <GameplayAdRail
+              slot={ADSENSE_GAME_RAIL_SLOT}
+              label={L("광고", "Advertisement")}
+            />
+          )}
+          </div>
         )}
 
         {shouldShowPuzzleBoard && !isSingleSoloMode && !isModeCreate && !isInRaceRoom && (
@@ -8409,25 +8473,6 @@ function App() {
             </button>
           </div>
         )}
-        {shouldShowPuzzleBoard && isSingleSoloMode && (
-          <div className={`singleBottomBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusBottomBar" : ""}`}>
-            <div className={`singleTimer ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimerReadout" : ""}`}>
-              {isModePlacementTest ? L("남은 시간", "Time Left") : "TIMER"}: {isModePlacementTest ? placementTimerText : formattedTime}
-            </div>
-            <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`} data-tutorial="single-tools">
-              <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
-                UNDO
-              </button>
-              <button className="toolBtn toolRedo" onClick={redo} disabled={!canRedo || !canInteractBoard}>
-                REDO
-              </button>
-              <button className="toolBtn toolClear" onClick={resetGrid} disabled={!canInteractBoard}>
-                CLEAR
-              </button>
-            </div>
-          </div>
-        )}
-
         {status && !isModeAuth && <div className="status">{status}</div>}
 
         {pvpRatingFx && (
@@ -9130,168 +9175,196 @@ function App() {
         )}
 
         {shouldShowPuzzleBoard && !isInRaceRoom && (
-          <div
-            ref={isMobileBoardUi ? mobileBoardViewportRef : null}
-            className={`boardWrap ${isMobileBoardUi ? "mobileBoardEnabled" : ""} ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocus" : ""}`}
-            onContextMenu={(e) => e.preventDefault()}
-            data-tutorial={isSingleSoloMode ? "single-board" : undefined}
-            onTouchStart={isMobileBoardUi ? onMobileBoardTouchStart : undefined}
-            onTouchMove={isMobileBoardUi ? onMobileBoardTouchMove : undefined}
-            onTouchEnd={isMobileBoardUi ? onMobileBoardTouchEnd : undefined}
-            onTouchCancel={isMobileBoardUi ? onMobileBoardTouchEnd : undefined}
-          >
-            <div
-              className={`mobileBoardScaleShell ${isMobileBoardUi ? "active" : ""}`}
-              style={isMobileBoardUi ? { transform: `scale(${mobileBoardScale})` } : undefined}
-            >
-            <div className={`excelBoardScaffold ${isExcelMode ? "active" : ""}`}>
-              {isExcelMode && (
-                <div className="excelBoardHeaderRow" aria-hidden="true">
-                  <div className="excelBoardHeadCorner" />
-                  <div
-                    className="excelBoardColLetters"
-                    style={{
-                      gridTemplateColumns: `repeat(${puzzle.width}, ${cellSize}px)`,
-                      marginLeft: `${maxRowHintDepth * cellSize}px`,
-                      width: `${puzzle.width * cellSize}px`,
-                    }}
-                  >
-                    {excelBoardCols.map((label, idx) => (
-                      <span key={`solo-col-${idx}`}>{label}</span>
-                    ))}
+          <div className={`gameplayDesktopLayout ${shouldShowDesktopGameplayAdRail ? "withRail" : ""}`}>
+            <div className="gameplayBoardColumn">
+              <div
+                ref={isMobileBoardUi ? mobileBoardViewportRef : null}
+                className={`boardWrap ${isMobileBoardUi ? "mobileBoardEnabled" : ""} ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocus" : ""}`}
+                onContextMenu={(e) => e.preventDefault()}
+                data-tutorial={isSingleSoloMode ? "single-board" : undefined}
+                onTouchStart={isMobileBoardUi ? onMobileBoardTouchStart : undefined}
+                onTouchMove={isMobileBoardUi ? onMobileBoardTouchMove : undefined}
+                onTouchEnd={isMobileBoardUi ? onMobileBoardTouchEnd : undefined}
+                onTouchCancel={isMobileBoardUi ? onMobileBoardTouchEnd : undefined}
+              >
+                <div
+                  className={`mobileBoardScaleShell ${isMobileBoardUi ? "active" : ""}`}
+                  style={isMobileBoardUi ? { transform: `scale(${mobileBoardScale})` } : undefined}
+                >
+                <div className={`excelBoardScaffold ${isExcelMode ? "active" : ""}`}>
+                  {isExcelMode && (
+                    <div className="excelBoardHeaderRow" aria-hidden="true">
+                      <div className="excelBoardHeadCorner" />
+                      <div
+                        className="excelBoardColLetters"
+                        style={{
+                          gridTemplateColumns: `repeat(${puzzle.width}, ${cellSize}px)`,
+                          marginLeft: `${maxRowHintDepth * cellSize}px`,
+                          width: `${puzzle.width * cellSize}px`,
+                        }}
+                      >
+                        {excelBoardCols.map((label, idx) => (
+                          <span key={`solo-col-${idx}`}>{label}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className={`excelBoardBodyRow ${isExcelMode ? "active" : ""}`}>
+                    {isExcelMode && (
+                      <div
+                        className="excelBoardRowNumbers"
+                        aria-hidden="true"
+                        style={{
+                          gridTemplateRows: `repeat(${puzzle.height}, ${cellSize}px)`,
+                          marginTop: `${maxColHintDepth * cellSize}px`,
+                          height: `${puzzle.height * cellSize}px`,
+                        }}
+                      >
+                        {excelBoardRows.map((label, idx) => (
+                          <span key={`solo-row-${idx}`}>{label}</span>
+                        ))}
+                      </div>
+                    )}
+                    <div
+                      className="nonogram"
+                      style={{
+                        "--cell-size": `${cellSize}px`,
+                        "--left-depth": maxRowHintDepth,
+                        "--top-depth": maxColHintDepth,
+                        "--board-w": puzzle.width,
+                        "--board-h": puzzle.height,
+                      }}
+                    >
+                      <div className="corner" />
+
+                      <div
+                        className="colHints"
+                        style={{
+                          gridTemplateColumns: `repeat(${puzzle.width}, var(--cell-size))`,
+                        }}
+                      >
+                        {colHints.map((hint, colIdx) => (
+                          <div
+                            key={`col-${colIdx}`}
+                            className="colHintCol"
+                            style={{ gridTemplateRows: `repeat(${maxColHintDepth}, var(--cell-size))` }}
+                          >
+                            {Array.from({ length: maxColHintDepth }).map((_, depthIdx) => {
+                              const value = hint[hint.length - maxColHintDepth + depthIdx];
+                              const hintId = `c-${colIdx}-${depthIdx}`;
+                              const solvedByHint = solvedCols.has(colIdx) && value != null;
+                              return (
+                                <button
+                                  key={hintId}
+                                  type="button"
+                                  className={`hintNum ${activeHints.has(hintId) ? "active" : ""} ${solvedByHint ? "solved" : ""}`}
+                                  onClick={() => toggleHint(hintId)}
+                                >
+                                  {value ?? ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        className="rowHints"
+                        style={{ gridTemplateRows: `repeat(${puzzle.height}, var(--cell-size))` }}
+                      >
+                        {rowHints.map((hint, rowIdx) => (
+                          <div
+                            key={`row-${rowIdx}`}
+                            className={`rowHintRow ${tutorialHighlightRows.includes(rowIdx) ? "tutorialHintPulse" : ""}`}
+                            style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}
+                          >
+                            {Array.from({ length: maxRowHintDepth }).map((_, depthIdx) => {
+                              const value = hint[hint.length - maxRowHintDepth + depthIdx];
+                              const hintId = `r-${rowIdx}-${depthIdx}`;
+                              const solvedByHint = solvedRows.has(rowIdx) && value != null;
+                              return (
+                                <button
+                                  key={hintId}
+                                  type="button"
+                                  className={`hintNum ${activeHints.has(hintId) ? "active" : ""} ${solvedByHint ? "solved" : ""}`}
+                                  onClick={() => toggleHint(hintId)}
+                                >
+                                  {value ?? ""}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div
+                        ref={boardRef}
+                        className="board"
+                        style={{
+                          width: `${puzzle.width * cellSize}px`,
+                          height: `${puzzle.height * cellSize}px`,
+                          cursor: canInteractBoard ? "crosshair" : "not-allowed",
+                        }}
+                        onPointerDown={onBoardPointerDown}
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        <canvas ref={canvasRef} className="boardCanvas" />
+                        {isModeTutorial && tutorialHighlightCells.length > 0 && (
+                          <div className="tutorialGuideLayer" aria-hidden="true">
+                            {tutorialHighlightCells.map((index) => {
+                              const x = index % puzzle.width;
+                              const y = Math.floor(index / puzzle.width);
+                              return (
+                                <span
+                                  key={`guide-${index}`}
+                                  className="tutorialGuideCell"
+                                  style={{
+                                    left: `${x * cellSize}px`,
+                                    top: `${y * cellSize}px`,
+                                    width: `${cellSize}px`,
+                                    height: `${cellSize}px`,
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                        {isRaceCountdown && (
+                          <div className="countdownOverlay">{countdownLeft ?? 0}</div>
+                        )}
+                        {isRaceLobby && <div className="countdownOverlay wait">{L("READY 대기", "Waiting for READY")}</div>}
+                        {isRaceFinished && !isModePvp && <div className="countdownOverlay result">{raceResultText}</div>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+              {isSingleSoloMode && (
+                <div className={`singleBottomBar ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusBottomBar" : ""}`}>
+                  <div className={`singleTimer ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTimerReadout" : ""}`}>
+                    {isModePlacementTest ? L("남은 시간", "Time Left") : "TIMER"}: {isModePlacementTest ? placementTimerText : formattedTime}
+                  </div>
+                  <div className={`singleTools ${isMobileBoardUi && mobileBoardFocus ? "mobileBoardFocusTools" : ""}`} data-tutorial="single-tools">
+                    <button className="toolBtn toolUndo" onClick={undo} disabled={!canUndo || !canInteractBoard}>
+                      UNDO
+                    </button>
+                    <button className="toolBtn toolRedo" onClick={redo} disabled={!canRedo || !canInteractBoard}>
+                      REDO
+                    </button>
+                    <button className="toolBtn toolClear" onClick={resetGrid} disabled={!canInteractBoard}>
+                      CLEAR
+                    </button>
                   </div>
                 </div>
               )}
-              <div className={`excelBoardBodyRow ${isExcelMode ? "active" : ""}`}>
-                {isExcelMode && (
-                  <div
-                    className="excelBoardRowNumbers"
-                    aria-hidden="true"
-                    style={{
-                      gridTemplateRows: `repeat(${puzzle.height}, ${cellSize}px)`,
-                      marginTop: `${maxColHintDepth * cellSize}px`,
-                      height: `${puzzle.height * cellSize}px`,
-                    }}
-                  >
-                    {excelBoardRows.map((label, idx) => (
-                      <span key={`solo-row-${idx}`}>{label}</span>
-                    ))}
-                  </div>
-                )}
-                <div
-                  className="nonogram"
-                  style={{
-                    "--cell-size": `${cellSize}px`,
-                    "--left-depth": maxRowHintDepth,
-                    "--top-depth": maxColHintDepth,
-                    "--board-w": puzzle.width,
-                    "--board-h": puzzle.height,
-                  }}
-                >
-                  <div className="corner" />
-
-                  <div
-                    className="colHints"
-                    style={{
-                      gridTemplateColumns: `repeat(${puzzle.width}, var(--cell-size))`,
-                    }}
-                  >
-                    {colHints.map((hint, colIdx) => (
-                      <div
-                        key={`col-${colIdx}`}
-                        className="colHintCol"
-                        style={{ gridTemplateRows: `repeat(${maxColHintDepth}, var(--cell-size))` }}
-                      >
-                        {Array.from({ length: maxColHintDepth }).map((_, depthIdx) => {
-                          const value = hint[hint.length - maxColHintDepth + depthIdx];
-                          const hintId = `c-${colIdx}-${depthIdx}`;
-                          const solvedByHint = solvedCols.has(colIdx) && value != null;
-                          return (
-                            <button
-                              key={hintId}
-                              type="button"
-                              className={`hintNum ${activeHints.has(hintId) ? "active" : ""} ${solvedByHint ? "solved" : ""}`}
-                              onClick={() => toggleHint(hintId)}
-                            >
-                              {value ?? ""}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div
-                    className="rowHints"
-                    style={{ gridTemplateRows: `repeat(${puzzle.height}, var(--cell-size))` }}
-                  >
-                    {rowHints.map((hint, rowIdx) => (
-                      <div
-                        key={`row-${rowIdx}`}
-                        className={`rowHintRow ${tutorialHighlightRows.includes(rowIdx) ? "tutorialHintPulse" : ""}`}
-                        style={{ gridTemplateColumns: `repeat(${maxRowHintDepth}, var(--cell-size))` }}
-                      >
-                        {Array.from({ length: maxRowHintDepth }).map((_, depthIdx) => {
-                          const value = hint[hint.length - maxRowHintDepth + depthIdx];
-                          const hintId = `r-${rowIdx}-${depthIdx}`;
-                          const solvedByHint = solvedRows.has(rowIdx) && value != null;
-                          return (
-                            <button
-                              key={hintId}
-                              type="button"
-                              className={`hintNum ${activeHints.has(hintId) ? "active" : ""} ${solvedByHint ? "solved" : ""}`}
-                              onClick={() => toggleHint(hintId)}
-                            >
-                              {value ?? ""}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div
-                    ref={boardRef}
-                    className="board"
-                    style={{
-                      width: `${puzzle.width * cellSize}px`,
-                      height: `${puzzle.height * cellSize}px`,
-                      cursor: canInteractBoard ? "crosshair" : "not-allowed",
-                    }}
-                    onPointerDown={onBoardPointerDown}
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                    <canvas ref={canvasRef} className="boardCanvas" />
-                    {isModeTutorial && tutorialHighlightCells.length > 0 && (
-                      <div className="tutorialGuideLayer" aria-hidden="true">
-                        {tutorialHighlightCells.map((index) => {
-                          const x = index % puzzle.width;
-                          const y = Math.floor(index / puzzle.width);
-                          return (
-                            <span
-                              key={`guide-${index}`}
-                              className="tutorialGuideCell"
-                              style={{
-                                left: `${x * cellSize}px`,
-                                top: `${y * cellSize}px`,
-                                width: `${cellSize}px`,
-                                height: `${cellSize}px`,
-                              }}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                    {isRaceCountdown && (
-                      <div className="countdownOverlay">{countdownLeft ?? 0}</div>
-                    )}
-                    {isRaceLobby && <div className="countdownOverlay wait">{L("READY 대기", "Waiting for READY")}</div>}
-                    {isRaceFinished && !isModePvp && <div className="countdownOverlay result">{raceResultText}</div>}
-                  </div>
-                </div>
-              </div>
             </div>
-            </div>
+            {shouldShowDesktopGameplayAdRail && (
+              <GameplayAdRail
+                slot={ADSENSE_GAME_RAIL_SLOT}
+                label={L("광고", "Advertisement")}
+              />
+            )}
           </div>
         )}
       </motion.section>

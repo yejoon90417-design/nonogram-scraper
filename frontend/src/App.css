@@ -1157,6 +1157,22 @@
   color: #e3efff;
 }
 
+.page.themeDark .gameplayAdRailInner {
+  border-color: #314964;
+  background:
+    linear-gradient(180deg, rgba(17, 28, 43, 0.94), rgba(10, 18, 31, 0.98)),
+    linear-gradient(180deg, #101b2a 0%, #0b1521 100%);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.34);
+}
+
+.page.themeDark .gameplayAdRailLabel {
+  color: #8fb6dc;
+}
+
+.page.themeDark .gameplayAdSlot {
+  background: rgba(22, 36, 57, 0.8);
+}
+
 .page.themeDark .roomRow {
   border-color: #304862;
   background: #0f1d32;
@@ -7064,6 +7080,56 @@
   display: flex;
   gap: 0.55rem;
   align-items: center;
+}
+
+.gameplayDesktopLayout {
+  min-width: 0;
+}
+
+.gameplayDesktopLayout.withRail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(208px, 240px);
+  gap: 1.35rem;
+  align-items: start;
+}
+
+.gameplayBoardColumn {
+  min-width: 0;
+}
+
+.gameplayAdRail {
+  min-width: 0;
+}
+
+.gameplayAdRailInner {
+  position: sticky;
+  top: 82px;
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.8rem;
+  border: 1px solid #c4d5e8;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(239, 247, 255, 0.98)),
+    linear-gradient(180deg, #f8fcff 0%, #edf5ff 100%);
+  box-shadow: 0 16px 34px rgba(34, 64, 100, 0.12);
+}
+
+.gameplayAdRailLabel {
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #527195;
+}
+
+.gameplayAdSlot {
+  width: 100%;
+  min-width: 160px;
+  min-height: 600px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(216, 231, 246, 0.5);
 }
 
 .mobileBoardFocusTools {
